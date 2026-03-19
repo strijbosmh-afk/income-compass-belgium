@@ -3,8 +3,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { Upload, Loader2, Image, Activity, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
@@ -36,11 +34,11 @@ export default function UploadPage() {
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
     if (!incomeType) {
-      toast({ title: 'Select income type', description: 'Please choose Ambulatory or Hospitalized before uploading.', variant: 'destructive' });
+      toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant of Gehospitaliseerd voor het uploaden.', variant: 'destructive' });
       return;
     }
     if (!file.type.startsWith('image/')) {
-      toast({ title: 'Invalid file', description: 'Please upload an image file.', variant: 'destructive' });
+      toast({ title: 'Ongeldig bestand', description: 'Upload een afbeelding.', variant: 'destructive' });
       return;
     }
 
@@ -63,15 +61,14 @@ export default function UploadPage() {
       if (error) throw error;
 
       if (data?.records?.length) {
-        // Override income_type with the user's selection
         const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType }));
         setExtractedData(records);
-        toast({ title: 'Data extracted', description: `Found ${records.length} record(s).` });
+        toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden.` });
       } else {
-        toast({ title: 'No data found', description: 'Could not extract income data from this image.', variant: 'destructive' });
+        toast({ title: 'Geen data gevonden', description: 'Kon geen inkomstengegevens uit deze afbeelding halen.', variant: 'destructive' });
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Failed to process image.', variant: 'destructive' });
+      toast({ title: 'Fout', description: err.message || 'Verwerking mislukt.', variant: 'destructive' });
     } finally {
       setUploading(false);
     }
@@ -95,25 +92,25 @@ export default function UploadPage() {
       const insertData = records.map(r => ({ ...r, user_id: user.id }));
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
-      toast({ title: 'Saved!', description: `${records.length} record(s) saved to database.` });
+      toast({ title: 'Opgeslagen!', description: `${records.length} record(s) opgeslagen.` });
       setExtractedData(null);
       setPreviewUrl(null);
     } catch (err: any) {
-      toast({ title: 'Save failed', description: err.message, variant: 'destructive' });
+      toast({ title: 'Opslaan mislukt', description: err.message, variant: 'destructive' });
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Upload Screenshot</h1>
-        <p className="text-muted-foreground mt-1">Upload a screenshot of your income statement to extract and store data.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Screenshot Uploaden</h1>
+        <p className="text-muted-foreground mt-1">Upload een screenshot van je inkomstenoverzicht om data te extraheren en op te slaan.</p>
       </div>
 
-      {/* Income Type Selection */}
+      {/* Type inkomen selectie */}
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Income Type</CardTitle>
+          <CardTitle className="text-base">Type Inkomen</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3">
@@ -127,8 +124,8 @@ export default function UploadPage() {
             >
               <Activity className={`h-5 w-5 ${incomeType === 'ambulatory' ? 'text-secondary' : 'text-muted-foreground'}`} />
               <div className="text-left">
-                <p className={`font-medium ${incomeType === 'ambulatory' ? 'text-foreground' : 'text-muted-foreground'}`}>Ambulatory</p>
-                <p className="text-xs text-muted-foreground">Outpatient consultations</p>
+                <p className={`font-medium ${incomeType === 'ambulatory' ? 'text-foreground' : 'text-muted-foreground'}`}>Ambulant</p>
+                <p className="text-xs text-muted-foreground">Poliklinische raadplegingen</p>
               </div>
             </button>
             <button
@@ -141,15 +138,15 @@ export default function UploadPage() {
             >
               <Building2 className={`h-5 w-5 ${incomeType === 'hospitalized' ? 'text-primary' : 'text-muted-foreground'}`} />
               <div className="text-left">
-                <p className={`font-medium ${incomeType === 'hospitalized' ? 'text-foreground' : 'text-muted-foreground'}`}>Hospitalized</p>
-                <p className="text-xs text-muted-foreground">Inpatient hospital care</p>
+                <p className={`font-medium ${incomeType === 'hospitalized' ? 'text-foreground' : 'text-muted-foreground'}`}>Gehospitaliseerd</p>
+                <p className="text-xs text-muted-foreground">Klinische zorg</p>
               </div>
             </button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Upload Area */}
+      {/* Upload zone */}
       <Card className={`border-border/50 ${!incomeType ? 'opacity-50 pointer-events-none' : ''}`}>
         <CardContent className="pt-6">
           <div
@@ -163,7 +160,7 @@ export default function UploadPage() {
             {uploading ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-10 w-10 animate-spin text-secondary" />
-                <p className="text-muted-foreground font-medium">Processing image...</p>
+                <p className="text-muted-foreground font-medium">Afbeelding verwerken...</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
@@ -171,8 +168,8 @@ export default function UploadPage() {
                   <Upload className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">Drop your screenshot here</p>
-                  <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+                  <p className="font-medium text-foreground">Sleep je screenshot hierheen</p>
+                  <p className="text-sm text-muted-foreground mt-1">of klik om te bladeren</p>
                 </div>
                 <input type="file" accept="image/*" onChange={handleFileInput} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
@@ -186,11 +183,11 @@ export default function UploadPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Image className="h-4 w-4 text-muted-foreground" />
-              Preview
+              Voorbeeld
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <img src={previewUrl} alt="Uploaded screenshot" className="rounded-lg max-h-64 object-contain mx-auto" />
+            <img src={previewUrl} alt="Geüploade screenshot" className="rounded-lg max-h-64 object-contain mx-auto" />
           </CardContent>
         </Card>
       )}
