@@ -425,9 +425,9 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
                     <Legend />
+                    <Bar dataKey="afdracht" name="Afdracht" stackId="a" fill="hsl(210, 60%, 35%)" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="bouwfonds" name="Bouwfonds" stackId="a" fill="hsl(340, 55%, 45%)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="mif" name="MIF" stackId="a" fill="hsl(45, 70%, 45%)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="overig" name="Overig" stackId="a" fill="hsl(270, 45%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="mif" name="MIF" stackId="a" fill="hsl(45, 70%, 45%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
