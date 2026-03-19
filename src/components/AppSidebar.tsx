@@ -19,6 +19,7 @@ const navItems = [
   { title: 'Uploaden', url: '/', icon: Upload },
   { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
+  { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
 ];
 
