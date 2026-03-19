@@ -123,6 +123,7 @@ Be thorough - extract every single line item visible in the image.`;
         aandeel_arts: r.aandeel_arts || 0,
         bouwfonds: r.bouwfonds || 0,
         mif: r.mif || 0,
+        netto: r.netto || (r.total_amount || 0) - (r.bouwfonds || 0) - (r.mif || 0),
       }));
     }
 
