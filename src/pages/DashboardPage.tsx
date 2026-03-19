@@ -228,6 +228,48 @@ export default function DashboardPage() {
     };
   }, [yearFiltered]);
 
+  // --- Year comparison data ---
+  const compareFiltered = useMemo(() => compareYear ? records.filter(r => String(r.year) === compareYear) : [], [records, compareYear]);
+
+  const comparisonData = useMemo(() => {
+    if (!compareYear) return null;
+    const buildYearMonthly = (data: IncomeEntry[]) =>
+      MONTHS.map((name, idx) => {
+        const mr = data.filter(r => r.month === idx + 1);
+        return {
+          netto: mr.reduce((s, r) => s + r.netto, 0),
+          bruto: mr.reduce((s, r) => s + r.total_amount, 0),
+          afdracht: mr.reduce((s, r) => s + r.total_amount - r.aandeel_arts, 0),
+          count: mr.length,
+        };
+      });
+
+    const y1 = buildYearMonthly(yearFiltered);
+    const y2 = buildYearMonthly(compareFiltered);
+
+    const monthlyComparison = MONTHS.map((name, idx) => ({
+      month: name,
+      [`netto_${selectedYear}`]: y1[idx].netto,
+      [`netto_${compareYear}`]: y2[idx].netto,
+    }));
+
+    const cumulativeComparison = (() => {
+      let cum1 = 0, cum2 = 0;
+      return MONTHS.map((name, idx) => {
+        cum1 += y1[idx].netto;
+        cum2 += y2[idx].netto;
+        return { month: name, [`cum_${selectedYear}`]: cum1, [`cum_${compareYear}`]: cum2 };
+      });
+    })();
+
+    const totY1 = { netto: yearFiltered.reduce((s, r) => s + r.netto, 0), bruto: yearFiltered.reduce((s, r) => s + r.total_amount, 0), records: yearFiltered.length };
+    const totY2 = { netto: compareFiltered.reduce((s, r) => s + r.netto, 0), bruto: compareFiltered.reduce((s, r) => s + r.total_amount, 0), records: compareFiltered.length };
+    const nettoDiff = totY1.netto - totY2.netto;
+    const nettoPct = totY2.netto !== 0 ? (nettoDiff / totY2.netto) * 100 : 0;
+
+    return { monthlyComparison, cumulativeComparison, totY1, totY2, nettoDiff, nettoPct };
+  }, [yearFiltered, compareFiltered, selectedYear, compareYear]);
+
   const pieData = [
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
