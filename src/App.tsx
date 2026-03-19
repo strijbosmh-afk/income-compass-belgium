@@ -11,6 +11,7 @@ import RecordsPage from "./pages/RecordsPage";
 import DashboardPage from "./pages/DashboardPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
 import StatisticsPage from "./pages/StatisticsPage";
+import ExportPage from "./pages/ExportPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
