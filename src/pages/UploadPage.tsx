@@ -158,8 +158,35 @@ export default function UploadPage() {
         </CardContent>
       </Card>
 
-      {/* Upload zone */}
+      {/* Maand en jaar selectie */}
       <Card className={`border-border/50 ${!incomeType ? 'opacity-50 pointer-events-none' : ''}`}>
+        <CardHeader>
+          <CardTitle className="text-base">Periode</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Kies maand" /></SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((name, idx) => (
+                  <SelectItem key={idx} value={String(idx + 1)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-28"><SelectValue placeholder="Jaar" /></SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upload zone */}
+      <Card className={`border-border/50 ${!incomeType || !selectedMonth ? 'opacity-50 pointer-events-none' : ''}`}>
         <CardContent className="pt-6">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
