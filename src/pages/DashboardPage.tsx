@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, Activity, Building2 } from 'lucide-react';
+import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
 type IncomeEntry = {
@@ -14,6 +14,9 @@ type IncomeEntry = {
   income_type: string;
   nomenclature_code: string;
   total_amount: number;
+  aandeel_arts: number;
+  bouwfonds: number;
+  mif: number;
   description: string | null;
 };
 
@@ -41,7 +44,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, description').eq('user_id', user.id),
+      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
     ]).then(([recRes, nomRes]) => {
       setRecords(recRes.data || []);
@@ -65,49 +68,50 @@ export default function DashboardPage() {
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const filtered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
-  const totalIncome = filtered.reduce((s, r) => s + r.total_amount, 0);
-  const ambulatoryTotal = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0);
-  const hospitalizedTotal = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0);
+  // Netto = aandeel_arts
+  const nettoTotal = filtered.reduce((s, r) => s + r.aandeel_arts, 0);
+  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
+  const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+
+  // Afdracht
+  const totalBouwfonds = filtered.reduce((s, r) => s + r.bouwfonds, 0);
+  const totalMif = filtered.reduce((s, r) => s + r.mif, 0);
+  const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
 
   const monthlyData = useMemo(() => {
     return MONTHS.map((name, idx) => {
-      const monthRecords = filtered.filter(r => r.month === idx + 1);
+      const mr = filtered.filter(r => r.month === idx + 1);
       return {
         month: name,
-        ambulant: monthRecords.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0),
-        gehospitaliseerd: monthRecords.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0),
+        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0),
+        gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0),
       };
     });
   }, [filtered]);
 
   const cumulativeData = useMemo(() => {
-    let cumAmbulatory = 0;
-    let cumHospitalized = 0;
+    let cumAmb = 0, cumHosp = 0;
     return MONTHS.map((name, idx) => {
-      const monthRecords = filtered.filter(r => r.month === idx + 1);
-      cumAmbulatory += monthRecords.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0);
-      cumHospitalized += monthRecords.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0);
-      return { month: name, cumulatief: cumAmbulatory + cumHospitalized, ambulant: cumAmbulatory, gehospitaliseerd: cumHospitalized };
+      const mr = filtered.filter(r => r.month === idx + 1);
+      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
+      cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+      return { month: name, cumulatief: cumAmb + cumHosp, ambulant: cumAmb, gehospitaliseerd: cumHosp };
     });
   }, [filtered]);
 
   const nomenclatureData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.total_amount; });
-    return Object.entries(map).map(([code, amount]) => ({
-      code,
-      label: codeToLabel[code] || code,
-      bedrag: amount,
+    filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.aandeel_arts; });
+    return Object.entries(map).map(([code, bedrag]) => ({
+      code, label: codeToLabel[code] || code, bedrag,
     })).sort((a, b) => b.bedrag - a.bedrag).slice(0, 10);
   }, [filtered, codeToLabel]);
-
-  const categories = useMemo(() => [...new Set(nomenclatureCodes.map(n => n.category))], [nomenclatureCodes]);
 
   const categoryTotals = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.forEach(r => {
       const cat = codeToCategory[r.nomenclature_code] || 'onbekend';
-      map[cat] = (map[cat] || 0) + r.total_amount;
+      map[cat] = (map[cat] || 0) + r.aandeel_arts;
     });
     return Object.entries(map).map(([category, bedrag]) => ({ category, bedrag })).sort((a, b) => b.bedrag - a.bedrag);
   }, [filtered, codeToCategory]);
@@ -115,23 +119,40 @@ export default function DashboardPage() {
   const monthlyCategoryData = useMemo(() => {
     const cats = categoryTotals.map(c => c.category);
     return MONTHS.map((name, idx) => {
-      const monthRecords = filtered.filter(r => r.month === idx + 1);
+      const mr = filtered.filter(r => r.month === idx + 1);
       const entry: Record<string, any> = { month: name };
       cats.forEach(cat => {
-        entry[cat] = monthRecords
-          .filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat)
-          .reduce((s, r) => s + r.total_amount, 0);
+        entry[cat] = mr.filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat).reduce((s, r) => s + r.aandeel_arts, 0);
       });
       return entry;
     });
   }, [filtered, categoryTotals, codeToCategory]);
 
+  // Afdracht monthly data
+  const monthlyAfdrachtData = useMemo(() => {
+    return MONTHS.map((name, idx) => {
+      const mr = filtered.filter(r => r.month === idx + 1);
+      return {
+        month: name,
+        bouwfonds: mr.reduce((s, r) => s + r.bouwfonds, 0),
+        mif: mr.reduce((s, r) => s + r.mif, 0),
+      };
+    });
+  }, [filtered]);
+
   const pieData = [
-    { name: 'Ambulant', value: ambulatoryTotal },
-    { name: 'Gehospitaliseerd', value: hospitalizedTotal },
+    { name: 'Ambulant', value: nettoAmbulant },
+    { name: 'Gehospitaliseerd', value: nettoHosp },
+  ].filter(d => d.value > 0);
+
+  const afdrachtPieData = [
+    { name: 'Netto (Arts)', value: nettoTotal },
+    { name: 'Bouwfonds', value: totalBouwfonds },
+    { name: 'MIF', value: totalMif },
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
+  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -157,11 +178,11 @@ export default function DashboardPage() {
         <div className="stat-card">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-primary" />
+              <Wallet className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Totaal Inkomen</p>
-              <p className="text-2xl font-semibold">{fmt(totalIncome)}</p>
+              <p className="text-sm text-muted-foreground">Netto Inkomen</p>
+              <p className="text-2xl font-semibold">{fmt(nettoTotal)}</p>
             </div>
           </div>
         </div>
@@ -172,7 +193,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Ambulant</p>
-              <p className="text-2xl font-semibold">{fmt(ambulatoryTotal)}</p>
+              <p className="text-2xl font-semibold">{fmt(nettoAmbulant)}</p>
             </div>
           </div>
         </div>
@@ -183,7 +204,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Gehospitaliseerd</p>
-              <p className="text-2xl font-semibold">{fmt(hospitalizedTotal)}</p>
+              <p className="text-2xl font-semibold">{fmt(nettoHosp)}</p>
             </div>
           </div>
         </div>
@@ -195,12 +216,13 @@ export default function DashboardPage() {
           <TabsTrigger value="overview">Per Type</TabsTrigger>
           <TabsTrigger value="category">Per Categorie</TabsTrigger>
           <TabsTrigger value="nomenclature">Per Nomenclatuur</TabsTrigger>
+          <TabsTrigger value="afdracht">Afdracht</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Maandelijks Inkomen per Type</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Maandelijks Netto per Type</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={monthlyData}>
@@ -217,7 +239,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Verdeling Inkomsten</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Verdeling Netto</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -231,7 +253,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50 lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Cumulatief Inkomen</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Cumulatief Netto Inkomen</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={cumulativeData}>
@@ -253,7 +275,7 @@ export default function DashboardPage() {
         <TabsContent value="category" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Inkomen per Categorie</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Netto per Categorie</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -284,7 +306,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50 lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Maandelijks Inkomen per Categorie</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Maandelijks Netto per Categorie</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={monthlyCategoryData}>
@@ -305,7 +327,7 @@ export default function DashboardPage() {
 
         <TabsContent value="nomenclature" className="space-y-6 mt-4">
           <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Top Nomenclatuurcodes</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Top Nomenclatuurcodes (Netto)</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={nomenclatureData} layout="vertical">
@@ -318,6 +340,78 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Afdracht Tab */}
+        <TabsContent value="afdracht" className="space-y-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Bruto Ereloon</p>
+                  <p className="text-2xl font-semibold">{fmt(brutoTotal)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <Landmark className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Bouwfonds</p>
+                  <p className="text-2xl font-semibold">{fmt(totalBouwfonds)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <Landmark className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">MIF</p>
+                  <p className="text-2xl font-semibold">{fmt(totalMif)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border/50">
+              <CardHeader><CardTitle className="text-base">Verdeling Ereloon</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={afdrachtPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {afdrachtPieData.map((_, idx) => <Cell key={idx} fill={AFDRACHT_COLORS[idx]} />)}
+                    </Pie>
+                    <Tooltip formatter={(val: number) => fmt(val)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/50">
+              <CardHeader><CardTitle className="text-base">Maandelijkse Afdracht</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={monthlyAfdrachtData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                    <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                    <Tooltip formatter={(val: number) => fmt(val)} />
+                    <Legend />
+                    <Bar dataKey="bouwfonds" name="Bouwfonds" fill="hsl(340, 55%, 45%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="mif" name="MIF" fill="hsl(45, 70%, 45%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
