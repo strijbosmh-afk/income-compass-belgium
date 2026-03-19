@@ -13,10 +13,24 @@ interface Props {
 }
 
 export function ExtractedDataReview({ records: initialRecords, onSave, onCancel }: Props) {
-  const [records, setRecords] = useState<ExtractedRecord[]>(initialRecords);
+  const [records, setRecords] = useState<ExtractedRecord[]>(() =>
+    initialRecords.map((r) => ({
+      ...r,
+      netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
+    }))
+  );
 
   const updateRecord = (idx: number, field: keyof ExtractedRecord, value: any) => {
-    setRecords(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    setRecords((prev) =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const next = { ...r, [field]: value };
+        return {
+          ...next,
+          netto: (next.aandeel_arts || 0) - (next.bouwfonds || 0) - (next.mif || 0),
+        };
+      })
+    );
   };
 
   const removeRecord = (idx: number) => {

@@ -74,7 +74,14 @@ export default function UploadPage() {
         const month = parseInt(selectedMonth);
         const year = parseInt(selectedYear);
         const recordDate = `${year}-${String(month).padStart(2, '0')}-01`;
-        const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType, month, year, record_date: recordDate }));
+        const records = data.records.map((r: ExtractedRecord) => ({
+          ...r,
+          income_type: incomeType,
+          month,
+          year,
+          record_date: recordDate,
+          netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
+        }));
         setExtractedData(records);
         toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden.` });
       } else {
@@ -86,23 +93,15 @@ export default function UploadPage() {
       setUploading(false);
     }
   }, [user, toast, incomeType, selectedMonth, selectedYear]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
-  }, [processFile]);
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processFile(file);
-  };
-
+...
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
     try {
-      const insertData = records.map(r => ({ ...r, user_id: user.id }));
+      const insertData = records.map(r => ({
+        ...r,
+        netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
+        user_id: user.id,
+      }));
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
       toast({ title: 'Opgeslagen!', description: `${records.length} record(s) opgeslagen.` });
