@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [compareYear, setCompareYear] = useState<string>('');
   const [viewMode, setViewMode] = useState('overview');
 
   useEffect(() => {
@@ -227,6 +228,48 @@ export default function DashboardPage() {
     };
   }, [yearFiltered]);
 
+  // --- Year comparison data ---
+  const compareFiltered = useMemo(() => compareYear ? records.filter(r => String(r.year) === compareYear) : [], [records, compareYear]);
+
+  const comparisonData = useMemo(() => {
+    if (!compareYear) return null;
+    const buildYearMonthly = (data: IncomeEntry[]) =>
+      MONTHS.map((name, idx) => {
+        const mr = data.filter(r => r.month === idx + 1);
+        return {
+          netto: mr.reduce((s, r) => s + r.netto, 0),
+          bruto: mr.reduce((s, r) => s + r.total_amount, 0),
+          afdracht: mr.reduce((s, r) => s + r.total_amount - r.aandeel_arts, 0),
+          count: mr.length,
+        };
+      });
+
+    const y1 = buildYearMonthly(yearFiltered);
+    const y2 = buildYearMonthly(compareFiltered);
+
+    const monthlyComparison = MONTHS.map((name, idx) => ({
+      month: name,
+      [`netto_${selectedYear}`]: y1[idx].netto,
+      [`netto_${compareYear}`]: y2[idx].netto,
+    }));
+
+    const cumulativeComparison = (() => {
+      let cum1 = 0, cum2 = 0;
+      return MONTHS.map((name, idx) => {
+        cum1 += y1[idx].netto;
+        cum2 += y2[idx].netto;
+        return { month: name, [`cum_${selectedYear}`]: cum1, [`cum_${compareYear}`]: cum2 };
+      });
+    })();
+
+    const totY1 = { netto: yearFiltered.reduce((s, r) => s + r.netto, 0), bruto: yearFiltered.reduce((s, r) => s + r.total_amount, 0), records: yearFiltered.length };
+    const totY2 = { netto: compareFiltered.reduce((s, r) => s + r.netto, 0), bruto: compareFiltered.reduce((s, r) => s + r.total_amount, 0), records: compareFiltered.length };
+    const nettoDiff = totY1.netto - totY2.netto;
+    const nettoPct = totY2.netto !== 0 ? (nettoDiff / totY2.netto) * 100 : 0;
+
+    return { monthlyComparison, cumulativeComparison, totY1, totY2, nettoDiff, nettoPct };
+  }, [yearFiltered, compareFiltered, selectedYear, compareYear]);
+
   const pieData = [
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
@@ -315,6 +358,7 @@ export default function DashboardPage() {
           <TabsTrigger value="category">Per Categorie</TabsTrigger>
           <TabsTrigger value="nomenclature">Per Nomenclatuur</TabsTrigger>
           <TabsTrigger value="statistieken">Statistieken</TabsTrigger>
+          <TabsTrigger value="vergelijking">Vergelijking</TabsTrigger>
           <TabsTrigger value="afdracht">Afdracht</TabsTrigger>
         </TabsList>
 
@@ -595,7 +639,90 @@ export default function DashboardPage() {
           )}
         </TabsContent>
 
-        {/* Afdracht Tab */}
+        {/* Vergelijking Tab */}
+        <TabsContent value="vergelijking" className="space-y-6 mt-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Vergelijk {selectedYear} met:</span>
+            <Select value={compareYear} onValueChange={setCompareYear}>
+              <SelectTrigger className="w-28"><SelectValue placeholder="Jaar" /></SelectTrigger>
+              <SelectContent>
+                {years.filter(y => String(y) !== selectedYear).map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!compareYear || !comparisonData ? (
+            <div className="text-center py-12 text-muted-foreground">Selecteer een tweede jaar om te vergelijken.</div>
+          ) : (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground mb-1">Netto {selectedYear}</p>
+                    <p className="text-2xl font-semibold">{fmt(comparisonData.totY1.netto)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{comparisonData.totY1.records} records</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground mb-1">Netto {compareYear}</p>
+                    <p className="text-2xl font-semibold">{fmt(comparisonData.totY2.netto)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{comparisonData.totY2.records} records</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-border/50">
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground mb-1">Verschil</p>
+                    <p className={`text-2xl font-semibold ${comparisonData.nettoDiff >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                      {comparisonData.nettoDiff >= 0 ? '+' : ''}{fmt(comparisonData.nettoDiff)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{fmtPct(comparisonData.nettoPct)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Monthly comparison bar chart */}
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Maandelijks Netto – {selectedYear} vs {compareYear}</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={comparisonData.monthlyComparison}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                      <Tooltip formatter={(val: number) => fmt(val)} />
+                      <Legend />
+                      <Bar dataKey={`netto_${selectedYear}`} name={selectedYear} fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={`netto_${compareYear}`} name={compareYear} fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Cumulative comparison line chart */}
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Cumulatief Netto – {selectedYear} vs {compareYear}</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={comparisonData.cumulativeComparison}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
+                      <Tooltip formatter={(val: number) => fmt(val)} />
+                      <Legend />
+                      <Line type="monotone" dataKey={`cum_${selectedYear}`} name={selectedYear} stroke="hsl(174, 50%, 40%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey={`cum_${compareYear}`} name={compareYear} stroke="hsl(210, 60%, 35%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
         <TabsContent value="afdracht" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="stat-card">
