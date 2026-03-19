@@ -93,7 +93,7 @@ export default function UploadPage() {
       setUploading(false);
     }
   }, [user, toast, incomeType, selectedMonth, selectedYear]);
-...
+
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
     try {
