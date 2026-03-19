@@ -76,10 +76,10 @@ export default function DashboardPage() {
 
   // Afdracht = totaal - aandeel arts
   const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
-  const totalAfdracht = brutoTotal - nettoTotal;
+  const totalAandeelArts = filtered.reduce((s, r) => s + r.aandeel_arts, 0);
+  const totalAfdracht = brutoTotal - totalAandeelArts;
   const totalBouwfonds = filtered.reduce((s, r) => s + r.bouwfonds, 0);
   const totalMif = filtered.reduce((s, r) => s + r.mif, 0);
-  const totalOverig = totalAfdracht - totalBouwfonds - totalMif;
 
   const monthlyData = useMemo(() => {
     return MONTHS.map((name, idx) => {
@@ -136,15 +136,14 @@ export default function DashboardPage() {
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
       const mTotal = mr.reduce((s, r) => s + r.total_amount, 0);
-      const mNetto = mr.reduce((s, r) => s + r.netto, 0);
+      const mAandeelArts = mr.reduce((s, r) => s + r.aandeel_arts, 0);
       const mBouwfonds = mr.reduce((s, r) => s + r.bouwfonds, 0);
       const mMif = mr.reduce((s, r) => s + r.mif, 0);
-      const mOverig = (mTotal - mNetto) - mBouwfonds - mMif;
       return {
         month: name,
+        afdracht: mTotal - mAandeelArts,
         bouwfonds: mBouwfonds,
         mif: mMif,
-        overig: mOverig > 0 ? mOverig : 0,
       };
     });
   }, [filtered]);
@@ -155,14 +154,14 @@ export default function DashboardPage() {
   ].filter(d => d.value > 0);
 
   const afdrachtPieData = [
-    { name: 'Netto (Arts)', value: nettoTotal },
+    { name: 'Netto loon', value: nettoTotal },
+    { name: 'Afdracht', value: totalAfdracht },
     { name: 'Bouwfonds', value: totalBouwfonds },
     { name: 'MIF', value: totalMif },
-    ...(totalOverig > 0 ? [{ name: 'Overig', value: totalOverig }] : []),
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
-  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)', 'hsl(270, 45%, 50%)'];
+  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -426,9 +425,9 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
                     <Legend />
+                    <Bar dataKey="afdracht" name="Afdracht" stackId="a" fill="hsl(210, 60%, 35%)" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="bouwfonds" name="Bouwfonds" stackId="a" fill="hsl(340, 55%, 45%)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="mif" name="MIF" stackId="a" fill="hsl(45, 70%, 45%)" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="overig" name="Overig" stackId="a" fill="hsl(270, 45%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="mif" name="MIF" stackId="a" fill="hsl(45, 70%, 45%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
