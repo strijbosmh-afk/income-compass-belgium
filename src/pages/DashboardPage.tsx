@@ -19,7 +19,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [records, setRecords] = useState<Record[]>([]);
+  const [records, setRecords] = useState<IncomeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
 
