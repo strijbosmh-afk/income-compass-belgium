@@ -20,6 +20,7 @@ const navItems = [
   { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
+  { title: 'Exporteren', url: '/export', icon: Download },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
 ];
 
