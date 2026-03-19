@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Loader2, Image, Activity, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
@@ -22,6 +23,8 @@ export interface ExtractedRecord {
   mif: number;
 }
 
+const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+
 export default function UploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -30,11 +33,17 @@ export default function UploadPage() {
   const [extractedData, setExtractedData] = useState<ExtractedRecord[] | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
     if (!incomeType) {
       toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant of Gehospitaliseerd voor het uploaden.', variant: 'destructive' });
+      return;
+    }
+    if (!selectedMonth) {
+      toast({ title: 'Kies een maand', description: 'Selecteer de maand van deze inkomsten.', variant: 'destructive' });
       return;
     }
     if (!file.type.startsWith('image/')) {
@@ -61,7 +70,10 @@ export default function UploadPage() {
       if (error) throw error;
 
       if (data?.records?.length) {
-        const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType }));
+        const month = parseInt(selectedMonth);
+        const year = parseInt(selectedYear);
+        const recordDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType, month, year, record_date: recordDate }));
         setExtractedData(records);
         toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden.` });
       } else {
@@ -72,7 +84,7 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
-  }, [user, toast, incomeType]);
+  }, [user, toast, incomeType, selectedMonth, selectedYear]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -146,8 +158,35 @@ export default function UploadPage() {
         </CardContent>
       </Card>
 
-      {/* Upload zone */}
+      {/* Maand en jaar selectie */}
       <Card className={`border-border/50 ${!incomeType ? 'opacity-50 pointer-events-none' : ''}`}>
+        <CardHeader>
+          <CardTitle className="text-base">Periode</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Kies maand" /></SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((name, idx) => (
+                  <SelectItem key={idx} value={String(idx + 1)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-28"><SelectValue placeholder="Jaar" /></SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upload zone */}
+      <Card className={`border-border/50 ${!incomeType || !selectedMonth ? 'opacity-50 pointer-events-none' : ''}`}>
         <CardContent className="pt-6">
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
