@@ -353,7 +353,7 @@ export default function DashboardPage() {
 
         {/* Afdracht Tab */}
         <TabsContent value="afdracht" className="space-y-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -362,6 +362,17 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Bruto Ereloon</p>
                   <p className="text-2xl font-semibold">{fmt(brutoTotal)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <Landmark className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Totaal Afdracht</p>
+                  <p className="text-2xl font-semibold">{fmt(totalAfdracht)}</p>
                 </div>
               </div>
             </div>
