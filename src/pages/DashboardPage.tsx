@@ -69,10 +69,10 @@ export default function DashboardPage() {
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const filtered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
-  // Netto = aandeel_arts
-  const nettoTotal = filtered.reduce((s, r) => s + r.aandeel_arts, 0);
-  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
-  const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+  // Netto = netto kolom
+  const nettoTotal = filtered.reduce((s, r) => s + r.netto, 0);
+  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+  const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
 
   // Afdracht = totaal - aandeel arts
   const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
