@@ -17,6 +17,7 @@ type IncomeEntry = {
   aandeel_arts: number;
   bouwfonds: number;
   mif: number;
+  netto: number;
   description: string | null;
 };
 

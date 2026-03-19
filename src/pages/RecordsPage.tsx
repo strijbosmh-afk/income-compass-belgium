@@ -23,6 +23,7 @@ type IncomeRecord = {
   aandeel_arts: number;
   bouwfonds: number;
   mif: number;
+  netto: number;
 };
 
 export default function RecordsPage() {
