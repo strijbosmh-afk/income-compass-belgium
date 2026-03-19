@@ -73,10 +73,12 @@ export default function DashboardPage() {
   const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
   const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
 
-  // Afdracht
+  // Afdracht = totaal - aandeel arts
+  const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
+  const totalAfdracht = brutoTotal - nettoTotal;
   const totalBouwfonds = filtered.reduce((s, r) => s + r.bouwfonds, 0);
   const totalMif = filtered.reduce((s, r) => s + r.mif, 0);
-  const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
+  const totalOverig = totalAfdracht - totalBouwfonds - totalMif;
 
   const monthlyData = useMemo(() => {
     return MONTHS.map((name, idx) => {

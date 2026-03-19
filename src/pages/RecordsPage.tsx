@@ -60,7 +60,7 @@ export default function RecordsPage() {
   const netto = records.reduce((sum, r) => sum + r.aandeel_arts, 0);
   const totalBouwfonds = records.reduce((sum, r) => sum + r.bouwfonds, 0);
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
-  const totalAfdracht = totalBouwfonds + totalMif;
+  const totalAfdracht = bruto - netto;
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
