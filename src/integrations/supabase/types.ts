@@ -24,6 +24,7 @@ export type Database = {
           income_type: string
           mif: number
           month: number
+          netto: number
           nomenclature_code: string
           quantity: number
           record_date: string
@@ -43,6 +44,7 @@ export type Database = {
           income_type: string
           mif?: number
           month: number
+          netto?: number
           nomenclature_code: string
           quantity?: number
           record_date: string
@@ -62,6 +64,7 @@ export type Database = {
           income_type?: string
           mif?: number
           month?: number
+          netto?: number
           nomenclature_code?: string
           quantity?: number
           record_date?: string
