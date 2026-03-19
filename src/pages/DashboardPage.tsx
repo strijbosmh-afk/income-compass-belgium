@@ -45,7 +45,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, description').eq('user_id', user.id),
+      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
     ]).then(([recRes, nomRes]) => {
       setRecords(recRes.data || []);
