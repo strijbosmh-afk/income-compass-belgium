@@ -69,6 +69,7 @@ export default function UploadPage() {
       });
       if (error) throw error;
 
+      if (data?.records?.length) {
         const month = parseInt(selectedMonth);
         const year = parseInt(selectedYear);
         const recordDate = `${year}-${String(month).padStart(2, '0')}-01`;
