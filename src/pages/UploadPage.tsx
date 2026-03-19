@@ -84,7 +84,7 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
-  }, [user, toast, incomeType]);
+  }, [user, toast, incomeType, selectedMonth, selectedYear]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
