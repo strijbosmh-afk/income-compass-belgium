@@ -56,6 +56,12 @@ export default function DashboardPage() {
     return map;
   }, [nomenclatureCodes]);
 
+  const codeToLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    nomenclatureCodes.forEach(n => { map[n.code] = n.description ? `${n.code} – ${n.description}` : n.code; });
+    return map;
+  }, [nomenclatureCodes]);
+
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const filtered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
@@ -88,8 +94,12 @@ export default function DashboardPage() {
   const nomenclatureData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.total_amount; });
-    return Object.entries(map).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount).slice(0, 10);
-  }, [filtered]);
+    return Object.entries(map).map(([code, amount]) => ({
+      code,
+      label: codeToLabel[code] || code,
+      amount,
+    })).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  }, [filtered, codeToLabel]);
 
   // Category-based data
   const categories = useMemo(() => [...new Set(nomenclatureCodes.map(n => n.category))], [nomenclatureCodes]);
@@ -305,7 +315,7 @@ export default function DashboardPage() {
                 <BarChart data={nomenclatureData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
                   <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                  <YAxis type="category" dataKey="code" tick={{ fontSize: 11, fontFamily: 'var(--font-mono)' }} width={90} stroke="hsl(220, 10%, 46%)" />
+                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={200} stroke="hsl(220, 10%, 46%)" />
                   <Tooltip formatter={(val: number) => fmt(val)} />
                   <Bar dataKey="amount" name="Amount" fill="hsl(174, 50%, 40%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
