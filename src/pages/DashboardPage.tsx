@@ -96,8 +96,8 @@ export default function DashboardPage() {
     let cumAmb = 0, cumHosp = 0;
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
-      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
-      cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+      cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
       return { month: name, cumulatief: cumAmb + cumHosp, ambulant: cumAmb, gehospitaliseerd: cumHosp };
     });
   }, [filtered]);
