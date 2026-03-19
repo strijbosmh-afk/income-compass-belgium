@@ -114,7 +114,7 @@ export default function DashboardPage() {
     const map: Record<string, number> = {};
     filtered.forEach(r => {
       const cat = codeToCategory[r.nomenclature_code] || 'onbekend';
-      map[cat] = (map[cat] || 0) + r.aandeel_arts;
+      map[cat] = (map[cat] || 0) + r.netto;
     });
     return Object.entries(map).map(([category, bedrag]) => ({ category, bedrag })).sort((a, b) => b.bedrag - a.bedrag);
   }, [filtered, codeToCategory]);
