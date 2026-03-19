@@ -26,7 +26,12 @@ Extract ALL line items from the image. For each item, determine:
 - description: Brief description of the service/act
 - quantity: Number of acts/services
 - unit_amount: Price per unit in EUR
-- total_amount: Total amount in EUR
+- total_amount: Total amount in EUR (ereloon/honorarium)
+- aandeel_arts: The doctor's share ("aandeel arts") in EUR. This is the portion of the fee that goes to the doctor.
+- bouwfonds: The building fund contribution ("bouwfonds") in EUR. 
+- mif: The MIF (Medisch-Interdisciplinair Fonds) amount in EUR.
+
+These Belgian-specific fields (aandeel_arts, bouwfonds, mif) may appear as columns in the income statement. Look for headers like "Aandeel arts", "Bouwfonds", "MIF", "Pool", or similar. If not present for a line item, use 0.
 
 Return a JSON object with a "records" array. If you cannot extract data, return {"records": []}.
 Be thorough - extract every single line item visible in the image.`;
@@ -44,7 +49,7 @@ Be thorough - extract every single line item visible in the image.`;
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract all income data from this screenshot. Return JSON with a records array." },
+              { type: "text", text: "Extract all income data from this screenshot. Return JSON with a records array. Include aandeel_arts, bouwfonds, and mif columns." },
               { type: "image_url", image_url: { url: `data:${mimeType || "image/png"};base64,${image}` } },
             ],
           },
@@ -71,9 +76,12 @@ Be thorough - extract every single line item visible in the image.`;
                         description: { type: "string", description: "Service description" },
                         quantity: { type: "integer", description: "Number of acts" },
                         unit_amount: { type: "number", description: "Unit price in EUR" },
-                        total_amount: { type: "number", description: "Total amount in EUR" },
+                        total_amount: { type: "number", description: "Total amount (ereloon) in EUR" },
+                        aandeel_arts: { type: "number", description: "Doctor's share in EUR" },
+                        bouwfonds: { type: "number", description: "Building fund contribution in EUR" },
+                        mif: { type: "number", description: "MIF amount in EUR" },
                       },
-                      required: ["record_date", "month", "year", "income_type", "nomenclature_code", "description", "quantity", "unit_amount", "total_amount"],
+                      required: ["record_date", "month", "year", "income_type", "nomenclature_code", "description", "quantity", "unit_amount", "total_amount", "aandeel_arts", "bouwfonds", "mif"],
                     },
                   },
                 },
@@ -108,7 +116,12 @@ Be thorough - extract every single line item visible in the image.`;
     let records = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
-      records = parsed.records || [];
+      records = (parsed.records || []).map((r: any) => ({
+        ...r,
+        aandeel_arts: r.aandeel_arts || 0,
+        bouwfonds: r.bouwfonds || 0,
+        mif: r.mif || 0,
+      }));
     }
 
     return new Response(JSON.stringify({ records }), {
