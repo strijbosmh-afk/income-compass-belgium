@@ -88,6 +88,9 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                     <Input type="number" step="0.01" value={r.mif} onChange={e => updateRecord(idx, 'mif', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
                   </td>
                   <td className="py-2 px-2">
+                    <Input type="number" step="0.01" value={r.netto} onChange={e => updateRecord(idx, 'netto', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right font-medium" />
+                  </td>
+                  <td className="py-2 px-2">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeRecord(idx)}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
