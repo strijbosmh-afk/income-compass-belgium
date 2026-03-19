@@ -25,9 +25,9 @@ export default function Login() {
     const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
     } else if (isSignUp) {
-      toast({ title: 'Account created', description: 'You are now logged in.' });
+      toast({ title: 'Account aangemaakt', description: 'Je bent nu ingelogd.' });
     }
   };
 
@@ -40,27 +40,27 @@ export default function Login() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">MedIncome</h1>
-            <p className="text-sm text-muted-foreground mt-1">Medical Oncology Income Tracker</p>
+            <p className="text-sm text-muted-foreground mt-1">Inkomsten Tracker Medische Oncologie</p>
           </div>
         </CardHeader>
         <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Naam</Label>
               <Input id="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="admin" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Wachtwoord</Label>
               <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
-              {isSignUp ? 'Create Account' : 'Sign In'}
+              {isSignUp ? 'Account Aanmaken' : 'Inloggen'}
             </Button>
           </form>
           <div className="mt-4 text-center">
             <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              {isSignUp ? 'Already have an account? Sign in' : "First time? Create an account"}
+              {isSignUp ? 'Al een account? Inloggen' : 'Eerste keer? Account aanmaken'}
             </button>
           </div>
         </CardContent>

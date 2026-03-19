@@ -26,7 +26,7 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
   return (
     <Card className="border-border/50">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-lg">Review Extracted Data</CardTitle>
+        <CardTitle className="text-lg">Geëxtraheerde Data Controleren</CardTitle>
         <span className="text-sm text-muted-foreground">{records.length} record(s)</span>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -34,13 +34,13 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/50">
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Date</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Datum</th>
                 <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Type</th>
                 <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">RIZIV</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Description</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Qty</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Unit €</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Total €</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Omschrijving</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Aantal</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Eenheid €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Totaal €</th>
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Arts €</th>
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Bouwf. €</th>
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">MIF €</th>
@@ -57,8 +57,8 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                     <Select value={r.income_type} onValueChange={v => updateRecord(idx, 'income_type', v)}>
                       <SelectTrigger className="h-8 text-xs w-28"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ambulatory">Ambulatory</SelectItem>
-                        <SelectItem value="hospitalized">Hospitalized</SelectItem>
+                        <SelectItem value="ambulatory">Ambulant</SelectItem>
+                        <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
                       </SelectContent>
                     </Select>
                   </td>
@@ -97,8 +97,8 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
           </table>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Discard</Button>
-          <Button onClick={() => onSave(records)} disabled={records.length === 0}><CheckCircle2 className="h-4 w-4 mr-1" />Save Records</Button>
+          <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
+          <Button onClick={() => onSave(records)} disabled={records.length === 0}><CheckCircle2 className="h-4 w-4 mr-1" />Opslaan</Button>
         </div>
       </CardContent>
     </Card>

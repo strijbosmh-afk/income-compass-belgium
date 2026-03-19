@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/sidebar';
 
 const navItems = [
-  { title: 'Upload', url: '/', icon: Upload },
-  { title: 'Records', url: '/records', icon: FileText },
+  { title: 'Uploaden', url: '/', icon: Upload },
+  { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
-  { title: 'Nomenclature', url: '/nomenclature', icon: Settings },
+  { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -62,7 +62,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} className="text-sidebar-foreground hover:bg-sidebar-accent">
               <LogOut className="h-4 w-4" />
-              {!collapsed && <span>Sign Out</span>}
+              {!collapsed && <span>Uitloggen</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

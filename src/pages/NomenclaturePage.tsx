@@ -18,7 +18,7 @@ type NomenclatureCode = {
   category: string;
 };
 
-const DEFAULT_CATEGORIES = ['general', 'consultation', 'treatment', 'procedure', 'other'];
+const DEFAULT_CATEGORIES = ['algemeen', 'raadpleging', 'behandeling', 'procedure', 'overig'];
 
 export default function NomenclaturePage() {
   const { user } = useAuth();
@@ -27,7 +27,7 @@ export default function NomenclaturePage() {
   const [loading, setLoading] = useState(true);
   const [newCode, setNewCode] = useState('');
   const [newDesc, setNewDesc] = useState('');
-  const [newCategory, setNewCategory] = useState('general');
+  const [newCategory, setNewCategory] = useState('algemeen');
   const [adding, setAdding] = useState(false);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCustomCategory, setNewCustomCategory] = useState('');
@@ -46,7 +46,6 @@ export default function NomenclaturePage() {
     const { data, error } = await supabase.from('nomenclature_codes').select('*').eq('user_id', user.id).order('code');
     if (!error && data) {
       setCodes(data);
-      // Extract custom categories from existing codes
       const existingCats = [...new Set(data.map(c => c.category))];
       const custom = existingCats.filter(c => !DEFAULT_CATEGORIES.includes(c));
       setCustomCategories(prev => [...new Set([...prev, ...custom])]);
@@ -63,10 +62,10 @@ export default function NomenclaturePage() {
       user_id: user.id, code: newCode.trim(), description: newDesc.trim(), category: newCategory,
     });
     if (error) {
-      toast({ title: 'Error', description: error.message.includes('duplicate') ? 'This code already exists.' : error.message, variant: 'destructive' });
+      toast({ title: 'Fout', description: error.message.includes('duplicate') ? 'Deze code bestaat al.' : error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Code added' });
-      setNewCode(''); setNewDesc(''); setNewCategory('general');
+      toast({ title: 'Code toegevoegd' });
+      setNewCode(''); setNewDesc(''); setNewCategory('algemeen');
       fetchCodes();
     }
     setAdding(false);
@@ -74,7 +73,7 @@ export default function NomenclaturePage() {
 
   const deleteCode = async (id: string) => {
     const { error } = await supabase.from('nomenclature_codes').delete().eq('id', id);
-    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code deleted' }); }
+    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code verwijderd' }); }
   };
 
   const openEditDialog = (code: NomenclatureCode) => {
@@ -92,9 +91,9 @@ export default function NomenclaturePage() {
       code: editCode.trim(), description: editDesc.trim(), category: editCategory,
     }).eq('id', editingCode.id);
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Code updated' });
+      toast({ title: 'Code bijgewerkt' });
       setEditDialogOpen(false);
       fetchCodes();
     }
@@ -104,22 +103,22 @@ export default function NomenclaturePage() {
   const addCustomCategory = () => {
     const cat = newCustomCategory.trim().toLowerCase();
     if (!cat || allCategories.includes(cat)) {
-      toast({ title: 'Error', description: cat ? 'Category already exists.' : 'Enter a category name.', variant: 'destructive' });
+      toast({ title: 'Fout', description: cat ? 'Categorie bestaat al.' : 'Voer een naam in.', variant: 'destructive' });
       return;
     }
     setCustomCategories(prev => [...prev, cat]);
     setNewCustomCategory('');
-    toast({ title: 'Category added' });
+    toast({ title: 'Categorie toegevoegd' });
   };
 
   const removeCustomCategory = (cat: string) => {
     const usedBy = codes.filter(c => c.category === cat);
     if (usedBy.length > 0) {
-      toast({ title: 'Cannot remove', description: `Category "${cat}" is used by ${usedBy.length} code(s).`, variant: 'destructive' });
+      toast({ title: 'Kan niet verwijderen', description: `Categorie "${cat}" wordt gebruikt door ${usedBy.length} code(s).`, variant: 'destructive' });
       return;
     }
     setCustomCategories(prev => prev.filter(c => c !== cat));
-    toast({ title: 'Category removed' });
+    toast({ title: 'Categorie verwijderd' });
   };
 
   const groupedCodes = allCategories.reduce((acc, cat) => {
@@ -132,30 +131,29 @@ export default function NomenclaturePage() {
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Nomenclature Management</h1>
-          <p className="text-muted-foreground mt-1">Manage your RIZIV nomenclature codes and categories.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Nomenclatuurbeheer</h1>
+          <p className="text-muted-foreground mt-1">Beheer je RIZIV nomenclatuurcodes en categorieën.</p>
         </div>
         <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
           <Tag className="h-4 w-4 mr-2" />
-          Manage Categories
+          Categorieën Beheren
         </Button>
       </div>
 
-      {/* Add New Code */}
       <Card className="border-border/50">
-        <CardHeader><CardTitle className="text-base">Add New Code</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Nieuwe Code Toevoegen</CardTitle></CardHeader>
         <CardContent>
           <div className="flex gap-3 items-end flex-wrap">
             <div className="space-y-1.5">
               <Label className="text-xs">RIZIV Code</Label>
-              <Input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="e.g. 350372" className="w-32 font-mono" />
+              <Input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="bv. 350372" className="w-32 font-mono" />
             </div>
             <div className="space-y-1.5 flex-1 min-w-[200px]">
-              <Label className="text-xs">Description</Label>
-              <Input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="e.g. Consultation oncology" />
+              <Label className="text-xs">Omschrijving</Label>
+              <Input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="bv. Raadpleging oncologie" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Category</Label>
+              <Label className="text-xs">Categorie</Label>
               <Select value={newCategory} onValueChange={setNewCategory}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -167,20 +165,19 @@ export default function NomenclaturePage() {
             </div>
             <Button onClick={addCode} disabled={adding || !newCode.trim()}>
               {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add
+              Toevoegen
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Codes grouped by category */}
       <Card className="border-border/50">
-        <CardHeader><CardTitle className="text-base">Your Codes ({codes.length})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Jouw Codes ({codes.length})</CardTitle></CardHeader>
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : codes.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No nomenclature codes yet. Add one above or upload a screenshot to auto-populate.</p>
+            <p className="text-center py-8 text-muted-foreground">Nog geen nomenclatuurcodes. Voeg er hierboven een toe of upload een screenshot.</p>
           ) : (
             <div className="space-y-6">
               {Object.entries(groupedCodes).map(([category, items]) => (
@@ -194,7 +191,7 @@ export default function NomenclaturePage() {
                       <thead>
                         <tr className="border-b border-border/50">
                           <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">Description</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">Omschrijving</th>
                           <th className="py-2 px-3 w-20"></th>
                         </tr>
                       </thead>
@@ -225,21 +222,20 @@ export default function NomenclaturePage() {
         </CardContent>
       </Card>
 
-      {/* Edit Code Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit Code</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Code Bewerken</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>RIZIV Code</Label>
               <Input value={editCode} onChange={e => setEditCode(e.target.value)} className="font-mono" />
             </div>
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label>Omschrijving</Label>
               <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Category</Label>
+              <Label>Categorie</Label>
               <Select value={editCategory} onValueChange={setEditCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -251,21 +247,20 @@ export default function NomenclaturePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Annuleren</Button>
             <Button onClick={saveEdit} disabled={saving || !editCode.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Opslaan'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Manage Categories Dialog */}
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Manage Categories</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Categorieën Beheren</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Default categories</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">Standaard categorieën</Label>
               <div className="flex flex-wrap gap-2">
                 {DEFAULT_CATEGORIES.map(cat => (
                   <Badge key={cat} variant="secondary" className="capitalize">{cat}</Badge>
@@ -273,9 +268,9 @@ export default function NomenclaturePage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Custom categories</Label>
+              <Label className="text-xs text-muted-foreground mb-2 block">Aangepaste categorieën</Label>
               {customCategories.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No custom categories yet.</p>
+                <p className="text-sm text-muted-foreground">Nog geen aangepaste categorieën.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {customCategories.map(cat => (
@@ -293,11 +288,11 @@ export default function NomenclaturePage() {
               <Input
                 value={newCustomCategory}
                 onChange={e => setNewCustomCategory(e.target.value)}
-                placeholder="New category name"
+                placeholder="Nieuwe categorienaam"
                 onKeyDown={e => e.key === 'Enter' && addCustomCategory()}
               />
               <Button onClick={addCustomCategory} size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Add
+                <Plus className="h-4 w-4 mr-1" /> Toevoegen
               </Button>
             </div>
           </div>

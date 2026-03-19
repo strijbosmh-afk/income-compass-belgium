@@ -23,7 +23,7 @@ type NomenclatureCode = {
   description: string;
 };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const CATEGORY_COLORS = [
   'hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)',
   'hsl(45, 70%, 45%)', 'hsl(130, 40%, 40%)', 'hsl(270, 45%, 50%)',
@@ -74,8 +74,8 @@ export default function DashboardPage() {
       const monthRecords = filtered.filter(r => r.month === idx + 1);
       return {
         month: name,
-        ambulatory: monthRecords.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0),
-        hospitalized: monthRecords.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0),
+        ambulant: monthRecords.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0),
+        gehospitaliseerd: monthRecords.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0),
       };
     });
   }, [filtered]);
@@ -87,7 +87,7 @@ export default function DashboardPage() {
       const monthRecords = filtered.filter(r => r.month === idx + 1);
       cumAmbulatory += monthRecords.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.total_amount, 0);
       cumHospitalized += monthRecords.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.total_amount, 0);
-      return { month: name, cumulative: cumAmbulatory + cumHospitalized, ambulatory: cumAmbulatory, hospitalized: cumHospitalized };
+      return { month: name, cumulatief: cumAmbulatory + cumHospitalized, ambulant: cumAmbulatory, gehospitaliseerd: cumHospitalized };
     });
   }, [filtered]);
 
@@ -97,20 +97,19 @@ export default function DashboardPage() {
     return Object.entries(map).map(([code, amount]) => ({
       code,
       label: codeToLabel[code] || code,
-      amount,
-    })).sort((a, b) => b.amount - a.amount).slice(0, 10);
+      bedrag: amount,
+    })).sort((a, b) => b.bedrag - a.bedrag).slice(0, 10);
   }, [filtered, codeToLabel]);
 
-  // Category-based data
   const categories = useMemo(() => [...new Set(nomenclatureCodes.map(n => n.category))], [nomenclatureCodes]);
 
   const categoryTotals = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.forEach(r => {
-      const cat = codeToCategory[r.nomenclature_code] || 'uncategorized';
+      const cat = codeToCategory[r.nomenclature_code] || 'onbekend';
       map[cat] = (map[cat] || 0) + r.total_amount;
     });
-    return Object.entries(map).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+    return Object.entries(map).map(([category, bedrag]) => ({ category, bedrag })).sort((a, b) => b.bedrag - a.bedrag);
   }, [filtered, codeToCategory]);
 
   const monthlyCategoryData = useMemo(() => {
@@ -120,7 +119,7 @@ export default function DashboardPage() {
       const entry: Record<string, any> = { month: name };
       cats.forEach(cat => {
         entry[cat] = monthRecords
-          .filter(r => (codeToCategory[r.nomenclature_code] || 'uncategorized') === cat)
+          .filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat)
           .reduce((s, r) => s + r.total_amount, 0);
       });
       return entry;
@@ -128,8 +127,8 @@ export default function DashboardPage() {
   }, [filtered, categoryTotals, codeToCategory]);
 
   const pieData = [
-    { name: 'Ambulatory', value: ambulatoryTotal },
-    { name: 'Hospitalized', value: hospitalizedTotal },
+    { name: 'Ambulant', value: ambulatoryTotal },
+    { name: 'Gehospitaliseerd', value: hospitalizedTotal },
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
@@ -142,7 +141,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Overview of your income for {selectedYear}.</p>
+          <p className="text-muted-foreground mt-1">Overzicht van je inkomsten voor {selectedYear}.</p>
         </div>
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -153,7 +152,7 @@ export default function DashboardPage() {
         </Select>
       </div>
 
-      {/* Stat Cards */}
+      {/* Statistieken */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="stat-card">
           <div className="flex items-center gap-3">
@@ -161,7 +160,7 @@ export default function DashboardPage() {
               <TrendingUp className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Income</p>
+              <p className="text-sm text-muted-foreground">Totaal Inkomen</p>
               <p className="text-2xl font-semibold">{fmt(totalIncome)}</p>
             </div>
           </div>
@@ -172,7 +171,7 @@ export default function DashboardPage() {
               <Activity className="h-5 w-5 text-secondary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Ambulatory</p>
+              <p className="text-sm text-muted-foreground">Ambulant</p>
               <p className="text-2xl font-semibold">{fmt(ambulatoryTotal)}</p>
             </div>
           </div>
@@ -183,26 +182,25 @@ export default function DashboardPage() {
               <Building2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Hospitalized</p>
+              <p className="text-sm text-muted-foreground">Gehospitaliseerd</p>
               <p className="text-2xl font-semibold">{fmt(hospitalizedTotal)}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* View Mode Tabs */}
+      {/* Tabbladen */}
       <Tabs value={viewMode} onValueChange={setViewMode}>
         <TabsList>
-          <TabsTrigger value="overview">By Income Type</TabsTrigger>
-          <TabsTrigger value="category">By Category</TabsTrigger>
-          <TabsTrigger value="nomenclature">By Nomenclature</TabsTrigger>
+          <TabsTrigger value="overview">Per Type</TabsTrigger>
+          <TabsTrigger value="category">Per Categorie</TabsTrigger>
+          <TabsTrigger value="nomenclature">Per Nomenclatuur</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Monthly Income by Type</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Maandelijks Inkomen per Type</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={monthlyData}>
@@ -211,15 +209,15 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
                     <Legend />
-                    <Bar dataKey="ambulatory" name="Ambulatory" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="hospitalized" name="Hospitalized" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="ambulant" name="Ambulant" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="gehospitaliseerd" name="Gehospitaliseerd" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Income Distribution</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Verdeling Inkomsten</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -233,7 +231,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50 lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Cumulative Income</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Cumulatief Inkomen</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={cumulativeData}>
@@ -242,9 +240,9 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
                     <Legend />
-                    <Line type="monotone" dataKey="cumulative" name="Total" stroke="hsl(210, 60%, 25%)" strokeWidth={2.5} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="ambulatory" name="Ambulatory" stroke="hsl(174, 50%, 40%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
-                    <Line type="monotone" dataKey="hospitalized" name="Hospitalized" stroke="hsl(210, 60%, 35%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                    <Line type="monotone" dataKey="cumulatief" name="Totaal" stroke="hsl(210, 60%, 25%)" strokeWidth={2.5} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="ambulant" name="Ambulant" stroke="hsl(174, 50%, 40%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                    <Line type="monotone" dataKey="gehospitaliseerd" name="Gehospitaliseerd" stroke="hsl(210, 60%, 35%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -252,15 +250,14 @@ export default function DashboardPage() {
           </div>
         </TabsContent>
 
-        {/* Category Tab */}
         <TabsContent value="category" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Income by Category</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Inkomen per Categorie</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={categoryTotals} cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={3} dataKey="amount" nameKey="category" label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}>
+                    <Pie data={categoryTotals} cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={3} dataKey="bedrag" nameKey="category" label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}>
                       {categoryTotals.map((_, idx) => <Cell key={idx} fill={CATEGORY_COLORS[idx % CATEGORY_COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(val: number) => fmt(val)} />
@@ -270,7 +267,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Category Totals</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Totalen per Categorie</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={categoryTotals} layout="vertical">
@@ -278,7 +275,7 @@ export default function DashboardPage() {
                     <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <YAxis type="category" dataKey="category" tick={{ fontSize: 11 }} width={100} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
-                    <Bar dataKey="amount" name="Amount" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="bedrag" name="Bedrag" radius={[0, 4, 4, 0]}>
                       {categoryTotals.map((_, idx) => <Cell key={idx} fill={CATEGORY_COLORS[idx % CATEGORY_COLORS.length]} />)}
                     </Bar>
                   </BarChart>
@@ -287,7 +284,7 @@ export default function DashboardPage() {
             </Card>
 
             <Card className="border-border/50 lg:col-span-2">
-              <CardHeader><CardTitle className="text-base">Monthly Income by Category</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Maandelijks Inkomen per Categorie</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={monthlyCategoryData}>
@@ -306,10 +303,9 @@ export default function DashboardPage() {
           </div>
         </TabsContent>
 
-        {/* Nomenclature Tab */}
         <TabsContent value="nomenclature" className="space-y-6 mt-4">
           <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Top Nomenclature Codes</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Top Nomenclatuurcodes</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={nomenclatureData} layout="vertical">
@@ -317,7 +313,7 @@ export default function DashboardPage() {
                   <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={200} stroke="hsl(220, 10%, 46%)" />
                   <Tooltip formatter={(val: number) => fmt(val)} />
-                  <Bar dataKey="amount" name="Amount" fill="hsl(174, 50%, 40%)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="bedrag" name="Bedrag" fill="hsl(174, 50%, 40%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
