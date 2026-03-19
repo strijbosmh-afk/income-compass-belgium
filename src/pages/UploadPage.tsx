@@ -94,6 +94,18 @@ export default function UploadPage() {
     }
   }, [user, toast, incomeType, selectedMonth, selectedYear]);
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
     try {
