@@ -157,10 +157,11 @@ export default function DashboardPage() {
     { name: 'Netto (Arts)', value: nettoTotal },
     { name: 'Bouwfonds', value: totalBouwfonds },
     { name: 'MIF', value: totalMif },
+    ...(totalOverig > 0 ? [{ name: 'Overig', value: totalOverig }] : []),
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
-  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
+  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)', 'hsl(270, 45%, 50%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
