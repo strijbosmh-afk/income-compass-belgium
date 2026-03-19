@@ -158,7 +158,33 @@ export default function ExportPage() {
     }));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Inkomsten');
+    XLSX.utils.book_append_sheet(wb, ws, 'Detail');
+
+    // Monthly summary sheet
+    const mFrom = parseInt(monthFrom);
+    const mTo = parseInt(monthTo);
+    const summaryHeaders = ['Maand', 'Bruto', 'Aandeel Arts', 'Bouwfonds', 'MIF', 'Netto', 'Aantal prestaties'];
+    const summaryRows: (string | number)[][] = [];
+    let totBruto = 0, totAandeel = 0, totBouwfonds = 0, totMif = 0, totNetto = 0, totQty = 0;
+
+    for (let m = mFrom; m <= mTo; m++) {
+      const monthRecs = filtered.filter(r => r.month === m);
+      const bruto = monthRecs.reduce((s, r) => s + r.total_amount, 0);
+      const aandeel = monthRecs.reduce((s, r) => s + r.aandeel_arts, 0);
+      const bouwf = monthRecs.reduce((s, r) => s + r.bouwfonds, 0);
+      const mif = monthRecs.reduce((s, r) => s + r.mif, 0);
+      const netto = monthRecs.reduce((s, r) => s + r.netto, 0);
+      const qty = monthRecs.reduce((s, r) => s + r.quantity, 0);
+      totBruto += bruto; totAandeel += aandeel; totBouwfonds += bouwf; totMif += mif; totNetto += netto; totQty += qty;
+      summaryRows.push([MONTH_NAMES[m - 1], bruto, aandeel, bouwf, mif, netto, qty]);
+    }
+    summaryRows.push([]);
+    summaryRows.push(['TOTAAL', totBruto, totAandeel, totBouwfonds, totMif, totNetto, totQty]);
+
+    const wsSummary = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
+    wsSummary['!cols'] = summaryHeaders.map(h => ({ wch: Math.max(h.length + 2, 14) }));
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Maandoverzicht');
+
     XLSX.writeFile(wb, `inkomsten_${selectedYear}_${monthFrom}-${monthTo}.xlsx`);
     toast.success('Excel bestand gedownload');
   };
