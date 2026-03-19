@@ -138,7 +138,7 @@ export default function RecordsPage() {
                           <td className="py-2.5 px-3 text-muted-foreground">{r.description || '—'}</td>
                           <td className="py-2.5 px-3 text-right">{r.quantity}</td>
                           <td className="py-2.5 px-3 text-right text-muted-foreground">€{r.total_amount.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.aandeel_arts.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
                           <td className="py-2.5 px-3">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteRecord(r.id)}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
