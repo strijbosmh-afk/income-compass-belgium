@@ -195,15 +195,177 @@ export default function ExportPage() {
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [45, 100, 100], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 245, 245] },
-      foot: [],
       didParseCell: (data) => {
-        // Bold totals row
         if (data.row.index === rows.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [230, 230, 230];
         }
       },
     });
+
+    // Monthly summary report
+    if (includeSummary) {
+      const mFrom = parseInt(monthFrom);
+      const mTo = parseInt(monthTo);
+      const monthlyTotals: { month: string; netto: number; bruto: number; aandeel: number; bouwfonds: number; mif: number }[] = [];
+
+      for (let m = mFrom; m <= mTo; m++) {
+        const monthRecs = filtered.filter(r => r.month === m);
+        monthlyTotals.push({
+          month: MONTH_NAMES[m - 1].substring(0, 3),
+          netto: monthRecs.reduce((s, r) => s + r.netto, 0),
+          bruto: monthRecs.reduce((s, r) => s + r.total_amount, 0),
+          aandeel: monthRecs.reduce((s, r) => s + r.aandeel_arts, 0),
+          bouwfonds: monthRecs.reduce((s, r) => s + r.bouwfonds, 0),
+          mif: monthRecs.reduce((s, r) => s + r.mif, 0),
+        });
+      }
+
+      // --- Summary page ---
+      doc.addPage('landscape');
+      doc.setFontSize(14);
+      doc.text('Maandelijks Samenvattingsrapport', 14, 18);
+      doc.setFontSize(9);
+      doc.text(periodLabel, 14, 25);
+
+      // Summary table
+      autoTable(doc, {
+        head: [['Maand', 'Bruto (€)', 'Aandeel Arts (€)', 'Bouwfonds (€)', 'MIF (€)', 'Netto (€)']],
+        body: monthlyTotals.map(m => [m.month, fmt(m.bruto), fmt(m.aandeel), fmt(m.bouwfonds), fmt(m.mif), fmt(m.netto)]),
+        foot: [['TOTAAL',
+          fmt(monthlyTotals.reduce((s, m) => s + m.bruto, 0)),
+          fmt(monthlyTotals.reduce((s, m) => s + m.aandeel, 0)),
+          fmt(monthlyTotals.reduce((s, m) => s + m.bouwfonds, 0)),
+          fmt(monthlyTotals.reduce((s, m) => s + m.mif, 0)),
+          fmt(monthlyTotals.reduce((s, m) => s + m.netto, 0)),
+        ]],
+        startY: 30,
+        styles: { fontSize: 8, cellPadding: 2.5 },
+        headStyles: { fillColor: [45, 100, 100], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [230, 230, 230], fontStyle: 'bold', textColor: [0, 0, 0] },
+        alternateRowStyles: { fillColor: [248, 248, 248] },
+      });
+
+      // --- Bar chart: Netto per maand ---
+      const chartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 12 : 90;
+      const chartX = 14;
+      const chartW = 260;
+      const chartH = 80;
+      const maxVal = Math.max(...monthlyTotals.map(m => m.netto), 1);
+      const barCount = monthlyTotals.length;
+      const barGap = 4;
+      const barW = Math.min(20, (chartW - barGap * (barCount + 1)) / barCount);
+      const totalBarsW = barCount * barW + (barCount - 1) * barGap;
+      const startX = chartX + (chartW - totalBarsW) / 2;
+
+      doc.setFontSize(10);
+      doc.text('Netto per maand', chartX, chartY);
+
+      // Axes
+      const axisY = chartY + 6;
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.line(chartX, axisY + chartH, chartX + chartW, axisY + chartH); // x-axis
+
+      // Grid lines
+      for (let i = 0; i <= 4; i++) {
+        const y = axisY + chartH - (chartH * i) / 4;
+        doc.setDrawColor(230, 230, 230);
+        doc.line(chartX, y, chartX + chartW, y);
+        doc.setFontSize(6);
+        doc.setTextColor(130, 130, 130);
+        doc.text(fmt(maxVal * i / 4), chartX - 1, y + 1, { align: 'right' });
+      }
+
+      // Bars
+      monthlyTotals.forEach((m, i) => {
+        const bh = (m.netto / maxVal) * chartH;
+        const bx = startX + i * (barW + barGap);
+        const by = axisY + chartH - bh;
+
+        // Gradient effect with two rects
+        doc.setFillColor(45, 100, 130);
+        doc.rect(bx, by, barW, bh, 'F');
+        doc.setFillColor(60, 130, 170);
+        doc.rect(bx, by, barW, Math.min(bh, 3), 'F');
+
+        // Label
+        doc.setFontSize(6);
+        doc.setTextColor(80, 80, 80);
+        doc.text(m.month, bx + barW / 2, axisY + chartH + 5, { align: 'center' });
+
+        // Value on top
+        if (bh > 8) {
+          doc.setFontSize(5);
+          doc.setTextColor(255, 255, 255);
+          doc.text(fmt(m.netto), bx + barW / 2, by + 5, { align: 'center' });
+        }
+      });
+
+      // --- Stacked bar chart: Afdrachten per maand ---
+      const chart2Y = axisY + chartH + 20;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Verdeling per maand (Aandeel Arts, Bouwfonds, MIF)', chartX, chart2Y);
+
+      const chart2AxisY = chart2Y + 6;
+      const maxStacked = Math.max(...monthlyTotals.map(m => m.aandeel + m.bouwfonds + m.mif), 1);
+
+      // Grid
+      doc.setDrawColor(180, 180, 180);
+      doc.line(chartX, chart2AxisY + chartH, chartX + chartW, chart2AxisY + chartH);
+      for (let i = 0; i <= 4; i++) {
+        const y = chart2AxisY + chartH - (chartH * i) / 4;
+        doc.setDrawColor(230, 230, 230);
+        doc.line(chartX, y, chartX + chartW, y);
+        doc.setFontSize(6);
+        doc.setTextColor(130, 130, 130);
+        doc.text(fmt(maxStacked * i / 4), chartX - 1, y + 1, { align: 'right' });
+      }
+
+      const colors = {
+        aandeel: [70, 140, 90] as [number, number, number],
+        bouwfonds: [200, 140, 50] as [number, number, number],
+        mif: [180, 70, 70] as [number, number, number],
+      };
+
+      monthlyTotals.forEach((m, i) => {
+        const bx = startX + i * (barW + barGap);
+        let cumulH = 0;
+
+        // Stack: aandeel, bouwfonds, mif
+        ([
+          { val: m.aandeel, color: colors.aandeel },
+          { val: m.bouwfonds, color: colors.bouwfonds },
+          { val: m.mif, color: colors.mif },
+        ] as const).forEach(({ val, color }) => {
+          const segH = (val / maxStacked) * chartH;
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.rect(bx, chart2AxisY + chartH - cumulH - segH, barW, segH, 'F');
+          cumulH += segH;
+        });
+
+        doc.setFontSize(6);
+        doc.setTextColor(80, 80, 80);
+        doc.text(m.month, bx + barW / 2, chart2AxisY + chartH + 5, { align: 'center' });
+      });
+
+      // Legend
+      const legendY = chart2AxisY + chartH + 12;
+      const legendItems = [
+        { label: 'Aandeel Arts', color: colors.aandeel },
+        { label: 'Bouwfonds', color: colors.bouwfonds },
+        { label: 'MIF', color: colors.mif },
+      ];
+      legendItems.forEach((item, i) => {
+        const lx = chartX + i * 50;
+        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+        doc.rect(lx, legendY, 4, 4, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
+        doc.text(item.label, lx + 6, legendY + 3.5);
+      });
+    }
 
     doc.save(`inkomsten_${selectedYear}_${monthFrom}-${monthTo}.pdf`);
     toast.success('PDF bestand gedownload');
