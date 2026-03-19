@@ -136,7 +136,7 @@ export default function DashboardPage() {
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
       const mTotal = mr.reduce((s, r) => s + r.total_amount, 0);
-      const mNetto = mr.reduce((s, r) => s + r.aandeel_arts, 0);
+      const mNetto = mr.reduce((s, r) => s + r.netto, 0);
       const mBouwfonds = mr.reduce((s, r) => s + r.bouwfonds, 0);
       const mMif = mr.reduce((s, r) => s + r.mif, 0);
       const mOverig = (mTotal - mNetto) - mBouwfonds - mMif;

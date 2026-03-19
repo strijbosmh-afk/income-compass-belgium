@@ -221,7 +221,7 @@ export default function RecordsPage() {
                           <td className="py-2.5 px-3 text-right">€{r.total_amount.toFixed(2)}</td>
                           <td className="py-2.5 px-3 text-right text-destructive/80">€{r.bouwfonds.toFixed(2)}</td>
                           <td className="py-2.5 px-3 text-right text-destructive/80">€{r.mif.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.aandeel_arts.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
