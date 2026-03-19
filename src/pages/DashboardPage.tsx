@@ -86,8 +86,8 @@ export default function DashboardPage() {
       const mr = filtered.filter(r => r.month === idx + 1);
       return {
         month: name,
-        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0),
-        gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0),
+        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0),
+        gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0),
       };
     });
   }, [filtered]);
