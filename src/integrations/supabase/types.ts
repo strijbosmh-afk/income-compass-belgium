@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      income_records: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          income_type: string
+          month: number
+          nomenclature_code: string
+          quantity: number
+          record_date: string
+          source_image_url: string | null
+          total_amount: number
+          unit_amount: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          income_type: string
+          month: number
+          nomenclature_code: string
+          quantity?: number
+          record_date: string
+          source_image_url?: string | null
+          total_amount?: number
+          unit_amount?: number
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          income_type?: string
+          month?: number
+          nomenclature_code?: string
+          quantity?: number
+          record_date?: string
+          source_image_url?: string | null
+          total_amount?: number
+          unit_amount?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      nomenclature_codes: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          description: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string
+          description?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
