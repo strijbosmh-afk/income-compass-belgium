@@ -44,7 +44,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
-  const [compareYear, setCompareYear] = useState<string>('');
   const [viewMode, setViewMode] = useState('overview');
 
   useEffect(() => {
