@@ -17,6 +17,7 @@ type IncomeEntry = {
   aandeel_arts: number;
   bouwfonds: number;
   mif: number;
+  netto: number;
   description: string | null;
 };
 
@@ -44,7 +45,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, description').eq('user_id', user.id),
+      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
     ]).then(([recRes, nomRes]) => {
       setRecords(recRes.data || []);
@@ -68,10 +69,10 @@ export default function DashboardPage() {
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const filtered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
-  // Netto = aandeel_arts
-  const nettoTotal = filtered.reduce((s, r) => s + r.aandeel_arts, 0);
-  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
-  const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+  // Netto = netto kolom
+  const nettoTotal = filtered.reduce((s, r) => s + r.netto, 0);
+  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+  const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
 
   // Afdracht = totaal - aandeel arts
   const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
@@ -85,8 +86,8 @@ export default function DashboardPage() {
       const mr = filtered.filter(r => r.month === idx + 1);
       return {
         month: name,
-        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0),
-        gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0),
+        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0),
+        gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0),
       };
     });
   }, [filtered]);
@@ -95,15 +96,15 @@ export default function DashboardPage() {
     let cumAmb = 0, cumHosp = 0;
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
-      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
-      cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
+      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+      cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
       return { month: name, cumulatief: cumAmb + cumHosp, ambulant: cumAmb, gehospitaliseerd: cumHosp };
     });
   }, [filtered]);
 
   const nomenclatureData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.aandeel_arts; });
+    filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.netto; });
     return Object.entries(map).map(([code, bedrag]) => ({
       code, label: codeToLabel[code] || code, bedrag,
     })).sort((a, b) => b.bedrag - a.bedrag).slice(0, 10);
@@ -113,7 +114,7 @@ export default function DashboardPage() {
     const map: Record<string, number> = {};
     filtered.forEach(r => {
       const cat = codeToCategory[r.nomenclature_code] || 'onbekend';
-      map[cat] = (map[cat] || 0) + r.aandeel_arts;
+      map[cat] = (map[cat] || 0) + r.netto;
     });
     return Object.entries(map).map(([category, bedrag]) => ({ category, bedrag })).sort((a, b) => b.bedrag - a.bedrag);
   }, [filtered, codeToCategory]);
@@ -124,7 +125,7 @@ export default function DashboardPage() {
       const mr = filtered.filter(r => r.month === idx + 1);
       const entry: Record<string, any> = { month: name };
       cats.forEach(cat => {
-        entry[cat] = mr.filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat).reduce((s, r) => s + r.aandeel_arts, 0);
+        entry[cat] = mr.filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat).reduce((s, r) => s + r.netto, 0);
       });
       return entry;
     });
@@ -135,7 +136,7 @@ export default function DashboardPage() {
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
       const mTotal = mr.reduce((s, r) => s + r.total_amount, 0);
-      const mNetto = mr.reduce((s, r) => s + r.aandeel_arts, 0);
+      const mNetto = mr.reduce((s, r) => s + r.netto, 0);
       const mBouwfonds = mr.reduce((s, r) => s + r.bouwfonds, 0);
       const mMif = mr.reduce((s, r) => s + r.mif, 0);
       const mOverig = (mTotal - mNetto) - mBouwfonds - mMif;

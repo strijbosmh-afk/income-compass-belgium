@@ -23,6 +23,7 @@ type IncomeRecord = {
   aandeel_arts: number;
   bouwfonds: number;
   mif: number;
+  netto: number;
 };
 
 export default function RecordsPage() {
@@ -57,7 +58,7 @@ export default function RecordsPage() {
   };
 
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
-  const netto = records.reduce((sum, r) => sum + r.aandeel_arts, 0);
+  const netto = records.reduce((sum, r) => sum + r.netto, 0);
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
   const totalBouwfonds = records.reduce((sum, r) => sum + r.bouwfonds, 0);
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
@@ -137,7 +138,7 @@ export default function RecordsPage() {
                           <td className="py-2.5 px-3 text-muted-foreground">{r.description || '—'}</td>
                           <td className="py-2.5 px-3 text-right">{r.quantity}</td>
                           <td className="py-2.5 px-3 text-right text-muted-foreground">€{r.total_amount.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.aandeel_arts.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
                           <td className="py-2.5 px-3">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteRecord(r.id)}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -220,7 +221,7 @@ export default function RecordsPage() {
                           <td className="py-2.5 px-3 text-right">€{r.total_amount.toFixed(2)}</td>
                           <td className="py-2.5 px-3 text-right text-destructive/80">€{r.bouwfonds.toFixed(2)}</td>
                           <td className="py-2.5 px-3 text-right text-destructive/80">€{r.mif.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.aandeel_arts.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
