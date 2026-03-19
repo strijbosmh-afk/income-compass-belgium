@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, Loader2, Image, Activity, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
@@ -22,6 +23,8 @@ export interface ExtractedRecord {
   mif: number;
 }
 
+const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+
 export default function UploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -30,6 +33,8 @@ export default function UploadPage() {
   const [extractedData, setExtractedData] = useState<ExtractedRecord[] | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
