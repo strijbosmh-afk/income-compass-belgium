@@ -57,7 +57,7 @@ export default function DashboardPage() {
   }, [filtered]);
 
   const nomenclatureData = useMemo(() => {
-    const map: Record<string, number> = {} as any;
+    const map: { [key: string]: number } = {};
     filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.total_amount; });
     return Object.entries(map).map(([code, amount]) => ({ code, amount: amount as number })).sort((a, b) => b.amount - a.amount).slice(0, 8);
   }, [filtered]);
