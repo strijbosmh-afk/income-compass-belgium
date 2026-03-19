@@ -19,6 +19,9 @@ export interface ExtractedRecord {
   quantity: number;
   unit_amount: number;
   total_amount: number;
+  aandeel_arts: number;
+  bouwfonds: number;
+  mif: number;
 }
 
 export default function UploadPage() {

@@ -34,13 +34,16 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/50">
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Date</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Type</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">RIZIV Code</th>
-                <th className="text-left py-2 px-2 font-medium text-muted-foreground">Description</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground">Qty</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground">Unit €</th>
-                <th className="text-right py-2 px-2 font-medium text-muted-foreground">Total €</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Date</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Type</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">RIZIV</th>
+                <th className="text-left py-2 px-2 font-medium text-muted-foreground text-xs">Description</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Qty</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Unit €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Total €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Arts €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Bouwf. €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">MIF €</th>
                 <th className="py-2 px-2"></th>
               </tr>
             </thead>
@@ -63,16 +66,25 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                     <Input value={r.nomenclature_code} onChange={e => updateRecord(idx, 'nomenclature_code', e.target.value)} className="h-8 text-xs font-mono w-24" />
                   </td>
                   <td className="py-2 px-2">
-                    <Input value={r.description} onChange={e => updateRecord(idx, 'description', e.target.value)} className="h-8 text-xs w-40" />
+                    <Input value={r.description} onChange={e => updateRecord(idx, 'description', e.target.value)} className="h-8 text-xs w-36" />
                   </td>
                   <td className="py-2 px-2">
-                    <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className="h-8 text-xs w-16 text-right" />
+                    <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className="h-8 text-xs w-14 text-right" />
                   </td>
                   <td className="py-2 px-2">
                     <Input type="number" step="0.01" value={r.unit_amount} onChange={e => updateRecord(idx, 'unit_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
                   </td>
                   <td className="py-2 px-2">
-                    <Input type="number" step="0.01" value={r.total_amount} onChange={e => updateRecord(idx, 'total_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-24 text-right font-medium" />
+                    <Input type="number" step="0.01" value={r.total_amount} onChange={e => updateRecord(idx, 'total_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right font-medium" />
+                  </td>
+                  <td className="py-2 px-2">
+                    <Input type="number" step="0.01" value={r.aandeel_arts} onChange={e => updateRecord(idx, 'aandeel_arts', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
+                  </td>
+                  <td className="py-2 px-2">
+                    <Input type="number" step="0.01" value={r.bouwfonds} onChange={e => updateRecord(idx, 'bouwfonds', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
+                  </td>
+                  <td className="py-2 px-2">
+                    <Input type="number" step="0.01" value={r.mif} onChange={e => updateRecord(idx, 'mif', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
                   </td>
                   <td className="py-2 px-2">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeRecord(idx)}>
