@@ -125,7 +125,7 @@ export default function DashboardPage() {
       const mr = filtered.filter(r => r.month === idx + 1);
       const entry: Record<string, any> = { month: name };
       cats.forEach(cat => {
-        entry[cat] = mr.filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat).reduce((s, r) => s + r.aandeel_arts, 0);
+        entry[cat] = mr.filter(r => (codeToCategory[r.nomenclature_code] || 'onbekend') === cat).reduce((s, r) => s + r.netto, 0);
       });
       return entry;
     });
