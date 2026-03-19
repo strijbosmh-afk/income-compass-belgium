@@ -27,9 +27,10 @@ Extract ALL line items from the image. For each item, determine:
 - quantity: Number of acts/services
 - unit_amount: Price per unit in EUR
 - total_amount: Total amount in EUR (ereloon/honorarium)
-- aandeel_arts: The doctor's share ("aandeel arts") in EUR. This is the portion of the fee that goes to the doctor.
+- aandeel_arts: The doctor's share ("aandeel arts") in EUR.
 - bouwfonds: The building fund contribution ("bouwfonds") in EUR. 
 - mif: The MIF (Medisch-Interdisciplinair Fonds) amount in EUR.
+- netto: The net amount actually paid out to the doctor in EUR. This is total_amount minus all deductions.
 
 These Belgian-specific fields (aandeel_arts, bouwfonds, mif) may appear as columns in the income statement. Look for headers like "Aandeel arts", "Bouwfonds", "MIF", "Pool", or similar. If not present for a line item, use 0.
 
