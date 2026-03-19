@@ -444,6 +444,11 @@ export default function ExportPage() {
                 ))}
               </div>
             </div>
+
+            <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+              <Label htmlFor="include-summary" className="text-sm">Samenvattingsrapport met grafieken</Label>
+              <Switch id="include-summary" checked={includeSummary} onCheckedChange={setIncludeSummary} />
+            </div>
           </CardContent>
         </Card>
 
