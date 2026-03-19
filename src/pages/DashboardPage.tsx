@@ -56,6 +56,12 @@ export default function DashboardPage() {
     return map;
   }, [nomenclatureCodes]);
 
+  const codeToLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    nomenclatureCodes.forEach(n => { map[n.code] = n.description ? `${n.code} – ${n.description}` : n.code; });
+    return map;
+  }, [nomenclatureCodes]);
+
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const filtered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
