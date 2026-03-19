@@ -315,7 +315,7 @@ export default function DashboardPage() {
                 <BarChart data={nomenclatureData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
                   <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
-                  <YAxis type="category" dataKey="code" tick={{ fontSize: 11, fontFamily: 'var(--font-mono)' }} width={90} stroke="hsl(220, 10%, 46%)" />
+                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={200} stroke="hsl(220, 10%, 46%)" />
                   <Tooltip formatter={(val: number) => fmt(val)} />
                   <Bar dataKey="amount" name="Amount" fill="hsl(174, 50%, 40%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
