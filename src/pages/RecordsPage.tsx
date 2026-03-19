@@ -58,10 +58,10 @@ export default function RecordsPage() {
 
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
   const netto = records.reduce((sum, r) => sum + r.aandeel_arts, 0);
+  const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
   const totalBouwfonds = records.reduce((sum, r) => sum + r.bouwfonds, 0);
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
   const totalAfdracht = bruto - netto;
-  const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
   return (
