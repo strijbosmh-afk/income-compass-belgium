@@ -358,6 +358,7 @@ export default function DashboardPage() {
           <TabsTrigger value="category">Per Categorie</TabsTrigger>
           <TabsTrigger value="nomenclature">Per Nomenclatuur</TabsTrigger>
           <TabsTrigger value="statistieken">Statistieken</TabsTrigger>
+          <TabsTrigger value="vergelijking">Vergelijking</TabsTrigger>
           <TabsTrigger value="afdracht">Afdracht</TabsTrigger>
         </TabsList>
 
