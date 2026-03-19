@@ -10,6 +10,7 @@ import UploadPage from "./pages/UploadPage";
 import RecordsPage from "./pages/RecordsPage";
 import DashboardPage from "./pages/DashboardPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
+import StatisticsPage from "./pages/StatisticsPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
             <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
