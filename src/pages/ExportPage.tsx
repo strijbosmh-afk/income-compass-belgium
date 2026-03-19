@@ -68,10 +68,11 @@ export default function ExportPage() {
   const [monthTo, setMonthTo] = useState<string>('12');
   const [incomeType, setIncomeType] = useState<string>('all');
 
-  // Columns
+  // Columns & summary
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
     ALL_COLUMNS.map(c => c.key)
   );
+  const [includeSummary, setIncludeSummary] = useState(true);
 
   useEffect(() => {
     if (!user) return;
