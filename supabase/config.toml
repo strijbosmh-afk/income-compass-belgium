@@ -1,1 +1,4 @@
 project_id = "ftsgbacnewhpzasrjmrs"
+
+[functions.extract-income]
+verify_jwt = false
