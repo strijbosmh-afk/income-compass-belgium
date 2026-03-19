@@ -44,6 +44,7 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Arts €</th>
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Bouwf. €</th>
                 <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">MIF €</th>
+                <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">Netto €</th>
                 <th className="py-2 px-2"></th>
               </tr>
             </thead>
