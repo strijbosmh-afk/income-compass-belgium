@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Loader2, Save } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Trash2, Loader2, Pencil, Tag, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 type NomenclatureCode = {
   id: string;
@@ -15,6 +17,8 @@ type NomenclatureCode = {
   description: string;
   category: string;
 };
+
+const DEFAULT_CATEGORIES = ['general', 'consultation', 'treatment', 'procedure', 'other'];
 
 export default function NomenclaturePage() {
   const { user } = useAuth();
@@ -25,11 +29,28 @@ export default function NomenclaturePage() {
   const [newDesc, setNewDesc] = useState('');
   const [newCategory, setNewCategory] = useState('general');
   const [adding, setAdding] = useState(false);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [newCustomCategory, setNewCustomCategory] = useState('');
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCode, setEditingCode] = useState<NomenclatureCode | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editCode, setEditCode] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
 
   const fetchCodes = async () => {
     if (!user) return;
     const { data, error } = await supabase.from('nomenclature_codes').select('*').eq('user_id', user.id).order('code');
-    if (!error) setCodes(data || []);
+    if (!error && data) {
+      setCodes(data);
+      // Extract custom categories from existing codes
+      const existingCats = [...new Set(data.map(c => c.category))];
+      const custom = existingCats.filter(c => !DEFAULT_CATEGORIES.includes(c));
+      setCustomCategories(prev => [...new Set([...prev, ...custom])]);
+    }
     setLoading(false);
   };
 
@@ -44,7 +65,7 @@ export default function NomenclaturePage() {
     if (error) {
       toast({ title: 'Error', description: error.message.includes('duplicate') ? 'This code already exists.' : error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Added' });
+      toast({ title: 'Code added' });
       setNewCode(''); setNewDesc(''); setNewCategory('general');
       fetchCodes();
     }
@@ -53,18 +74,74 @@ export default function NomenclaturePage() {
 
   const deleteCode = async (id: string) => {
     const { error } = await supabase.from('nomenclature_codes').delete().eq('id', id);
-    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Deleted' }); }
+    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code deleted' }); }
   };
 
-  const categories = [...new Set(codes.map(c => c.category))];
+  const openEditDialog = (code: NomenclatureCode) => {
+    setEditingCode(code);
+    setEditCode(code.code);
+    setEditDesc(code.description);
+    setEditCategory(code.category);
+    setEditDialogOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingCode || !editCode.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from('nomenclature_codes').update({
+      code: editCode.trim(), description: editDesc.trim(), category: editCategory,
+    }).eq('id', editingCode.id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Code updated' });
+      setEditDialogOpen(false);
+      fetchCodes();
+    }
+    setSaving(false);
+  };
+
+  const addCustomCategory = () => {
+    const cat = newCustomCategory.trim().toLowerCase();
+    if (!cat || allCategories.includes(cat)) {
+      toast({ title: 'Error', description: cat ? 'Category already exists.' : 'Enter a category name.', variant: 'destructive' });
+      return;
+    }
+    setCustomCategories(prev => [...prev, cat]);
+    setNewCustomCategory('');
+    toast({ title: 'Category added' });
+  };
+
+  const removeCustomCategory = (cat: string) => {
+    const usedBy = codes.filter(c => c.category === cat);
+    if (usedBy.length > 0) {
+      toast({ title: 'Cannot remove', description: `Category "${cat}" is used by ${usedBy.length} code(s).`, variant: 'destructive' });
+      return;
+    }
+    setCustomCategories(prev => prev.filter(c => c !== cat));
+    toast({ title: 'Category removed' });
+  };
+
+  const groupedCodes = allCategories.reduce((acc, cat) => {
+    const items = codes.filter(c => c.category === cat);
+    if (items.length > 0) acc[cat] = items;
+    return acc;
+  }, {} as Record<string, NomenclatureCode[]>);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nomenclature Management</h1>
-        <p className="text-muted-foreground mt-1">Manage your RIZIV nomenclature codes and categories.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Nomenclature Management</h1>
+          <p className="text-muted-foreground mt-1">Manage your RIZIV nomenclature codes and categories.</p>
+        </div>
+        <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+          <Tag className="h-4 w-4 mr-2" />
+          Manage Categories
+        </Button>
       </div>
 
+      {/* Add New Code */}
       <Card className="border-border/50">
         <CardHeader><CardTitle className="text-base">Add New Code</CardTitle></CardHeader>
         <CardContent>
@@ -80,13 +157,11 @@ export default function NomenclaturePage() {
             <div className="space-y-1.5">
               <Label className="text-xs">Category</Label>
               <Select value={newCategory} onValueChange={setNewCategory}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="consultation">Consultation</SelectItem>
-                  <SelectItem value="treatment">Treatment</SelectItem>
-                  <SelectItem value="procedure">Procedure</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {allCategories.map(cat => (
+                    <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -98,6 +173,7 @@ export default function NomenclaturePage() {
         </CardContent>
       </Card>
 
+      {/* Codes grouped by category */}
       <Card className="border-border/50">
         <CardHeader><CardTitle className="text-base">Your Codes ({codes.length})</CardTitle></CardHeader>
         <CardContent>
@@ -106,35 +182,127 @@ export default function NomenclaturePage() {
           ) : codes.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No nomenclature codes yet. Add one above or upload a screenshot to auto-populate.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/50">
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Description</th>
-                    <th className="text-left py-2 px-3 font-medium text-muted-foreground">Category</th>
-                    <th className="py-2 px-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {codes.map(c => (
-                    <tr key={c.id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
-                      <td className="py-2.5 px-3 font-mono text-xs">{c.code}</td>
-                      <td className="py-2.5 px-3">{c.description || '—'}</td>
-                      <td className="py-2.5 px-3 capitalize text-muted-foreground">{c.category}</td>
-                      <td className="py-2.5 px-3">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteCode(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-6">
+              {Object.entries(groupedCodes).map(([category, items]) => (
+                <div key={category}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary" className="capitalize text-xs">{category}</Badge>
+                    <span className="text-xs text-muted-foreground">{items.length} code{items.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50">
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">Code</th>
+                          <th className="text-left py-2 px-3 font-medium text-muted-foreground">Description</th>
+                          <th className="py-2 px-3 w-20"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map(c => (
+                          <tr key={c.id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
+                            <td className="py-2.5 px-3 font-mono text-xs">{c.code}</td>
+                            <td className="py-2.5 px-3">{c.description || '—'}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(c)}>
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteCode(c.id)}>
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Code Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Code</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>RIZIV Code</Label>
+              <Input value={editCode} onChange={e => setEditCode(e.target.value)} className="font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Input value={editDesc} onChange={e => setEditDesc(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <Select value={editCategory} onValueChange={setEditCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {allCategories.map(cat => (
+                    <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={saving || !editCode.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Categories Dialog */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Manage Categories</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Default categories</Label>
+              <div className="flex flex-wrap gap-2">
+                {DEFAULT_CATEGORIES.map(cat => (
+                  <Badge key={cat} variant="secondary" className="capitalize">{cat}</Badge>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Custom categories</Label>
+              {customCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No custom categories yet.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {customCategories.map(cat => (
+                    <Badge key={cat} variant="outline" className="capitalize gap-1 pr-1">
+                      {cat}
+                      <button onClick={() => removeCustomCategory(cat)} className="ml-1 hover:text-destructive transition-colors">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={newCustomCategory}
+                onChange={e => setNewCustomCategory(e.target.value)}
+                placeholder="New category name"
+                onKeyDown={e => e.key === 'Enter' && addCustomCategory()}
+              />
+              <Button onClick={addCustomCategory} size="sm">
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
