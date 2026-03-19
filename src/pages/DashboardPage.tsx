@@ -73,10 +73,12 @@ export default function DashboardPage() {
   const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.aandeel_arts, 0);
   const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.aandeel_arts, 0);
 
-  // Afdracht
+  // Afdracht = totaal - aandeel arts
+  const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
+  const totalAfdracht = brutoTotal - nettoTotal;
   const totalBouwfonds = filtered.reduce((s, r) => s + r.bouwfonds, 0);
   const totalMif = filtered.reduce((s, r) => s + r.mif, 0);
-  const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
+  const totalOverig = totalAfdracht - totalBouwfonds - totalMif;
 
   const monthlyData = useMemo(() => {
     return MONTHS.map((name, idx) => {
@@ -132,10 +134,16 @@ export default function DashboardPage() {
   const monthlyAfdrachtData = useMemo(() => {
     return MONTHS.map((name, idx) => {
       const mr = filtered.filter(r => r.month === idx + 1);
+      const mTotal = mr.reduce((s, r) => s + r.total_amount, 0);
+      const mNetto = mr.reduce((s, r) => s + r.aandeel_arts, 0);
+      const mBouwfonds = mr.reduce((s, r) => s + r.bouwfonds, 0);
+      const mMif = mr.reduce((s, r) => s + r.mif, 0);
+      const mOverig = (mTotal - mNetto) - mBouwfonds - mMif;
       return {
         month: name,
-        bouwfonds: mr.reduce((s, r) => s + r.bouwfonds, 0),
-        mif: mr.reduce((s, r) => s + r.mif, 0),
+        bouwfonds: mBouwfonds,
+        mif: mMif,
+        overig: mOverig > 0 ? mOverig : 0,
       };
     });
   }, [filtered]);
@@ -149,10 +157,11 @@ export default function DashboardPage() {
     { name: 'Netto (Arts)', value: nettoTotal },
     { name: 'Bouwfonds', value: totalBouwfonds },
     { name: 'MIF', value: totalMif },
+    ...(totalOverig > 0 ? [{ name: 'Overig', value: totalOverig }] : []),
   ].filter(d => d.value > 0);
 
   const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
-  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
+  const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)', 'hsl(270, 45%, 50%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -344,7 +353,7 @@ export default function DashboardPage() {
 
         {/* Afdracht Tab */}
         <TabsContent value="afdracht" className="space-y-6 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -353,6 +362,17 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Bruto Ereloon</p>
                   <p className="text-2xl font-semibold">{fmt(brutoTotal)}</p>
+                </div>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <Landmark className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Totaal Afdracht</p>
+                  <p className="text-2xl font-semibold">{fmt(totalAfdracht)}</p>
                 </div>
               </div>
             </div>
@@ -405,8 +425,9 @@ export default function DashboardPage() {
                     <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                     <Tooltip formatter={(val: number) => fmt(val)} />
                     <Legend />
-                    <Bar dataKey="bouwfonds" name="Bouwfonds" fill="hsl(340, 55%, 45%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="mif" name="MIF" fill="hsl(45, 70%, 45%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="bouwfonds" name="Bouwfonds" stackId="a" fill="hsl(340, 55%, 45%)" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="mif" name="MIF" stackId="a" fill="hsl(45, 70%, 45%)" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="overig" name="Overig" stackId="a" fill="hsl(270, 45%, 50%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
