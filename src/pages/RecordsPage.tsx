@@ -58,7 +58,7 @@ export default function RecordsPage() {
   };
 
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
-  const netto = records.reduce((sum, r) => sum + r.aandeel_arts, 0);
+  const netto = records.reduce((sum, r) => sum + r.netto, 0);
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
   const totalBouwfonds = records.reduce((sum, r) => sum + r.bouwfonds, 0);
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
