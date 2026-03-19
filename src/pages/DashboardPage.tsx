@@ -483,8 +483,7 @@ export default function DashboardPage() {
           </Card>
         </TabsContent>
 
-
-
+        <TabsContent value="afdracht" className="space-y-6 mt-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="stat-card">
               <div className="flex items-center gap-3">
