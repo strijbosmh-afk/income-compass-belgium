@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +20,7 @@ const navItems = [
   { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
+  { title: 'Exporteren', url: '/export', icon: Download },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
 ];
 
