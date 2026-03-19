@@ -50,7 +50,7 @@ Be thorough - extract every single line item visible in the image.`;
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract all income data from this screenshot. Return JSON with a records array. Include aandeel_arts, bouwfonds, and mif columns." },
+              { type: "text", text: "Extract all income data from this screenshot. Return JSON with a records array. Include aandeel_arts, bouwfonds, mif, and netto columns." },
               { type: "image_url", image_url: { url: `data:${mimeType || "image/png"};base64,${image}` } },
             ],
           },
