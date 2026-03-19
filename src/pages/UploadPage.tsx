@@ -69,8 +69,10 @@ export default function UploadPage() {
       });
       if (error) throw error;
 
-      if (data?.records?.length) {
-        const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType }));
+        const month = parseInt(selectedMonth);
+        const year = parseInt(selectedYear);
+        const recordDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const records = data.records.map((r: ExtractedRecord) => ({ ...r, income_type: incomeType, month, year, record_date: recordDate }));
         setExtractedData(records);
         toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden.` });
       } else {
