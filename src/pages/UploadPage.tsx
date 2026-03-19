@@ -42,6 +42,10 @@ export default function UploadPage() {
       toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant of Gehospitaliseerd voor het uploaden.', variant: 'destructive' });
       return;
     }
+    if (!selectedMonth) {
+      toast({ title: 'Kies een maand', description: 'Selecteer de maand van deze inkomsten.', variant: 'destructive' });
+      return;
+    }
     if (!file.type.startsWith('image/')) {
       toast({ title: 'Ongeldig bestand', description: 'Upload een afbeelding.', variant: 'destructive' });
       return;
