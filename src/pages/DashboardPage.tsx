@@ -94,8 +94,12 @@ export default function DashboardPage() {
   const nomenclatureData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.forEach(r => { map[r.nomenclature_code] = (map[r.nomenclature_code] || 0) + r.total_amount; });
-    return Object.entries(map).map(([code, amount]) => ({ code, amount })).sort((a, b) => b.amount - a.amount).slice(0, 10);
-  }, [filtered]);
+    return Object.entries(map).map(([code, amount]) => ({
+      code,
+      label: codeToLabel[code] || code,
+      amount,
+    })).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  }, [filtered, codeToLabel]);
 
   // Category-based data
   const categories = useMemo(() => [...new Set(nomenclatureCodes.map(n => n.category))], [nomenclatureCodes]);
