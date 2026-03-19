@@ -8,22 +8,26 @@ import { Stethoscope, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
 
+  const toEmail = (username: string) => `${username.trim().toLowerCase()}@medincome.local`;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim() || !password) return;
     setLoading(true);
+    const email = toEmail(name);
     const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
     setLoading(false);
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else if (isSignUp) {
-      toast({ title: 'Account created', description: 'Check your email to confirm your account.' });
+      toast({ title: 'Account created', description: 'You are now logged in.' });
     }
   };
 
@@ -42,8 +46,8 @@ export default function Login() {
         <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="doctor@example.com" required />
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="admin" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -56,7 +60,7 @@ export default function Login() {
           </form>
           <div className="mt-4 text-center">
             <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              {isSignUp ? 'Already have an account? Sign in' : "First time? Create an account"}
             </button>
           </div>
         </CardContent>
