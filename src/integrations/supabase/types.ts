@@ -16,10 +16,13 @@ export type Database = {
     Tables: {
       income_records: {
         Row: {
+          aandeel_arts: number
+          bouwfonds: number
           created_at: string
           description: string | null
           id: string
           income_type: string
+          mif: number
           month: number
           nomenclature_code: string
           quantity: number
@@ -32,10 +35,13 @@ export type Database = {
           year: number
         }
         Insert: {
+          aandeel_arts?: number
+          bouwfonds?: number
           created_at?: string
           description?: string | null
           id?: string
           income_type: string
+          mif?: number
           month: number
           nomenclature_code: string
           quantity?: number
@@ -48,10 +54,13 @@ export type Database = {
           year: number
         }
         Update: {
+          aandeel_arts?: number
+          bouwfonds?: number
           created_at?: string
           description?: string | null
           id?: string
           income_type?: string
+          mif?: number
           month?: number
           nomenclature_code?: string
           quantity?: number
