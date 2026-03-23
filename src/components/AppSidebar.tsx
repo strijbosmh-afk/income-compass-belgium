@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +22,7 @@ const navItems = [
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
   { title: 'Exporteren', url: '/export', icon: Download },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
+  { title: 'Simulaties', url: '/simulations', icon: Calculator },
 ];
 
 export function AppSidebar() {

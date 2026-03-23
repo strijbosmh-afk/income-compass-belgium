@@ -84,6 +84,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          netto_amount: number
           updated_at: string
           user_id: string
         }
@@ -93,6 +94,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          netto_amount?: number
           updated_at?: string
           user_id: string
         }
@@ -102,6 +104,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          netto_amount?: number
           updated_at?: string
           user_id?: string
         }
