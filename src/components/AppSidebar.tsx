@@ -66,7 +66,6 @@ export function AppSidebar() {
             <SidebarMenu>
               {renderItems(topItems)}
             </SidebarMenu>
-            <Separator className="my-2 bg-sidebar-border" />
             <SidebarMenu>
               {renderItems(middleItems)}
             </SidebarMenu>
