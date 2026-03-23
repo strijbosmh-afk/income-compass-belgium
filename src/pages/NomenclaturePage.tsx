@@ -472,7 +472,7 @@ export default function NomenclaturePage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Bouwfonds</p>
-                    <p className="text-lg font-semibold text-orange-500">{fmt(totals.bouwfonds)}</p>
+                    <p className="text-lg font-semibold text-destructive">{fmt(totals.bouwfonds)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">MIF</p>
