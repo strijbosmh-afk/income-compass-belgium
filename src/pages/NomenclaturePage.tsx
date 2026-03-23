@@ -19,6 +19,22 @@ type NomenclatureCode = {
   category: string;
 };
 
+type SimulationLine = {
+  id: string;
+  nomenclature_code: string;
+  quantity: number;
+  unit_amount: number;
+  aandeel_arts_pct: number;
+  bouwfonds_pct: number;
+  mif_pct: number;
+};
+
+type Scenario = {
+  id: string;
+  name: string;
+  lines: SimulationLine[];
+};
+
 const DEFAULT_CATEGORIES = ['algemeen', 'raadpleging', 'behandeling', 'procedure', 'overig'];
 
 export default function NomenclaturePage() {
