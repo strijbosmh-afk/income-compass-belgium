@@ -10,9 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 export default function Login() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const { toast } = useToast();
 
   const toEmail = (username: string) => `${username.trim().toLowerCase()}@medincome.local`;
@@ -22,12 +21,10 @@ export default function Login() {
     if (!name.trim() || !password) return;
     setLoading(true);
     const email = toEmail(name);
-    const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
+    const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
       toast({ title: 'Fout', description: error.message, variant: 'destructive' });
-    } else if (isSignUp) {
-      toast({ title: 'Account aangemaakt', description: 'Je bent nu ingelogd.' });
     }
   };
 
@@ -55,14 +52,9 @@ export default function Login() {
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
-              {isSignUp ? 'Account Aanmaken' : 'Inloggen'}
+              Inloggen
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <button type="button" onClick={() => setIsSignUp(!isSignUp)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              {isSignUp ? 'Al een account? Inloggen' : 'Eerste keer? Account aanmaken'}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
