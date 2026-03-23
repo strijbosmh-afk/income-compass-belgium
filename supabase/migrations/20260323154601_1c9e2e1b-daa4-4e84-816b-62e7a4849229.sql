@@ -1,0 +1,1 @@
+ALTER TABLE public.nomenclature_codes ADD COLUMN netto_amount numeric NOT NULL DEFAULT 0;
