@@ -47,6 +47,7 @@ const App = () => (
             <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
             <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
             <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
+            <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

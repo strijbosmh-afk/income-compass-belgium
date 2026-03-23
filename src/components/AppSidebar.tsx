@@ -22,6 +22,7 @@ const navItems = [
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
   { title: 'Exporteren', url: '/export', icon: Download },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
+  { title: 'Simulaties', url: '/simulations', icon: Calculator },
 ];
 
 export function AppSidebar() {
