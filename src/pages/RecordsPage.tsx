@@ -52,6 +52,7 @@ export default function RecordsPage() {
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const fetchRecords = async () => {
