@@ -157,6 +157,15 @@ export default function RecordsPage() {
             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterMonth} onValueChange={setFilterMonth}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle maanden</SelectItem>
+            {['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'].map((m, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filterType} onValueChange={setFilterType}>
           <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
           <SelectContent>
