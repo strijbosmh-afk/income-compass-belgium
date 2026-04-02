@@ -52,6 +52,7 @@ export default function RecordsPage() {
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const fetchRecords = async () => {
@@ -60,6 +61,7 @@ export default function RecordsPage() {
     let query = supabase.from('income_records').select('*').eq('user_id', user.id).order('record_date', { ascending: false });
     if (filterYear !== 'all') query = query.eq('year', parseInt(filterYear));
     if (filterType !== 'all') query = query.eq('income_type', filterType);
+    if (filterMonth !== 'all') query = query.eq('month', parseInt(filterMonth));
     const [recordsRes, nomenclatureRes] = await Promise.all([
       query,
       supabase.from('nomenclature_codes').select('code, description').eq('user_id', user.id),
@@ -70,7 +72,7 @@ export default function RecordsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType]);
+  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType, filterMonth]);
 
   const codeToLabel = useMemo(() => {
     const map: Record<string, string> = {};
@@ -153,6 +155,15 @@ export default function RecordsPage() {
           <SelectContent>
             <SelectItem value="all">Alle jaren</SelectItem>
             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterMonth} onValueChange={setFilterMonth}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle maanden</SelectItem>
+            {['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'].map((m, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={filterType} onValueChange={setFilterType}>
