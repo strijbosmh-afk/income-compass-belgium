@@ -72,7 +72,7 @@ export default function RecordsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType]);
+  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType, filterMonth]);
 
   const codeToLabel = useMemo(() => {
     const map: Record<string, string> = {};
