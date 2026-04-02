@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type IncomeRecord = {
@@ -26,13 +26,33 @@ type IncomeRecord = {
   netto: number;
 };
 
+type NomenclatureCode = {
+  code: string;
+  description: string;
+};
+
+type GroupedRecord = {
+  nomenclature_code: string;
+  label: string;
+  income_type: string;
+  totalQuantity: number;
+  totalBruto: number;
+  totalNetto: number;
+  totalBouwfonds: number;
+  totalMif: number;
+  totalAandeelArts: number;
+  records: IncomeRecord[];
+};
+
 export default function RecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [records, setRecords] = useState<IncomeRecord[]>([]);
+  const [nomenclatureCodes, setNomenclatureCodes] = useState<NomenclatureCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterYear, setFilterYear] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const fetchRecords = async () => {
     if (!user) return;
@@ -40,13 +60,61 @@ export default function RecordsPage() {
     let query = supabase.from('income_records').select('*').eq('user_id', user.id).order('record_date', { ascending: false });
     if (filterYear !== 'all') query = query.eq('year', parseInt(filterYear));
     if (filterType !== 'all') query = query.eq('income_type', filterType);
-    const { data, error } = await query;
-    if (error) toast({ title: 'Fout', description: error.message, variant: 'destructive' });
-    else setRecords(data || []);
+    const [recordsRes, nomenclatureRes] = await Promise.all([
+      query,
+      supabase.from('nomenclature_codes').select('code, description').eq('user_id', user.id),
+    ]);
+    if (recordsRes.error) toast({ title: 'Fout', description: recordsRes.error.message, variant: 'destructive' });
+    else setRecords(recordsRes.data || []);
+    setNomenclatureCodes(nomenclatureRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchRecords(); }, [user, filterYear, filterType]);
+
+  const codeToLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    nomenclatureCodes.forEach(nc => { map[nc.code] = nc.description || nc.code; });
+    return map;
+  }, [nomenclatureCodes]);
+
+  const grouped = useMemo((): GroupedRecord[] => {
+    const map = new Map<string, GroupedRecord>();
+    records.forEach(r => {
+      const key = `${r.nomenclature_code}_${r.income_type}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          nomenclature_code: r.nomenclature_code,
+          label: codeToLabel[r.nomenclature_code] || r.description || r.nomenclature_code,
+          income_type: r.income_type,
+          totalQuantity: 0,
+          totalBruto: 0,
+          totalNetto: 0,
+          totalBouwfonds: 0,
+          totalMif: 0,
+          totalAandeelArts: 0,
+          records: [],
+        });
+      }
+      const g = map.get(key)!;
+      g.totalQuantity += r.quantity;
+      g.totalBruto += r.total_amount;
+      g.totalNetto += r.netto;
+      g.totalBouwfonds += r.bouwfonds;
+      g.totalMif += r.mif;
+      g.totalAandeelArts += r.aandeel_arts;
+      g.records.push(r);
+    });
+    return Array.from(map.values()).sort((a, b) => b.totalNetto - a.totalNetto);
+  }, [records, codeToLabel]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   const deleteRecord = async (id: string) => {
     const { error } = await supabase.from('income_records').delete().eq('id', id);
@@ -109,14 +177,14 @@ export default function RecordsPage() {
             <CardContent className="pt-4">
               {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-              ) : records.length === 0 ? (
+              ) : grouped.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">Geen records gevonden. Upload een screenshot om te beginnen.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border/50">
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Datum</th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground w-8"></th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Type</th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">RIZIV</th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Omschrijving</th>
@@ -127,26 +195,46 @@ export default function RecordsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {records.map(r => (
-                        <tr key={r.id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
-                          <td className="py-2.5 px-3">{new Date(r.record_date).toLocaleDateString('nl-BE')}</td>
-                          <td className="py-2.5 px-3">
-                            <Badge variant={r.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
-                              {r.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-xs">{r.nomenclature_code}</td>
-                          <td className="py-2.5 px-3 text-muted-foreground">{r.description || '—'}</td>
-                          <td className="py-2.5 px-3 text-right">{r.quantity}</td>
-                          <td className="py-2.5 px-3 text-right text-muted-foreground">€{r.total_amount.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
-                          <td className="py-2.5 px-3">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteRecord(r.id)}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {grouped.map(g => {
+                        const key = `${g.nomenclature_code}_${g.income_type}`;
+                        const isExpanded = expandedGroups.has(key);
+                        return (
+                          <>
+                            <tr key={key} className="border-b border-border/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => toggleGroup(key)}>
+                              <td className="py-2.5 px-3">
+                                {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <Badge variant={g.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
+                                  {g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
+                                </Badge>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-xs">{g.nomenclature_code}</td>
+                              <td className="py-2.5 px-3 font-medium">{g.label}</td>
+                              <td className="py-2.5 px-3 text-right font-medium">{g.totalQuantity}</td>
+                              <td className="py-2.5 px-3 text-right text-muted-foreground font-medium">{fmt(g.totalBruto)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold">{fmt(g.totalNetto)}</td>
+                              <td className="py-2.5 px-3"></td>
+                            </tr>
+                            {isExpanded && g.records.map(r => (
+                              <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(r.record_date).toLocaleDateString('nl-BE')}</td>
+                                <td className="py-2 px-3 text-right text-xs">{r.quantity}</td>
+                                <td className="py-2 px-3 text-right text-muted-foreground text-xs">€{r.total_amount.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right text-xs">€{r.netto.toFixed(2)}</td>
+                                <td className="py-2 px-3">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteRecord(r.id); }}>
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border/50">
@@ -165,7 +253,6 @@ export default function RecordsPage() {
 
         {/* Afdracht tab */}
         <TabsContent value="afdracht" className="mt-4 space-y-4">
-          {/* Summary cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-border/50">
               <CardContent className="pt-4">
@@ -191,14 +278,14 @@ export default function RecordsPage() {
             <CardContent className="pt-4">
               {loading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-              ) : records.length === 0 ? (
+              ) : grouped.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">Geen records gevonden.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border/50">
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Datum</th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground w-8"></th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Type</th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">RIZIV</th>
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Omschrijving</th>
@@ -209,22 +296,42 @@ export default function RecordsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {records.map(r => (
-                        <tr key={r.id} className="border-b border-border/20 hover:bg-muted/30 transition-colors">
-                          <td className="py-2.5 px-3">{new Date(r.record_date).toLocaleDateString('nl-BE')}</td>
-                          <td className="py-2.5 px-3">
-                            <Badge variant={r.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
-                              {r.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-xs">{r.nomenclature_code}</td>
-                          <td className="py-2.5 px-3 text-muted-foreground">{r.description || '—'}</td>
-                          <td className="py-2.5 px-3 text-right">€{r.total_amount.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right text-destructive/80">€{r.bouwfonds.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right text-destructive/80">€{r.mif.toFixed(2)}</td>
-                          <td className="py-2.5 px-3 text-right font-medium">€{r.netto.toFixed(2)}</td>
-                        </tr>
-                      ))}
+                      {grouped.map(g => {
+                        const key = `${g.nomenclature_code}_${g.income_type}`;
+                        const isExpanded = expandedGroups.has(key);
+                        return (
+                          <>
+                            <tr key={`afd-${key}`} className="border-b border-border/20 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => toggleGroup(key)}>
+                              <td className="py-2.5 px-3">
+                                {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <Badge variant={g.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
+                                  {g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
+                                </Badge>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-xs">{g.nomenclature_code}</td>
+                              <td className="py-2.5 px-3 font-medium">{g.label}</td>
+                              <td className="py-2.5 px-3 text-right font-medium">{fmt(g.totalBruto)}</td>
+                              <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalBouwfonds)}</td>
+                              <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalMif)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold">{fmt(g.totalNetto)}</td>
+                            </tr>
+                            {isExpanded && g.records.map(r => (
+                              <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3"></td>
+                                <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(r.record_date).toLocaleDateString('nl-BE')}</td>
+                                <td className="py-2 px-3 text-right text-xs">€{r.total_amount.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.bouwfonds.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.mif.toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right text-xs">€{r.netto.toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </>
+                        );
+                      })}
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-border/50">
