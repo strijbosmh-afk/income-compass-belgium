@@ -61,6 +61,7 @@ export default function RecordsPage() {
     let query = supabase.from('income_records').select('*').eq('user_id', user.id).order('record_date', { ascending: false });
     if (filterYear !== 'all') query = query.eq('year', parseInt(filterYear));
     if (filterType !== 'all') query = query.eq('income_type', filterType);
+    if (filterMonth !== 'all') query = query.eq('month', parseInt(filterMonth));
     const [recordsRes, nomenclatureRes] = await Promise.all([
       query,
       supabase.from('nomenclature_codes').select('code, description').eq('user_id', user.id),
