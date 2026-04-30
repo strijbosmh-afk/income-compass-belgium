@@ -319,7 +319,7 @@ export default function StatisticsPage() {
 
         {/* Prestaties */}
         <TabsContent value="prestaties" className="space-y-6 mt-4">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Type:</span>
             <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulatory' | 'hospitalized')}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -328,10 +328,22 @@ export default function StatisticsPage() {
                 <SelectItem value="hospitalized">Hospitalisatie</SelectItem>
               </SelectContent>
             </Select>
+            <span className="text-sm font-medium text-muted-foreground ml-2">Maand:</span>
+            <Select value={prestatieMonth} onValueChange={setPrestatieMonth}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Volledig jaar</SelectItem>
+                {MONTH_NAMES.map((name, idx) => (
+                  <SelectItem key={idx + 1} value={String(idx + 1)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {!prestatieData ? (
-            <div className="text-center py-12 text-muted-foreground">Geen prestaties beschikbaar voor {prestatieType} in {selectedYear}.</div>
+            <div className="text-center py-12 text-muted-foreground">
+              Geen prestaties beschikbaar voor {prestatieType === 'ambulatory' ? 'ambulant' : 'hospitalisatie'} in {prestatieMonth === 'all' ? selectedYear : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}.
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
