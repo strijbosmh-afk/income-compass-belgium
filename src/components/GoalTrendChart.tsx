@@ -229,7 +229,7 @@ export function GoalTrendChart({ goal, records, fullHeight, selectable, selected
               stroke="hsl(var(--primary))"
               strokeWidth={2}
               fill={`url(#gradient-${goal.id})`}
-              dot={{ r: fullHeight ? 3.5 : 2.5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
+              dot={selectable ? renderDot : { r: fullHeight ? 3.5 : 2.5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
               activeDot={{ r: fullHeight ? 5 : 4, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
               connectNulls
             />
