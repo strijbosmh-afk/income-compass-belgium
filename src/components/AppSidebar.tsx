@@ -1,8 +1,10 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useControleIssues } from '@/hooks/useControleIssues';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +39,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { signOut } = useAuth();
+  const issueCount = useControleIssues();
 
   const renderItems = (items: typeof topItems) =>
     items.map((item) => (
@@ -72,7 +75,39 @@ export function AppSidebar() {
             </SidebarMenu>
             <Separator className="my-2 bg-sidebar-border" />
             <SidebarMenu>
-              {renderItems(bottomItems)}
+              {bottomItems.map((item) => {
+                const isControle = item.url === '/controle';
+                const showWarning = isControle && issueCount > 0;
+                const node = (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                      <NavLink to={item.url} end className="text-sidebar-foreground hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span className="flex-1">{item.title}</span>}
+                        {showWarning && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500/80 shrink-0" aria-label={`${issueCount} aandachtspunt${issueCount === 1 ? '' : 'en'}`} />
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              {issueCount} aandachtspunt{issueCount === 1 ? '' : 'en'}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+                if (item.url === '/simulations') {
+                  return (
+                    <div key={item.title}>
+                      <Separator className="my-2 bg-sidebar-border" />
+                      {node}
+                    </div>
+                  );
+                }
+                return node;
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
