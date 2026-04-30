@@ -43,7 +43,7 @@ const fmtCompact = (v: number) =>
 const fmtFull = (v: number) =>
   `€ ${v.toLocaleString('de-BE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-export function GoalTrendChart({ goal, records }: { goal: Goal; records: IncomeRecord[] }) {
+export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; records: IncomeRecord[]; fullHeight?: boolean }) {
   const data = useMemo(() => {
     const buckets = buildBuckets(goal);
     const target = goal.amount || 0;
