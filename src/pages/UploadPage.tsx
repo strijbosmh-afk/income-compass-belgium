@@ -82,7 +82,7 @@ export default function UploadPage() {
           year,
           record_date: recordDate,
           source_image_url: filePath,
-          netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
+          // netto blijft EXACT zoals geëxtraheerd uit de screenshot — niet herberekenen.
         }));
         setExtractedData(records);
         toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden.` });
