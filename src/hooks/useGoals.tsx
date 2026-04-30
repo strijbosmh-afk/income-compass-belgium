@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
 
-export type GoalPeriodType = 'year' | 'quarter' | 'month';
+export type GoalPeriodType = 'year' | 'quarter' | 'month' | 'custom';
 export type GoalIncomeType = 'all' | 'ambulatory' | 'hospitalized';
 export type GoalMetric = 'netto' | 'bruto' | 'aandeel_arts';
 
@@ -12,10 +12,13 @@ export type Goal = {
   year: number;
   period_type: GoalPeriodType;
   period_value: number | null;
+  period_start: number | null;
+  period_end: number | null;
   income_type: GoalIncomeType;
   metric: GoalMetric;
   amount: number;
   note: string | null;
+  sort_order: number;
 };
 
 type IncomeRecord = {
@@ -65,6 +68,17 @@ function periodBounds(g: Goal): { start: Date; end: Date; months: number[] } {
       start: new Date(g.year, m1 - 1, 1),
       end: new Date(g.year, m2, 0, 23, 59, 59),
       months: [m1, m1 + 1, m2],
+    };
+  }
+  if (g.period_type === 'custom') {
+    const ms = Math.max(1, Math.min(12, g.period_start || 1));
+    const me = Math.max(ms, Math.min(12, g.period_end || ms));
+    const months: number[] = [];
+    for (let i = ms; i <= me; i++) months.push(i);
+    return {
+      start: new Date(g.year, ms - 1, 1),
+      end: new Date(g.year, me, 0, 23, 59, 59),
+      months,
     };
   }
   const m = g.period_value || 1;
