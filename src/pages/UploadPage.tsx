@@ -37,6 +37,7 @@ export default function UploadPage() {
   const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+  const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
