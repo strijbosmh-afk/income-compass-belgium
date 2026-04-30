@@ -46,9 +46,11 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [viewMode, setViewMode] = useState('overview');
+  const dataVersion = useDataVersion();
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     Promise.all([
       supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
@@ -57,7 +59,7 @@ export default function DashboardPage() {
       setNomenclatureCodes(nomRes.data || []);
       setLoading(false);
     });
-  }, [user]);
+  }, [user, dataVersion]);
 
   const codeToCategory = useMemo(() => {
     const map: Record<string, string> = {};
