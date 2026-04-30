@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2 } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
+import { exportPeriodsCSV, exportPeriodsPDF, ExportRow } from '@/lib/goalExport';
 import { toast } from 'sonner';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
@@ -59,6 +60,46 @@ export default function GoalsPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busy, setBusy] = useState(false);
   const [fullscreen, setFullscreen] = useState<typeof progressList[number] | null>(null);
+  const [chartData, setChartData] = useState<ExportRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
+  // Reset selectie bij wisselen van doel
+  const openFullscreen = (p: typeof progressList[number]) => {
+    setFullscreen(p);
+    setSelected(new Set());
+    setChartData([]);
+  };
+
+  const toggleSelect = (label: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  const exportRows = (): ExportRow[] => {
+    if (selected.size === 0) return chartData;
+    return chartData.filter(d => selected.has(d.label));
+  };
+
+  const doExportCSV = () => {
+    if (!fullscreen) return;
+    const rows = exportRows();
+    if (rows.length === 0) { toast.error('Geen periodes om te exporteren.'); return; }
+    exportPeriodsCSV(fullscreen.goal, rows);
+    toast.success(`CSV geëxporteerd (${rows.length} ${rows.length === 1 ? 'periode' : 'periodes'})`);
+  };
+
+  const doExportPDF = () => {
+    if (!fullscreen) return;
+    const rows = exportRows();
+    if (rows.length === 0) { toast.error('Geen periodes om te exporteren.'); return; }
+    exportPeriodsPDF(fullscreen.goal, rows);
+    toast.success(`PDF geëxporteerd (${rows.length} ${rows.length === 1 ? 'periode' : 'periodes'})`);
+  };
 
   const openNew = () => {
     setEditing(null);
