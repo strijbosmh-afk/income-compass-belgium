@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Trash2, Loader2, Pencil, Tag, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { bumpDataVersion } from '@/hooks/useDataVersion';
 
 type NomenclatureCode = {
   id: string;
