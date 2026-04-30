@@ -79,17 +79,21 @@ export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; reco
   const maxVal = Math.max(goal.amount, ...data.map(d => Math.max(d.doel || 0, d.werkelijk || 0)));
 
   return (
-    <div className="h-32 -mx-1">
+    <div className={fullHeight ? 'h-full w-full' : 'h-32 -mx-1'}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+        <ComposedChart data={data} margin={{ top: 8, right: 16, left: fullHeight ? 16 : 0, bottom: 4 }}>
           <defs>
             <linearGradient id={`gradient-${goal.id}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
               <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
-          <YAxis hide domain={[0, maxVal * 1.05 || 1]} />
+          <XAxis dataKey="label" tick={{ fontSize: fullHeight ? 12 : 10 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} />
+          {fullHeight ? (
+            <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} tickFormatter={fmtCompact} domain={[0, maxVal * 1.05 || 1]} />
+          ) : (
+            <YAxis hide domain={[0, maxVal * 1.05 || 1]} />
+          )}
           <Tooltip
             contentStyle={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid hsl(var(--border))', background: 'hsl(var(--background))' }}
             formatter={(val: number, name: string) => [fmtFull(val), name === 'werkelijk' ? 'Werkelijk' : 'Doel (lineair)']}
