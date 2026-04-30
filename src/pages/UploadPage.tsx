@@ -329,7 +329,7 @@ export default function UploadPage() {
       )}
 
       {extractedData && (
-        <ExtractedDataReview records={extractedData} onSave={handleSaveRecords} onCancel={() => { setExtractedData(null); setPreviewUrl(null); }} />
+        <ExtractedDataReview records={extractedData} unitNettoByCode={unitNettoByCode} onSave={handleSaveRecords} onCancel={() => { setExtractedData(null); setPreviewUrl(null); }} />
       )}
     </div>
   );
