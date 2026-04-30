@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Line, XAxis, YAxis, ReferenceLine, Tooltip, ResponsiveContainer, Area, ComposedChart, Brush, CartesianGrid } from 'recharts';
 import { Goal, GoalMetric, GoalIncomeType } from '@/hooks/useGoals';
 
@@ -98,7 +98,17 @@ function CustomTooltip({ active, payload, totalTarget }: { active?: boolean; pay
   );
 }
 
-export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; records: IncomeRecord[]; fullHeight?: boolean }) {
+type ChartProps = {
+  goal: Goal;
+  records: IncomeRecord[];
+  fullHeight?: boolean;
+  selectable?: boolean;
+  selected?: Set<string>;
+  onToggleSelect?: (label: string) => void;
+  onDataReady?: (data: Datum[]) => void;
+};
+
+export function GoalTrendChart({ goal, records, fullHeight, selectable, selected, onToggleSelect, onDataReady }: ChartProps) {
   const [zoomReset, setZoomReset] = useState(0);
 
   const data: Datum[] = useMemo(() => {
@@ -144,8 +154,32 @@ export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; reco
     });
   }, [goal, records]);
 
+  useEffect(() => { onDataReady?.(data); }, [data, onDataReady]);
+
   const maxVal = Math.max(goal.amount, ...data.map(d => Math.max(d.doel || 0, d.werkelijk || 0)));
   const showBrush = fullHeight && data.length > 4;
+
+  // Custom dot voor selectie-mode: ster-vorm of grotere ring voor geselecteerde periodes
+  const renderDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    if (cx == null || cy == null || payload?.werkelijk == null) return <g />;
+    const isSel = selectable && selected?.has(payload.label);
+    const baseR = fullHeight ? 3.5 : 2.5;
+    return (
+      <g>
+        {isSel && (
+          <circle cx={cx} cy={cy} r={baseR + 4} fill="hsl(var(--primary))" fillOpacity={0.18} stroke="hsl(var(--primary))" strokeWidth={1.5} />
+        )}
+        <circle cx={cx} cy={cy} r={baseR} fill="hsl(var(--primary))" />
+      </g>
+    );
+  };
+
+  const handleClick = (state: any) => {
+    if (!selectable || !onToggleSelect) return;
+    const label = state?.activeLabel ?? state?.activePayload?.[0]?.payload?.label;
+    if (label) onToggleSelect(label);
+  };
 
   return (
     <div className={fullHeight ? 'h-full w-full flex flex-col' : 'h-32 -mx-1'}>
@@ -162,7 +196,7 @@ export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; reco
       )}
       <div className={fullHeight ? 'flex-1 min-h-0' : 'h-full'}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={zoomReset} data={data} margin={{ top: 8, right: 16, left: fullHeight ? 16 : 0, bottom: showBrush ? 4 : 4 }}>
+          <ComposedChart key={zoomReset} data={data} margin={{ top: 8, right: 16, left: fullHeight ? 16 : 0, bottom: showBrush ? 4 : 4 }} onClick={handleClick} style={selectable ? { cursor: 'pointer' } : undefined}>
             <defs>
               <linearGradient id={`gradient-${goal.id}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
@@ -195,7 +229,7 @@ export function GoalTrendChart({ goal, records, fullHeight }: { goal: Goal; reco
               stroke="hsl(var(--primary))"
               strokeWidth={2}
               fill={`url(#gradient-${goal.id})`}
-              dot={{ r: fullHeight ? 3.5 : 2.5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
+              dot={selectable ? renderDot : { r: fullHeight ? 3.5 : 2.5, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
               activeDot={{ r: fullHeight ? 5 : 4, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
               connectNulls
             />

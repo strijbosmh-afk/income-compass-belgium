@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2 } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
+import { exportPeriodsCSV, exportPeriodsPDF, ExportRow } from '@/lib/goalExport';
 import { toast } from 'sonner';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
@@ -59,6 +60,46 @@ export default function GoalsPage() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busy, setBusy] = useState(false);
   const [fullscreen, setFullscreen] = useState<typeof progressList[number] | null>(null);
+  const [chartData, setChartData] = useState<ExportRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
+  // Reset selectie bij wisselen van doel
+  const openFullscreen = (p: typeof progressList[number]) => {
+    setFullscreen(p);
+    setSelected(new Set());
+    setChartData([]);
+  };
+
+  const toggleSelect = (label: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  const exportRows = (): ExportRow[] => {
+    if (selected.size === 0) return chartData;
+    return chartData.filter(d => selected.has(d.label));
+  };
+
+  const doExportCSV = () => {
+    if (!fullscreen) return;
+    const rows = exportRows();
+    if (rows.length === 0) { toast.error('Geen periodes om te exporteren.'); return; }
+    exportPeriodsCSV(fullscreen.goal, rows);
+    toast.success(`CSV geëxporteerd (${rows.length} ${rows.length === 1 ? 'periode' : 'periodes'})`);
+  };
+
+  const doExportPDF = () => {
+    if (!fullscreen) return;
+    const rows = exportRows();
+    if (rows.length === 0) { toast.error('Geen periodes om te exporteren.'); return; }
+    exportPeriodsPDF(fullscreen.goal, rows);
+    toast.success(`PDF geëxporteerd (${rows.length} ${rows.length === 1 ? 'periode' : 'periodes'})`);
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -166,7 +207,7 @@ export default function GoalsPage() {
                       <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
@@ -259,16 +300,59 @@ export default function GoalsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 mt-4 flex flex-col">
+              {/* Toolbar: selectie + export */}
+              <div className="shrink-0 mt-4 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant={selectMode ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => { setSelectMode(s => !s); if (selectMode) setSelected(new Set()); }}
+                    className="gap-1.5 h-8"
+                  >
+                    <MousePointerClick className="h-3.5 w-3.5" />
+                    {selectMode ? 'Selectie aan' : 'Periodes selecteren'}
+                  </Button>
+                  {selectMode && (
+                    <>
+                      <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set(chartData.map(d => d.label)))}>Alles</Button>
+                      <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set())} disabled={selected.size === 0}>Wissen</Button>
+                      <Badge variant="outline" className="font-normal">
+                        {selected.size === 0 ? 'Geen geselecteerd – exporteert alle' : `${selected.size} geselecteerd`}
+                      </Badge>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={doExportCSV}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={doExportPDF}>
+                    <FileText className="h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 mt-3 flex flex-col">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                  <span>Cumulatieve evolutie</span>
+                  <span>
+                    Cumulatieve evolutie
+                    {selectMode && <span className="ml-2 italic">— klik op een datapunt om te (de)selecteren</span>}
+                  </span>
                   <span className="flex items-center gap-3">
                     <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-primary" /> Werkelijk</span>
                     <span className="flex items-center gap-1.5"><span className="inline-block w-3 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
                   </span>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <GoalTrendChart goal={fullscreen.goal} records={records} fullHeight />
+                  <GoalTrendChart
+                    goal={fullscreen.goal}
+                    records={records}
+                    fullHeight
+                    selectable={selectMode}
+                    selected={selected}
+                    onToggleSelect={toggleSelect}
+                    onDataReady={setChartData}
+                  />
                 </div>
               </div>
 
