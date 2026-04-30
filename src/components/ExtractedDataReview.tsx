@@ -190,6 +190,17 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
             </div>
           </div>
         )}
+        {totalQtyIssues > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">{totalQtyIssues} regel(s) met verdacht aantal.</p>
+              <p className="mt-0.5 opacity-80">
+                Bij deze regels matcht <span className="font-mono">aantal × eenheid</span> niet met het totaal. Controleer het aantal tegen de screenshot — dit blokkeert opslaan niet, maar foute aantallen vertekenen de statistieken per nomenclatuur.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
           <Button
