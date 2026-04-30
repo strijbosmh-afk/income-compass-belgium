@@ -159,10 +159,26 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
         const netto = num(r.netto);
         const total = num(r.total_amount);
         const unit = num(r.unit_amount);
-        const quantity = Math.max(1, Math.round(num(r.quantity) || 1));
+        let quantity = Math.max(1, Math.round(num(r.quantity) || 1));
+
+        // Quantity sanity: als unit_amount en total_amount beide aanwezig zijn,
+        // moet quantity ≈ total / unit zijn. Als de AI er ver naast zit, herbereken.
+        // (Dit is pure rekenkunde op de geëxtraheerde bedragen — bedragen zelf blijven 1‑op‑1.)
+        let quantity_recomputed = false;
+        if (unit > 0 && total > 0) {
+          const derived = Math.round(total / unit);
+          if (derived >= 1 && derived !== quantity) {
+            // Vertrouw de afgeleide qty als de AI's qty duidelijk inconsistent is met total/unit.
+            const expected = derived * unit;
+            const diff = Math.abs(expected - total);
+            if (diff <= Math.max(0.05, total * 0.02)) {
+              quantity = derived;
+              quantity_recomputed = true;
+            }
+          }
+        }
 
         // Sanity flag: difference between printed netto and (aandeel - bouwfonds - mif).
-        // Stored on the record so the UI can warn the user but the printed values stay intact.
         const computedNetto = Math.round((aandeel - bouwfonds - mif) * 100) / 100;
         const nettoDiff = Math.round((netto - computedNetto) * 100) / 100;
 
@@ -177,7 +193,8 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
           quantity,
           _verification: {
             computed_netto: computedNetto,
-            netto_diff: nettoDiff, // should be 0,00 if extraction is correct
+            netto_diff: nettoDiff,
+            quantity_recomputed,
           },
         };
       });
