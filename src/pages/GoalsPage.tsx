@@ -9,16 +9,25 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick, GripVertical } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
 import { exportPeriodsCSV, exportPeriodsPDF, ExportRow } from '@/lib/goalExport';
 import { toast } from 'sonner';
+import { DndContext, DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const MONTH_SHORT = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const fmt = (val: number) => `€ ${val.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const periodLabel = (g: Goal) => {
   if (g.period_type === 'year') return `Jaar ${g.year}`;
   if (g.period_type === 'quarter') return `Q${g.period_value} ${g.year}`;
+  if (g.period_type === 'custom') {
+    const s = g.period_start ?? 1;
+    const e = g.period_end ?? s;
+    return `${MONTH_SHORT[s - 1]}–${MONTH_SHORT[e - 1]} ${g.year}`;
+  }
   return `${MONTH_NAMES[(g.period_value || 1) - 1]} ${g.year}`;
 };
 const incomeTypeLabel: Record<GoalIncomeType, string> = {
@@ -36,6 +45,8 @@ type FormState = {
   year: number;
   period_type: GoalPeriodType;
   period_value: number;
+  period_start: number;
+  period_end: number;
   income_type: GoalIncomeType;
   metric: GoalMetric;
   amount: string;
@@ -46,6 +57,8 @@ const emptyForm = (): FormState => ({
   year: new Date().getFullYear(),
   period_type: 'year',
   period_value: 1,
+  period_start: 1,
+  period_end: 6,
   income_type: 'all',
   metric: 'netto',
   amount: '',
@@ -113,6 +126,8 @@ export default function GoalsPage() {
       year: g.year,
       period_type: g.period_type,
       period_value: g.period_value || 1,
+      period_start: g.period_start || 1,
+      period_end: g.period_end || 6,
       income_type: g.income_type,
       metric: g.metric,
       amount: String(g.amount),
@@ -128,13 +143,20 @@ export default function GoalsPage() {
       toast.error('Geef een geldig bedrag op.');
       return;
     }
+    if (form.period_type === 'custom' && form.period_end < form.period_start) {
+      toast.error('Eindmaand moet na of gelijk aan startmaand zijn.');
+      return;
+    }
     setBusy(true);
     try {
-      const payload = {
+      const isCustom = form.period_type === 'custom';
+      const payload: any = {
         user_id: user.id,
         year: form.year,
         period_type: form.period_type,
-        period_value: form.period_type === 'year' ? null : form.period_value,
+        period_value: (form.period_type === 'year' || isCustom) ? null : form.period_value,
+        period_start: isCustom ? form.period_start : null,
+        period_end: isCustom ? form.period_end : null,
         income_type: form.income_type,
         metric: form.metric,
         amount: amt,
@@ -145,6 +167,9 @@ export default function GoalsPage() {
         if (error) throw error;
         toast.success('Doel bijgewerkt');
       } else {
+        // Nieuw doel krijgt hoogste sort_order
+        const maxOrder = progressList.reduce((m, p) => Math.max(m, p.goal.sort_order ?? 0), -1);
+        payload.sort_order = maxOrder + 1;
         const { error } = await supabase.from('income_goals').insert(payload);
         if (error) throw error;
         toast.success('Doel toegevoegd');
@@ -155,6 +180,40 @@ export default function GoalsPage() {
       toast.error(e.message?.includes('duplicate') ? 'Dit doel bestaat al.' : (e.message || 'Fout bij opslaan'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const onDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = progressList.map(p => p.goal.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(progressList, oldIndex, newIndex);
+    // Persisteer nieuwe sort_order per gewijzigd doel
+    try {
+      const updates = reordered.map((p, idx) => ({ id: p.goal.id, sort_order: idx }));
+      // Parallel updates
+      const results = await Promise.all(
+        updates
+          .filter(u => {
+            const cur = progressList.find(p => p.goal.id === u.id);
+            return (cur?.goal.sort_order ?? 0) !== u.sort_order;
+          })
+          .map(u => supabase.from('income_goals').update({ sort_order: u.sort_order }).eq('id', u.id))
+      );
+      const err = results.find(r => r.error);
+      if (err?.error) throw err.error;
+      refresh();
+    } catch (e: any) {
+      toast.error('Volgorde opslaan mislukt: ' + (e.message || 'onbekende fout'));
     }
   };
 
@@ -193,62 +252,23 @@ export default function GoalsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {progressList.map(p => {
-            const { goal: g } = p;
-            const barPct = Math.min(100, Math.max(0, p.progressPct));
-            const barColor = p.status === 'behind' ? 'bg-red-500' : p.status === 'ahead' ? 'bg-green-500' : 'bg-primary';
-            return (
-              <Card key={g.id} className="border-border/50">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base">{periodLabel(g)}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-xl font-semibold tabular-nums">{fmt(p.actual)}</div>
-                    <div className="text-sm text-muted-foreground tabular-nums">van {fmt(p.target)}</div>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${barColor} transition-all`} style={{ width: `${barPct}%` }} />
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{p.progressPct.toFixed(0)}% behaald • {p.periodPct.toFixed(0)}% van periode</span>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <div className="pt-1">
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-                      <span>Cumulatieve evolutie</span>
-                      <span className="flex items-center gap-2">
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-primary" /> Werkelijk</span>
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
-                      </span>
-                    </div>
-                    <GoalTrendChart goal={g} records={records} />
-                  </div>
-                  <div className="text-xs text-muted-foreground border-t border-border/50 pt-2">
-                    Projectie eindbedrag: <span className="font-medium text-foreground">{fmt(p.projected)}</span>
-                    {p.target > 0 && (
-                      <span className={`ml-2 ${p.deviationPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        ({p.deviationPct >= 0 ? '+' : ''}{p.deviationPct.toFixed(1)}% t.o.v. doel)
-                      </span>
-                    )}
-                  </div>
-                  {g.note && <p className="text-xs text-muted-foreground italic">"{g.note}"</p>}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={progressList.map(p => p.goal.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {progressList.map(p => (
+                <SortableGoalCard
+                  key={p.goal.id}
+                  p={p}
+                  records={records}
+                  onFullscreen={() => openFullscreen(p)}
+                  onEdit={() => openEdit(p.goal)}
+                  onRemove={() => remove(p.goal)}
+                  StatusBadge={StatusBadge}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Fullscreen-weergave van één doel */}
@@ -383,6 +403,7 @@ export default function GoalsPage() {
                     <SelectItem value="year">Volledig jaar</SelectItem>
                     <SelectItem value="quarter">Kwartaal</SelectItem>
                     <SelectItem value="month">Maand</SelectItem>
+                    <SelectItem value="custom">Aangepaste periode</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -407,6 +428,36 @@ export default function GoalsPage() {
                     {MONTH_NAMES.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {form.period_type === 'custom' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Van maand</Label>
+                  <Select value={String(form.period_start)} onValueChange={v => {
+                    const ns = parseInt(v);
+                    setForm(f => ({ ...f, period_start: ns, period_end: f.period_end < ns ? ns : f.period_end }));
+                  }}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Tot en met</Label>
+                  <Select value={String(form.period_end)} onValueChange={v => setForm(f => ({ ...f, period_end: parseInt(v) }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES.map((n, i) => (
+                        <SelectItem key={i} value={String(i + 1)} disabled={i + 1 < form.period_start}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="col-span-2 text-[11px] text-muted-foreground -mt-1">
+                  Bijv. <span className="font-medium text-foreground">Januari–Juni</span> voor een halfjaardoel.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
@@ -451,6 +502,95 @@ export default function GoalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// =================== Sortable card component ===================
+type GoalProgressItem = ReturnType<typeof useGoals>['progressList'][number];
+
+function SortableGoalCard({
+  p, records, onFullscreen, onEdit, onRemove, StatusBadge,
+}: {
+  p: GoalProgressItem;
+  records: ReturnType<typeof useGoals>['records'];
+  onFullscreen: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+  StatusBadge: (props: { status: 'on_track' | 'ahead' | 'behind' | 'no_data' }) => JSX.Element;
+}) {
+  const { goal: g } = p;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: g.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+  };
+  const barPct = Math.min(100, Math.max(0, p.progressPct));
+  const barColor = p.status === 'behind' ? 'bg-red-500' : p.status === 'ahead' ? 'bg-green-500' : 'bg-primary';
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className={`border-border/50 ${isDragging ? 'shadow-lg ring-2 ring-primary/40' : ''}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 min-w-0">
+              <button
+                type="button"
+                {...attributes}
+                {...listeners}
+                className="mt-0.5 -ml-1 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none shrink-0"
+                title="Sleep om te herschikken"
+                aria-label="Sleep om te herschikken"
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+              <div className="min-w-0">
+                <CardTitle className="text-base truncate">{periodLabel(g)}</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onFullscreen} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <div className="text-xl font-semibold tabular-nums">{fmt(p.actual)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums">van {fmt(p.target)}</div>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full ${barColor} transition-all`} style={{ width: `${barPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{p.progressPct.toFixed(0)}% behaald • {p.periodPct.toFixed(0)}% van periode</span>
+            <StatusBadge status={p.status} />
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+              <span>Cumulatieve evolutie</span>
+              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-primary" /> Werkelijk</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
+              </span>
+            </div>
+            <GoalTrendChart goal={g} records={records} />
+          </div>
+          <div className="text-xs text-muted-foreground border-t border-border/50 pt-2">
+            Projectie eindbedrag: <span className="font-medium text-foreground">{fmt(p.projected)}</span>
+            {p.target > 0 && (
+              <span className={`ml-2 ${p.deviationPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ({p.deviationPct >= 0 ? '+' : ''}{p.deviationPct.toFixed(1)}% t.o.v. doel)
+              </span>
+            )}
+          </div>
+          {g.note && <p className="text-xs text-muted-foreground italic">"{g.note}"</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }

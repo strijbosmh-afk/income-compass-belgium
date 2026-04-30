@@ -8,9 +8,14 @@ import { Link } from 'react-router-dom';
 const fmt = (val: number) => `€ ${val.toLocaleString('de-BE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const MONTH_NAMES = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 
-const periodLabel = (g: { period_type: string; period_value: number | null; year: number }) => {
+const periodLabel = (g: { period_type: string; period_value: number | null; period_start?: number | null; period_end?: number | null; year: number }) => {
   if (g.period_type === 'year') return `${g.year}`;
   if (g.period_type === 'quarter') return `Q${g.period_value} ${g.year}`;
+  if (g.period_type === 'custom') {
+    const s = g.period_start ?? 1;
+    const e = g.period_end ?? s;
+    return `${MONTH_NAMES[s - 1]}–${MONTH_NAMES[e - 1]} ${g.year}`;
+  }
   return `${MONTH_NAMES[(g.period_value || 1) - 1]} ${g.year}`;
 };
 
