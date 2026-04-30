@@ -128,8 +128,41 @@ export default function RecordsPage() {
       g.totalAandeelArts += r.aandeel_arts;
       g.records.push({ ...r, quantity: qty });
     });
-    return Array.from(map.values()).sort((a, b) => b.totalNetto - a.totalNetto);
-  }, [records, codeToLabel, codeToNetto]);
+    const arr = Array.from(map.values());
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const cmp = (a: GroupedRecord, b: GroupedRecord): number => {
+      switch (sortKey) {
+        case 'type': return a.income_type.localeCompare(b.income_type) * dir;
+        case 'code': return a.nomenclature_code.localeCompare(b.nomenclature_code, undefined, { numeric: true }) * dir;
+        case 'label': return a.label.localeCompare(b.label) * dir;
+        case 'qty': return (a.totalQuantity - b.totalQuantity) * dir;
+        case 'bruto': return (a.totalBruto - b.totalBruto) * dir;
+        case 'netto': return (a.totalNetto - b.totalNetto) * dir;
+        case 'bouwfonds': return (a.totalBouwfonds - b.totalBouwfonds) * dir;
+        case 'mif': return (a.totalMif - b.totalMif) * dir;
+        default: return 0;
+      }
+    };
+    return arr.sort(cmp);
+  }, [records, codeToLabel, codeToNetto, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // Numerieke kolommen standaard aflopend, tekst standaard oplopend.
+      setSortDir(['qty', 'bruto', 'netto', 'bouwfonds', 'mif'].includes(key) ? 'desc' : 'asc');
+    }
+  };
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-40 inline ml-1" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="h-3 w-3 inline ml-1" />
+      : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
