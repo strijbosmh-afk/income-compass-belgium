@@ -57,7 +57,16 @@ serve(async (req) => {
       unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
 
     const systemPrompt = `You are a precision OCR + data-extraction assistant for a Belgian medical oncologist.
-You extract income data from screenshots of RIZIV/INAMI income statements ("Per nomenclatuur" or "Per kostenplaats" views).
+You extract income data from screenshots of RIZIV/INAMI income statements.
+
+═══════════════════════════════════════════════════════════
+ABSOLUTE RULE — IGNORE KOSTENPLAATS / COST CENTRE COMPLETELY
+═══════════════════════════════════════════════════════════
+• NEVER split a nomenclature_code across multiple rows because of "kostenplaats", "cost centre", "afdeling", "dienst", "locatie", or any similar grouping column.
+• If the screenshot shows the SAME nomenclature_code on multiple rows differing only by kostenplaats → AGGREGATE them into ONE row per (code + income_type): sum quantity, sum total_amount, sum aandeel_arts, sum bouwfonds, sum mif, sum netto.
+• unit_amount stays the per-act price (do NOT sum it).
+• Output exactly ONE record per unique (nomenclature_code, income_type) combination.
+• If the screenshot is a "Per nomenclatuur" view (already 1 row per code) → keep it as is.
 
 ═══════════════════════════════════════════════════════════
 ABSOLUTE RULE — EXACT TRANSCRIPTION OF EUR AMOUNTS
