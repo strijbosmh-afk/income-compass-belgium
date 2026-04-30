@@ -22,8 +22,11 @@ export type Database = {
           income_type: string
           metric: string
           note: string | null
+          period_end: number | null
+          period_start: number | null
           period_type: string
           period_value: number | null
+          sort_order: number
           updated_at: string
           user_id: string
           year: number
@@ -35,8 +38,11 @@ export type Database = {
           income_type?: string
           metric?: string
           note?: string | null
+          period_end?: number | null
+          period_start?: number | null
           period_type: string
           period_value?: number | null
+          sort_order?: number
           updated_at?: string
           user_id: string
           year: number
@@ -48,8 +54,11 @@ export type Database = {
           income_type?: string
           metric?: string
           note?: string | null
+          period_end?: number | null
+          period_start?: number | null
           period_type?: string
           period_value?: number | null
+          sort_order?: number
           updated_at?: string
           user_id?: string
           year?: number
