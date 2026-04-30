@@ -77,6 +77,39 @@ export type Database = {
         }
         Relationships: []
       }
+      month_closures: {
+        Row: {
+          closed_at: string
+          created_at: string
+          id: string
+          month: number
+          note: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          month: number
+          note?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          closed_at?: string
+          created_at?: string
+          id?: string
+          month?: number
+          note?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       nomenclature_codes: {
         Row: {
           category: string
