@@ -263,6 +263,7 @@ export default function RecordsPage() {
                                   <ImageIcon className="h-4 w-4 text-muted-foreground" />
                                 </Button>
                               </td>
+                            </tr>
                             {isExpanded && g.records.map(r => (
                               <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
                                 <td className="py-2 px-3"></td>
