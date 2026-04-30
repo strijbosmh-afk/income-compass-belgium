@@ -252,62 +252,23 @@ export default function GoalsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {progressList.map(p => {
-            const { goal: g } = p;
-            const barPct = Math.min(100, Math.max(0, p.progressPct));
-            const barColor = p.status === 'behind' ? 'bg-red-500' : p.status === 'ahead' ? 'bg-green-500' : 'bg-primary';
-            return (
-              <Card key={g.id} className="border-border/50">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base">{periodLabel(g)}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-baseline justify-between">
-                    <div className="text-xl font-semibold tabular-nums">{fmt(p.actual)}</div>
-                    <div className="text-sm text-muted-foreground tabular-nums">van {fmt(p.target)}</div>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full ${barColor} transition-all`} style={{ width: `${barPct}%` }} />
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{p.progressPct.toFixed(0)}% behaald • {p.periodPct.toFixed(0)}% van periode</span>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <div className="pt-1">
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-                      <span>Cumulatieve evolutie</span>
-                      <span className="flex items-center gap-2">
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-primary" /> Werkelijk</span>
-                        <span className="flex items-center gap-1"><span className="inline-block w-2 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
-                      </span>
-                    </div>
-                    <GoalTrendChart goal={g} records={records} />
-                  </div>
-                  <div className="text-xs text-muted-foreground border-t border-border/50 pt-2">
-                    Projectie eindbedrag: <span className="font-medium text-foreground">{fmt(p.projected)}</span>
-                    {p.target > 0 && (
-                      <span className={`ml-2 ${p.deviationPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        ({p.deviationPct >= 0 ? '+' : ''}{p.deviationPct.toFixed(1)}% t.o.v. doel)
-                      </span>
-                    )}
-                  </div>
-                  {g.note && <p className="text-xs text-muted-foreground italic">"{g.note}"</p>}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={progressList.map(p => p.goal.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {progressList.map(p => (
+                <SortableGoalCard
+                  key={p.goal.id}
+                  p={p}
+                  records={records}
+                  onFullscreen={() => openFullscreen(p)}
+                  onEdit={() => openEdit(p.goal)}
+                  onRemove={() => remove(p.goal)}
+                  StatusBadge={StatusBadge}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Fullscreen-weergave van één doel */}
