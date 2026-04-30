@@ -259,6 +259,32 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
           }
         }
 
+        // Pas 5 (AUTORITATIEF): als we de unit-netto kennen uit de nomenclatuur-tabel,
+        // gebruik die als waarheid. quantity = round(netto / known_unit_netto).
+        // Dit overschrijft eerdere afleidingen, want screenshot-data is vaak een
+        // aggregaat (1 rij = N prestaties met 1 unit-prijs in beeld).
+        let quantity_from_nomenclature = false;
+        const knownUnit = knownUnitNetto[code];
+        if (knownUnit && knownUnit > 0 && netto > 0) {
+          const derived = Math.round(netto / knownUnit);
+          const expected = derived * knownUnit;
+          const diff = Math.abs(expected - netto);
+          // Tolereer 5 cent of 2% per prestatie.
+          if (derived >= 1 && diff <= Math.max(0.05 * derived, netto * 0.02)) {
+            if (derived !== quantity) {
+              console.warn(`[qty-from-nomenclature] code ${code}: qty ${quantity} → ${derived} (netto=${netto}, known unit=${knownUnit})`);
+              quantity = derived;
+              quantity_from_nomenclature = true;
+            }
+            // Vul ook unit_amount aan als die nog leeg of fout is.
+            if (unit <= 0 || Math.abs(unit - knownUnit) > Math.max(0.05, knownUnit * 0.02)) {
+              unit = knownUnit;
+            }
+          } else {
+            console.warn(`[qty-nomenclature-mismatch] code ${code}: netto ${netto} niet deelbaar door unit ${knownUnit} (best derived=${derived}, diff=${diff.toFixed(2)})`);
+          }
+        }
+
         // Sanity flag: difference between printed netto and (aandeel - bouwfonds - mif).
         const computedNetto = Math.round((aandeel - bouwfonds - mif) * 100) / 100;
         const nettoDiff = Math.round((netto - computedNetto) * 100) / 100;
@@ -277,6 +303,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
             computed_netto: computedNetto,
             netto_diff: nettoDiff,
             quantity_recomputed,
+            quantity_from_nomenclature,
             unit_inferred,
           },
         };
