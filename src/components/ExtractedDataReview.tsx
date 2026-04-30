@@ -247,11 +247,25 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
         {totalQtyIssues > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <div>
+            <div className="flex-1">
               <p className="font-medium">{totalQtyIssues} regel(s) met verdacht aantal.</p>
               <p className="mt-0.5 opacity-80">
                 Bij deze regels matcht <span className="font-mono">aantal × eenheid</span> niet met het totaal. Controleer het aantal tegen de screenshot — dit blokkeert opslaan niet, maar foute aantallen vertekenen de statistieken per nomenclatuur.
               </p>
+              {flags.some(f => !f.qtyOk && f.suggestion) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecords(prev => prev.map((r, i) => {
+                      const s = flags[i]?.suggestion;
+                      return (!flags[i]?.qtyOk && s) ? { ...r, quantity: s.qty, unit_amount: s.unit } : r;
+                    }));
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium hover:bg-amber-500/20"
+                >
+                  Pas alle voorstellen toe ({flags.filter(f => !f.qtyOk && f.suggestion).length})
+                </button>
+              )}
             </div>
           </div>
         )}
