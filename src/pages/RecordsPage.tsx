@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
 
 type IncomeRecord = {
   id: string;
@@ -25,6 +26,7 @@ type IncomeRecord = {
   bouwfonds: number;
   mif: number;
   netto: number;
+  source_image_url: string | null;
 };
 
 type NomenclatureCode = {
@@ -56,6 +58,7 @@ export default function RecordsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [screenshotDialog, setScreenshotDialog] = useState<{ open: boolean; title: string; paths: string[] }>({ open: false, title: '', paths: [] });
   const dataVersion = useDataVersion();
 
   const fetchRecords = async () => {
