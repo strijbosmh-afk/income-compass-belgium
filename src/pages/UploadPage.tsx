@@ -80,6 +80,7 @@ export default function UploadPage() {
           month,
           year,
           record_date: recordDate,
+          source_image_url: filePath,
           netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
         }));
         setExtractedData(records);
