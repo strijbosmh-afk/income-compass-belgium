@@ -180,8 +180,10 @@ export function useGoals(year?: number) {
 
   const progressList = useMemo(
     () => filteredGoals.map(g => computeProgress(g, records)).sort((a, b) => {
-      // Sorteer: jaar > kwartaal > maand, dan op periode_value
-      const order = { year: 0, quarter: 1, month: 2 } as const;
+      // Eerst handmatige sort_order, dan periode-volgorde als fallback
+      const so = (a.goal.sort_order ?? 0) - (b.goal.sort_order ?? 0);
+      if (so !== 0) return so;
+      const order = { year: 0, quarter: 1, custom: 2, month: 3 } as const;
       const d = order[a.goal.period_type] - order[b.goal.period_type];
       if (d !== 0) return d;
       return (a.goal.period_value || 0) - (b.goal.period_value || 0);
