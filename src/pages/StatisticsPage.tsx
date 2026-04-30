@@ -43,7 +43,7 @@ export default function StatisticsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
   const [tab, setTab] = useState('statistieken');
-  const [prestatieType, setPrestatieType] = useState<'ambulant' | 'hospitalisatie'>('ambulant');
+  const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
 
   useEffect(() => {
     if (!user) return;
