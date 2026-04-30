@@ -28,6 +28,7 @@ const middleItems = [
 
 const bottomItems = [
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
+  { title: 'Controle', url: '/controle', icon: ShieldCheck },
   { title: 'Simulaties', url: '/simulations', icon: Calculator },
 ];
 
