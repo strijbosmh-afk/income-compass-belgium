@@ -37,18 +37,34 @@ const fmtPct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
 export default function StatisticsPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<IncomeEntry[]>([]);
+  const [nomenclature, setNomenclature] = useState<{ code: string; description: string; netto_amount: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
   const [tab, setTab] = useState('statistieken');
+  const [prestatieType, setPrestatieType] = useState<'ambulant' | 'hospitalisatie'>('ambulant');
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('income_records')
-      .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
-      .eq('user_id', user.id)
-      .then(({ data }) => { setRecords(data || []); setLoading(false); });
+    Promise.all([
+      supabase.from('income_records')
+        .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
+        .eq('user_id', user.id),
+      supabase.from('nomenclature_codes')
+        .select('code, description, netto_amount')
+        .eq('user_id', user.id),
+    ]).then(([r1, r2]) => {
+      setRecords(r1.data || []);
+      setNomenclature((r2.data as any) || []);
+      setLoading(false);
+    });
   }, [user]);
+
+  const codeToInfo = useMemo(() => {
+    const m: Record<string, { description: string; netto: number }> = {};
+    nomenclature.forEach(n => { m[n.code] = { description: n.description, netto: Number(n.netto_amount) || 0 }; });
+    return m;
+  }, [nomenclature]);
 
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const yearFiltered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
