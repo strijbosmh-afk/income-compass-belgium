@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
 
@@ -59,6 +59,9 @@ export default function RecordsPage() {
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [screenshotDialog, setScreenshotDialog] = useState<{ open: boolean; title: string; paths: string[] }>({ open: false, title: '', paths: [] });
+  type SortKey = 'type' | 'code' | 'label' | 'qty' | 'bruto' | 'netto' | 'bouwfonds' | 'mif';
+  const [sortKey, setSortKey] = useState<SortKey>('netto');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const dataVersion = useDataVersion();
 
   const fetchRecords = async () => {
@@ -125,8 +128,41 @@ export default function RecordsPage() {
       g.totalAandeelArts += r.aandeel_arts;
       g.records.push({ ...r, quantity: qty });
     });
-    return Array.from(map.values()).sort((a, b) => b.totalNetto - a.totalNetto);
-  }, [records, codeToLabel, codeToNetto]);
+    const arr = Array.from(map.values());
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const cmp = (a: GroupedRecord, b: GroupedRecord): number => {
+      switch (sortKey) {
+        case 'type': return a.income_type.localeCompare(b.income_type) * dir;
+        case 'code': return a.nomenclature_code.localeCompare(b.nomenclature_code, undefined, { numeric: true }) * dir;
+        case 'label': return a.label.localeCompare(b.label) * dir;
+        case 'qty': return (a.totalQuantity - b.totalQuantity) * dir;
+        case 'bruto': return (a.totalBruto - b.totalBruto) * dir;
+        case 'netto': return (a.totalNetto - b.totalNetto) * dir;
+        case 'bouwfonds': return (a.totalBouwfonds - b.totalBouwfonds) * dir;
+        case 'mif': return (a.totalMif - b.totalMif) * dir;
+        default: return 0;
+      }
+    };
+    return arr.sort(cmp);
+  }, [records, codeToLabel, codeToNetto, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // Numerieke kolommen standaard aflopend, tekst standaard oplopend.
+      setSortDir(['qty', 'bruto', 'netto', 'bouwfonds', 'mif'].includes(key) ? 'desc' : 'asc');
+    }
+  };
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="h-3 w-3 opacity-40 inline ml-1" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="h-3 w-3 inline ml-1" />
+      : <ArrowDown className="h-3 w-3 inline ml-1" />;
+  };
+
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
@@ -215,12 +251,12 @@ export default function RecordsPage() {
                     <thead>
                       <tr className="border-b border-border/50">
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground w-8"></th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Type</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">RIZIV</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Omschrijving</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Aantal</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Bruto €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Netto €</th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('type')}>Type<SortIcon k="type" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('code')}>RIZIV<SortIcon k="code" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('label')}>Omschrijving<SortIcon k="label" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('qty')}>Aantal<SortIcon k="qty" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('bruto')}>Bruto €<SortIcon k="bruto" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('netto')}>Netto €<SortIcon k="netto" /></th>
                         <th className="py-2.5 px-3"></th>
                       </tr>
                     </thead>
@@ -334,13 +370,13 @@ export default function RecordsPage() {
                     <thead>
                       <tr className="border-b border-border/50">
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground w-8"></th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Type</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">RIZIV</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Omschrijving</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Ereloon €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Bouwfonds €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">MIF €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Netto €</th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('type')}>Type<SortIcon k="type" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('code')}>RIZIV<SortIcon k="code" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('label')}>Omschrijving<SortIcon k="label" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('bruto')}>Ereloon €<SortIcon k="bruto" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('bouwfonds')}>Bouwfonds €<SortIcon k="bouwfonds" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('mif')}>MIF €<SortIcon k="mif" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('netto')}>Netto €<SortIcon k="netto" /></th>
                         <th className="py-2.5 px-3"></th>
                       </tr>
                     </thead>

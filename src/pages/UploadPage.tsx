@@ -142,6 +142,38 @@ export default function UploadPage() {
         });
         return;
       }
+
+      // Uniciteits-guardrail: per upload mag elke (nomenclatuur_code + type) maar 1x voorkomen.
+      const dupMap = new Map<string, number[]>();
+      records.forEach((r, i) => {
+        const key = `${(r.nomenclature_code || '').trim()}__${r.income_type}`;
+        if (!dupMap.has(key)) dupMap.set(key, []);
+        dupMap.get(key)!.push(i + 1);
+      });
+      const dups = Array.from(dupMap.entries()).filter(([, idxs]) => idxs.length > 1);
+      if (dups.length > 0) {
+        const dupLines = dups.slice(0, 3).map(([key, idxs]) => {
+          const [code, type] = key.split('__');
+          const typeLabel = type === 'ambulatory' ? 'Amb' : 'Hosp';
+          return `• ${code} (${typeLabel}): rijen ${idxs.join(', ')}`;
+        });
+        const extra = dups.length > 3 ? `…en nog ${dups.length - 3} duplicaat(en).` : '';
+        toast({
+          title: `🚫 Opslaan geblokkeerd — ${dups.length} dubbele nomenclatuur(en)`,
+          description: (
+            <div className="space-y-1 whitespace-pre-line text-xs">
+              <p>Per upload mag elke nomenclatuurcode (per type) maar 1 keer voorkomen. Voeg de aantallen + bedragen samen tot 1 rij of verwijder de overtollige rij(en).</p>
+              <div className="font-mono">
+                {dupLines.map((l, i) => <div key={i}>{l}</div>)}
+                {extra && <div className="opacity-80">{extra}</div>}
+              </div>
+            </div>
+          ) as any,
+          variant: 'destructive',
+          duration: 12000,
+        });
+        return;
+      }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
       const insertData = records.map(({ _verification, ...r }: any) => ({
         ...r,
