@@ -81,6 +81,12 @@ export default function RecordsPage() {
     return map;
   }, [nomenclatureCodes]);
 
+  const codeToNetto = useMemo(() => {
+    const map: Record<string, number> = {};
+    nomenclatureCodes.forEach(nc => { map[nc.code] = Number(nc.netto_amount) || 0; });
+    return map;
+  }, [nomenclatureCodes]);
+
   const grouped = useMemo((): GroupedRecord[] => {
     const map = new Map<string, GroupedRecord>();
     records.forEach(r => {
@@ -100,16 +106,22 @@ export default function RecordsPage() {
         });
       }
       const g = map.get(key)!;
-      g.totalQuantity += r.quantity;
+      // Bereken aantal: gebruik opgeslagen quantity, of leid af uit netto / unit netto bedrag
+      const unitNetto = codeToNetto[r.nomenclature_code] || 0;
+      let qty = r.quantity;
+      if ((!qty || qty === 0) && unitNetto > 0 && r.netto > 0) {
+        qty = Math.round(r.netto / unitNetto);
+      }
+      g.totalQuantity += qty;
       g.totalBruto += r.total_amount;
       g.totalNetto += r.netto;
       g.totalBouwfonds += r.bouwfonds;
       g.totalMif += r.mif;
       g.totalAandeelArts += r.aandeel_arts;
-      g.records.push(r);
+      g.records.push({ ...r, quantity: qty });
     });
     return Array.from(map.values()).sort((a, b) => b.totalNetto - a.totalNetto);
-  }, [records, codeToLabel]);
+  }, [records, codeToLabel, codeToNetto]);
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
