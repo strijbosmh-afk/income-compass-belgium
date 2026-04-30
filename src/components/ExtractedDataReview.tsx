@@ -156,11 +156,26 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
             </tbody>
           </table>
         </div>
+        {totalIssues > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Opslaan geblokkeerd — {totalIssues} regel(s) wijken af.</p>
+              <p className="mt-0.5 text-destructive/80">
+                Voor elke regel moet netto gelijk zijn aan <span className="font-mono">aandeel arts − bouwfonds − MIF</span> (tolerantie €0,02). Corrigeer de afwijkende waarden tegen de screenshot of verwijder de regel(s) vóór je kan opslaan.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
-          <Button onClick={() => onSave(records)} disabled={records.length === 0}>
+          <Button
+            onClick={() => onSave(records)}
+            disabled={records.length === 0 || totalIssues > 0}
+            title={totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined}
+          >
             <CheckCircle2 className="h-4 w-4 mr-1" />
-            {totalIssues > 0 ? `Toch opslaan (${totalIssues} verschil)` : 'Opslaan'}
+            Opslaan
           </Button>
         </div>
       </CardContent>
