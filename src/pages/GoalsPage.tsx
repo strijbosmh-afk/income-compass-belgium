@@ -126,6 +126,8 @@ export default function GoalsPage() {
       year: g.year,
       period_type: g.period_type,
       period_value: g.period_value || 1,
+      period_start: g.period_start || 1,
+      period_end: g.period_end || 6,
       income_type: g.income_type,
       metric: g.metric,
       amount: String(g.amount),
