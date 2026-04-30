@@ -4,8 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, TrendingUp, TrendingDown, Activity, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Stethoscope } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, Cell } from 'recharts';
 
 type IncomeEntry = {
   id: string;
@@ -45,6 +47,7 @@ export default function StatisticsPage() {
   const [tab, setTab] = useState('statistieken');
   const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
   const [prestatieMonth, setPrestatieMonth] = useState<string>('all');
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -192,6 +195,38 @@ export default function StatisticsPage() {
 
     return { list, chartData, totalCount, beste, slechtste, gemiddeld, aantalCodes };
   }, [yearFiltered, prestatieType, prestatieMonth, codeToInfo]);
+
+  const codeDetail = useMemo(() => {
+    if (!selectedCode) return null;
+    const filtered = yearFiltered.filter(r =>
+      r.income_type === prestatieType &&
+      r.nomenclature_code === selectedCode &&
+      (prestatieMonth === 'all' || r.month === Number(prestatieMonth))
+    );
+    const info = codeToInfo[selectedCode];
+    const unit = info?.netto || 0;
+    const description = info?.description || filtered[0]?.description || selectedCode;
+    let totalQty = 0;
+    const rows = filtered.map(r => {
+      const qty = r.quantity && r.quantity > 0 ? r.quantity : (unit > 0 ? Math.round(r.netto / unit) : 0);
+      totalQty += qty;
+      return { ...r, qty };
+    }).sort((a, b) => a.month - b.month);
+    const totals = {
+      netto: filtered.reduce((s, r) => s + r.netto, 0),
+      aandeel: filtered.reduce((s, r) => s + r.aandeel_arts, 0),
+      total: filtered.reduce((s, r) => s + r.total_amount, 0),
+      mif: filtered.reduce((s, r) => s + r.mif, 0),
+      bouwfonds: filtered.reduce((s, r) => s + r.bouwfonds, 0),
+    };
+    // monthly breakdown
+    const monthly = MONTHS.map((name, idx) => {
+      const mr = rows.filter(r => r.month === idx + 1);
+      const qty = mr.reduce((s, r) => s + r.qty, 0);
+      return { month: name, qty, netto: mr.reduce((s, r) => s + r.netto, 0) };
+    });
+    return { description, rows, totalQty, totals, unit, monthly };
+  }, [selectedCode, yearFiltered, prestatieType, prestatieMonth, codeToInfo]);
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
@@ -377,7 +412,11 @@ export default function StatisticsPage() {
                 <Card className="border-border/50">
                   <CardHeader><CardTitle className="text-base">Beste & Slechtste Prestatie</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCode(prestatieData.beste.code)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-primary" />
                         <div>
@@ -386,8 +425,12 @@ export default function StatisticsPage() {
                         </div>
                       </div>
                       <div className="text-right"><p className="font-semibold">{prestatieData.beste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.beste.netto)}</p></div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCode(prestatieData.slechtste.code)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2">
                         <TrendingDown className="h-4 w-4 text-destructive" />
                         <div>
@@ -396,7 +439,7 @@ export default function StatisticsPage() {
                         </div>
                       </div>
                       <div className="text-right"><p className="font-semibold">{prestatieData.slechtste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.slechtste.netto)}</p></div>
-                    </div>
+                    </button>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30">
                       <span className="text-sm text-muted-foreground">Verschil</span>
                       <p className="font-semibold">{prestatieData.beste.count - prestatieData.slechtste.count}×</p>
@@ -405,16 +448,21 @@ export default function StatisticsPage() {
                 </Card>
 
                 <Card className="border-border/50">
-                  <CardHeader><CardTitle className="text-base">Top prestaties</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                    {prestatieData.list.slice(0, 6).map(item => (
-                      <div key={item.code} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
+                  <CardHeader><CardTitle className="text-base">Alle prestaties</CardTitle></CardHeader>
+                  <CardContent className="space-y-2 max-h-[320px] overflow-y-auto">
+                    {prestatieData.list.map(item => (
+                      <button
+                        type="button"
+                        key={item.code}
+                        onClick={() => setSelectedCode(item.code)}
+                        className="w-full flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30 hover:bg-muted/60 hover:border-primary/40 transition-colors text-left"
+                      >
                         <div className="min-w-0">
                           <p className="text-sm font-medium">{item.code}</p>
                           <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                         </div>
                         <div className="text-right ml-3"><p className="font-semibold">{item.count}×</p><p className="text-xs text-muted-foreground">{fmt(item.netto)}</p></div>
-                      </div>
+                      </button>
                     ))}
                   </CardContent>
                 </Card>
@@ -423,13 +471,18 @@ export default function StatisticsPage() {
               <Card className="border-border/50">
                 <CardHeader><CardTitle className="text-base">Aantal prestaties per nomenclatuur (top 10)</CardTitle></CardHeader>
                 <CardContent>
+                  <p className="text-xs text-muted-foreground mb-2">Klik op een balk voor details.</p>
                   <ResponsiveContainer width="100%" height={350}>
                     <BarChart data={prestatieData.chartData} margin={{ bottom: 60 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" angle={-25} textAnchor="end" interval={0} height={70} />
                       <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
                       <Tooltip formatter={(val: number) => `${val}×`} />
-                      <Bar dataKey="aantal" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="aantal" name="Aantal" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(d: any) => d?.code && setSelectedCode(d.code)}>
+                        {prestatieData.chartData.map((entry) => (
+                          <Cell key={entry.code} fill="hsl(174, 50%, 40%)" />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -519,6 +572,89 @@ export default function StatisticsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedCode} onOpenChange={(open) => !open && setSelectedCode(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedCode} – {codeDetail?.description}</DialogTitle>
+            <DialogDescription>
+              {prestatieType === 'ambulatory' ? 'Ambulant' : 'Hospitalisatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {codeDetail && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs text-muted-foreground">Aantal</p>
+                  <p className="text-lg font-semibold">{codeDetail.totalQty}×</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Netto totaal</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.totals.netto)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Aandeel arts</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.totals.aandeel)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Eenheid netto</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.unit)}</p>
+                </div>
+              </div>
+
+              {prestatieMonth === 'all' && (
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Per maand</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={codeDetail.monthly}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" />
+                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
+                        <Tooltip formatter={(val: number, name) => name === 'netto' ? fmt(val) : `${val}×`} />
+                        <Bar dataKey="qty" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Records ({codeDetail.rows.length})</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Maand</TableHead>
+                        <TableHead className="text-right">Aantal</TableHead>
+                        <TableHead className="text-right">Bruto</TableHead>
+                        <TableHead className="text-right">Aandeel arts</TableHead>
+                        <TableHead className="text-right">Netto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {codeDetail.rows.map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell>{MONTH_NAMES[r.month - 1]}</TableCell>
+                          <TableCell className="text-right">{r.qty}×</TableCell>
+                          <TableCell className="text-right">{fmt(r.total_amount)}</TableCell>
+                          <TableCell className="text-right">{fmt(r.aandeel_arts)}</TableCell>
+                          <TableCell className="text-right font-medium">{fmt(r.netto)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {codeDetail.rows.length === 0 && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Geen records</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
