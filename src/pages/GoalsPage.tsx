@@ -143,13 +143,20 @@ export default function GoalsPage() {
       toast.error('Geef een geldig bedrag op.');
       return;
     }
+    if (form.period_type === 'custom' && form.period_end < form.period_start) {
+      toast.error('Eindmaand moet na of gelijk aan startmaand zijn.');
+      return;
+    }
     setBusy(true);
     try {
-      const payload = {
+      const isCustom = form.period_type === 'custom';
+      const payload: any = {
         user_id: user.id,
         year: form.year,
         period_type: form.period_type,
-        period_value: form.period_type === 'year' ? null : form.period_value,
+        period_value: (form.period_type === 'year' || isCustom) ? null : form.period_value,
+        period_start: isCustom ? form.period_start : null,
+        period_end: isCustom ? form.period_end : null,
         income_type: form.income_type,
         metric: form.metric,
         amount: amt,
@@ -160,6 +167,9 @@ export default function GoalsPage() {
         if (error) throw error;
         toast.success('Doel bijgewerkt');
       } else {
+        // Nieuw doel krijgt hoogste sort_order
+        const maxOrder = progressList.reduce((m, p) => Math.max(m, p.goal.sort_order ?? 0), -1);
+        payload.sort_order = maxOrder + 1;
         const { error } = await supabase.from('income_goals').insert(payload);
         if (error) throw error;
         toast.success('Doel toegevoegd');
@@ -170,6 +180,40 @@ export default function GoalsPage() {
       toast.error(e.message?.includes('duplicate') ? 'Dit doel bestaat al.' : (e.message || 'Fout bij opslaan'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const onDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = progressList.map(p => p.goal.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(progressList, oldIndex, newIndex);
+    // Persisteer nieuwe sort_order per gewijzigd doel
+    try {
+      const updates = reordered.map((p, idx) => ({ id: p.goal.id, sort_order: idx }));
+      // Parallel updates
+      const results = await Promise.all(
+        updates
+          .filter(u => {
+            const cur = progressList.find(p => p.goal.id === u.id);
+            return (cur?.goal.sort_order ?? 0) !== u.sort_order;
+          })
+          .map(u => supabase.from('income_goals').update({ sort_order: u.sort_order }).eq('id', u.id))
+      );
+      const err = results.find(r => r.error);
+      if (err?.error) throw err.error;
+      refresh();
+    } catch (e: any) {
+      toast.error('Volgorde opslaan mislukt: ' + (e.message || 'onbekende fout'));
     }
   };
 
