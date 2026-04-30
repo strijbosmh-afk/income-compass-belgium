@@ -39,6 +39,7 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { signOut } = useAuth();
+  const issueCount = useControleIssues();
 
   const renderItems = (items: typeof topItems) =>
     items.map((item) => (
