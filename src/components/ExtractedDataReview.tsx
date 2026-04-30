@@ -29,13 +29,18 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
   };
 
   // Bereken per record de verificatie: netto moet = aandeel - bouwfonds - mif zijn.
+  // Daarnaast: quantity × unit_amount moet ≈ total_amount zijn (sanity-check).
   const flags = useMemo(() => records.map(r => {
     const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
     const diff = Math.round(((r.netto || 0) - computed) * 100) / 100;
-    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE };
+    const expectedTotal = Math.round((r.quantity || 0) * (r.unit_amount || 0) * 100) / 100;
+    const qtyDiff = Math.round(((r.total_amount || 0) - expectedTotal) * 100) / 100;
+    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= Math.max(0.05, (r.total_amount || 0) * 0.02);
+    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff };
   }), [records]);
 
   const totalIssues = flags.filter(f => !f.ok).length;
+  const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
   const totals = useMemo(() => ({
     bruto: records.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
     netto: records.reduce((s, r) => s + (Number(r.netto) || 0), 0),
