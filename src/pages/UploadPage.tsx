@@ -95,7 +95,26 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
-  }, [user, toast, incomeType, selectedMonth, selectedYear]);
+  }, [user, toast, incomeType, selectedMonth, selectedYear, unitNettoByCode]);
+
+  // Haal nomenclatuur netto-bedragen op zodat de extractie quantity correct kan afleiden.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('nomenclature_codes')
+        .select('code, netto_amount')
+        .eq('user_id', user.id);
+      if (data) {
+        const map: Record<string, number> = {};
+        data.forEach((nc: any) => {
+          const v = Number(nc.netto_amount);
+          if (nc.code && Number.isFinite(v) && v > 0) map[String(nc.code).trim()] = v;
+        });
+        setUnitNettoByCode(map);
+      }
+    })();
+  }, [user]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
