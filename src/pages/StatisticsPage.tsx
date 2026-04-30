@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, TrendingDown, Activity, BarChart3, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Activity, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Stethoscope } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 
 type IncomeEntry = {
@@ -19,6 +19,7 @@ type IncomeEntry = {
   mif: number;
   netto: number;
   description: string | null;
+  quantity: number;
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
@@ -37,18 +38,34 @@ const fmtPct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
 export default function StatisticsPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<IncomeEntry[]>([]);
+  const [nomenclature, setNomenclature] = useState<{ code: string; description: string; netto_amount: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
   const [tab, setTab] = useState('statistieken');
+  const [prestatieType, setPrestatieType] = useState<'ambulant' | 'hospitalisatie'>('ambulant');
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('income_records')
-      .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
-      .eq('user_id', user.id)
-      .then(({ data }) => { setRecords(data || []); setLoading(false); });
+    Promise.all([
+      supabase.from('income_records')
+        .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description, quantity')
+        .eq('user_id', user.id),
+      supabase.from('nomenclature_codes')
+        .select('code, description, netto_amount')
+        .eq('user_id', user.id),
+    ]).then(([r1, r2]) => {
+      setRecords(r1.data || []);
+      setNomenclature((r2.data as any) || []);
+      setLoading(false);
+    });
   }, [user]);
+
+  const codeToInfo = useMemo(() => {
+    const m: Record<string, { description: string; netto: number }> = {};
+    nomenclature.forEach(n => { m[n.code] = { description: n.description, netto: Number(n.netto_amount) || 0 }; });
+    return m;
+  }, [nomenclature]);
 
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
   const yearFiltered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
@@ -134,6 +151,44 @@ export default function StatisticsPage() {
     return { monthlyComparison, cumulativeComparison, totY1, totY2, nettoDiff, nettoPct };
   }, [yearFiltered, compareFiltered, selectedYear, compareYear]);
 
+  // --- Prestaties per nomenclatuur ---
+  const prestatieData = useMemo(() => {
+    const filtered = yearFiltered.filter(r => r.income_type === prestatieType);
+    if (filtered.length === 0) return null;
+
+    const byCode: Record<string, { code: string; description: string; count: number; netto: number }> = {};
+    filtered.forEach(r => {
+      const info = codeToInfo[r.nomenclature_code];
+      const unit = info?.netto || 0;
+      const qty = r.quantity && r.quantity > 0
+        ? r.quantity
+        : (unit > 0 ? Math.round(r.netto / unit) : 0);
+      const desc = info?.description || r.description || r.nomenclature_code;
+      if (!byCode[r.nomenclature_code]) {
+        byCode[r.nomenclature_code] = { code: r.nomenclature_code, description: desc, count: 0, netto: 0 };
+      }
+      byCode[r.nomenclature_code].count += qty;
+      byCode[r.nomenclature_code].netto += r.netto;
+    });
+
+    const list = Object.values(byCode).sort((a, b) => b.count - a.count);
+    if (list.length === 0) return null;
+
+    const totalCount = list.reduce((s, x) => s + x.count, 0);
+    const beste = list[0];
+    const slechtste = list[list.length - 1];
+    const gemiddeld = totalCount / list.length;
+    const aantalCodes = list.length;
+
+    const chartData = list.slice(0, 10).map(x => ({
+      code: x.code,
+      label: x.description.length > 24 ? x.description.slice(0, 24) + '…' : x.description,
+      aantal: x.count,
+    }));
+
+    return { list, chartData, totalCount, beste, slechtste, gemiddeld, aantalCodes };
+  }, [yearFiltered, prestatieType, codeToInfo]);
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
@@ -155,6 +210,7 @@ export default function StatisticsPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="statistieken">Statistieken</TabsTrigger>
+          <TabsTrigger value="prestaties">Prestaties</TabsTrigger>
           <TabsTrigger value="vergelijking">Jaarvergelijking</TabsTrigger>
         </TabsList>
 
@@ -250,6 +306,115 @@ export default function StatisticsPage() {
                       <Tooltip formatter={(val: number) => fmt(val)} />
                       <Line type="monotone" dataKey="netto" name="Netto" stroke="hsl(174, 50%, 40%)" strokeWidth={2.5} dot={{ r: 4, fill: 'hsl(174, 50%, 40%)' }} />
                     </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* Prestaties */}
+        <TabsContent value="prestaties" className="space-y-6 mt-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Type:</span>
+            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulant' | 'hospitalisatie')}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ambulant">Ambulant</SelectItem>
+                <SelectItem value="hospitalisatie">Hospitalisatie</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!prestatieData ? (
+            <div className="text-center py-12 text-muted-foreground">Geen prestaties beschikbaar voor {prestatieType} in {selectedYear}.</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Stethoscope className="h-5 w-5 text-primary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Totaal prestaties</p><p className="text-xl font-semibold">{prestatieData.totalCount}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-secondary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Aantal codes</p><p className="text-xl font-semibold">{prestatieData.aantalCodes}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center"><Activity className="h-5 w-5 text-muted-foreground" /></div>
+                    <div><p className="text-sm text-muted-foreground">Gemiddeld / code</p><p className="text-xl font-semibold">{prestatieData.gemiddeld.toFixed(1)}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Top code</p><p className="text-xl font-semibold">{prestatieData.beste.code}</p></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Beste & Slechtste Prestatie</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <div>
+                          <span className="text-sm font-medium">Meest uitgevoerd</span>
+                          <p className="text-xs text-muted-foreground">{prestatieData.beste.code} – {prestatieData.beste.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right"><p className="font-semibold">{prestatieData.beste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.beste.netto)}</p></div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-destructive" />
+                        <div>
+                          <span className="text-sm font-medium">Minst uitgevoerd</span>
+                          <p className="text-xs text-muted-foreground">{prestatieData.slechtste.code} – {prestatieData.slechtste.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right"><p className="font-semibold">{prestatieData.slechtste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.slechtste.netto)}</p></div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30">
+                      <span className="text-sm text-muted-foreground">Verschil</span>
+                      <p className="font-semibold">{prestatieData.beste.count - prestatieData.slechtste.count}×</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Top prestaties</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                    {prestatieData.list.slice(0, 6).map(item => (
+                      <div key={item.code} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{item.code}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                        </div>
+                        <div className="text-right ml-3"><p className="font-semibold">{item.count}×</p><p className="text-xs text-muted-foreground">{fmt(item.netto)}</p></div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Aantal prestaties per nomenclatuur (top 10)</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={prestatieData.chartData} margin={{ bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" angle={-25} textAnchor="end" interval={0} height={70} />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
+                      <Tooltip formatter={(val: number) => `${val}×`} />
+                      <Bar dataKey="aantal" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
