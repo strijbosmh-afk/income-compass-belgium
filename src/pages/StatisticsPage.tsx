@@ -19,6 +19,7 @@ type IncomeEntry = {
   mif: number;
   netto: number;
   description: string | null;
+  quantity: number;
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
