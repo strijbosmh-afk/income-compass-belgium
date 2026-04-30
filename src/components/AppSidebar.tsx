@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,7 @@ const topItems = [
 
 const middleItems = [
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
+  { title: 'Doelstellingen', url: '/goals', icon: Target },
 ];
 
 const bottomItems = [
