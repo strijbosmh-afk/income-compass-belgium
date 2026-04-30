@@ -341,6 +341,7 @@ export default function RecordsPage() {
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Bouwfonds €</th>
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">MIF €</th>
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Netto €</th>
+                        <th className="py-2.5 px-3"></th>
                       </tr>
                     </thead>
                     <tbody>
