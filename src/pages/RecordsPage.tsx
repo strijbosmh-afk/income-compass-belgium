@@ -29,6 +29,7 @@ type IncomeRecord = {
 type NomenclatureCode = {
   code: string;
   description: string;
+  netto_amount: number;
 };
 
 type GroupedRecord = {
