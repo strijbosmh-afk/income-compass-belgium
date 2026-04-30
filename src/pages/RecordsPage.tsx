@@ -29,6 +29,7 @@ type IncomeRecord = {
 type NomenclatureCode = {
   code: string;
   description: string;
+  netto_amount: number;
 };
 
 type GroupedRecord = {
@@ -64,7 +65,7 @@ export default function RecordsPage() {
     if (filterMonth !== 'all') query = query.eq('month', parseInt(filterMonth));
     const [recordsRes, nomenclatureRes] = await Promise.all([
       query,
-      supabase.from('nomenclature_codes').select('code, description').eq('user_id', user.id),
+      supabase.from('nomenclature_codes').select('code, description, netto_amount').eq('user_id', user.id),
     ]);
     if (recordsRes.error) toast({ title: 'Fout', description: recordsRes.error.message, variant: 'destructive' });
     else setRecords(recordsRes.data || []);
@@ -77,6 +78,12 @@ export default function RecordsPage() {
   const codeToLabel = useMemo(() => {
     const map: Record<string, string> = {};
     nomenclatureCodes.forEach(nc => { map[nc.code] = nc.description || nc.code; });
+    return map;
+  }, [nomenclatureCodes]);
+
+  const codeToNetto = useMemo(() => {
+    const map: Record<string, number> = {};
+    nomenclatureCodes.forEach(nc => { map[nc.code] = Number(nc.netto_amount) || 0; });
     return map;
   }, [nomenclatureCodes]);
 
@@ -99,16 +106,22 @@ export default function RecordsPage() {
         });
       }
       const g = map.get(key)!;
-      g.totalQuantity += r.quantity;
+      // Bereken aantal: gebruik opgeslagen quantity, of leid af uit netto / unit netto bedrag
+      const unitNetto = codeToNetto[r.nomenclature_code] || 0;
+      let qty = r.quantity;
+      if ((!qty || qty === 0) && unitNetto > 0 && r.netto > 0) {
+        qty = Math.round(r.netto / unitNetto);
+      }
+      g.totalQuantity += qty;
       g.totalBruto += r.total_amount;
       g.totalNetto += r.netto;
       g.totalBouwfonds += r.bouwfonds;
       g.totalMif += r.mif;
       g.totalAandeelArts += r.aandeel_arts;
-      g.records.push(r);
+      g.records.push({ ...r, quantity: qty });
     });
     return Array.from(map.values()).sort((a, b) => b.totalNetto - a.totalNetto);
-  }, [records, codeToLabel]);
+  }, [records, codeToLabel, codeToNetto]);
 
   const toggleGroup = (key: string) => {
     setExpandedGroups(prev => {
