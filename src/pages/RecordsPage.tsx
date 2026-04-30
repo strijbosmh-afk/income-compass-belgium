@@ -59,6 +59,9 @@ export default function RecordsPage() {
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [screenshotDialog, setScreenshotDialog] = useState<{ open: boolean; title: string; paths: string[] }>({ open: false, title: '', paths: [] });
+  type SortKey = 'type' | 'code' | 'label' | 'qty' | 'bruto' | 'netto' | 'bouwfonds' | 'mif';
+  const [sortKey, setSortKey] = useState<SortKey>('netto');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const dataVersion = useDataVersion();
 
   const fetchRecords = async () => {
