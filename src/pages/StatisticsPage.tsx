@@ -47,6 +47,7 @@ export default function StatisticsPage() {
   const [tab, setTab] = useState('statistieken');
   const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
   const [prestatieMonth, setPrestatieMonth] = useState<string>('all');
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
