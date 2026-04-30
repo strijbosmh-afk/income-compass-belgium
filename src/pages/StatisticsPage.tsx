@@ -317,11 +317,11 @@ export default function StatisticsPage() {
         <TabsContent value="prestaties" className="space-y-6 mt-4">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Type:</span>
-            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulant' | 'hospitalisatie')}>
+            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulatory' | 'hospitalized')}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ambulant">Ambulant</SelectItem>
-                <SelectItem value="hospitalisatie">Hospitalisatie</SelectItem>
+                <SelectItem value="ambulatory">Ambulant</SelectItem>
+                <SelectItem value="hospitalized">Hospitalisatie</SelectItem>
               </SelectContent>
             </Select>
           </div>
