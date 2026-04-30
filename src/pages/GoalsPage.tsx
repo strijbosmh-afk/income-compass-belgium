@@ -300,16 +300,59 @@ export default function GoalsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 mt-4 flex flex-col">
+              {/* Toolbar: selectie + export */}
+              <div className="shrink-0 mt-4 flex items-center justify-between gap-3 flex-wrap border-t border-border/50 pt-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant={selectMode ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => { setSelectMode(s => !s); if (selectMode) setSelected(new Set()); }}
+                    className="gap-1.5 h-8"
+                  >
+                    <MousePointerClick className="h-3.5 w-3.5" />
+                    {selectMode ? 'Selectie aan' : 'Periodes selecteren'}
+                  </Button>
+                  {selectMode && (
+                    <>
+                      <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set(chartData.map(d => d.label)))}>Alles</Button>
+                      <Button variant="ghost" size="sm" className="h-8" onClick={() => setSelected(new Set())} disabled={selected.size === 0}>Wissen</Button>
+                      <Badge variant="outline" className="font-normal">
+                        {selected.size === 0 ? 'Geen geselecteerd – exporteert alle' : `${selected.size} geselecteerd`}
+                      </Badge>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={doExportCSV}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={doExportPDF}>
+                    <FileText className="h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 mt-3 flex flex-col">
                 <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                  <span>Cumulatieve evolutie</span>
+                  <span>
+                    Cumulatieve evolutie
+                    {selectMode && <span className="ml-2 italic">— klik op een datapunt om te (de)selecteren</span>}
+                  </span>
                   <span className="flex items-center gap-3">
                     <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-primary" /> Werkelijk</span>
                     <span className="flex items-center gap-1.5"><span className="inline-block w-3 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
                   </span>
                 </div>
                 <div className="flex-1 min-h-0">
-                  <GoalTrendChart goal={fullscreen.goal} records={records} fullHeight />
+                  <GoalTrendChart
+                    goal={fullscreen.goal}
+                    records={records}
+                    fullHeight
+                    selectable={selectMode}
+                    selected={selected}
+                    onToggleSelect={toggleSelect}
+                    onDataReady={setChartData}
+                  />
                 </div>
               </div>
 
