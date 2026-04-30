@@ -313,6 +313,115 @@ export default function StatisticsPage() {
           )}
         </TabsContent>
 
+        {/* Prestaties */}
+        <TabsContent value="prestaties" className="space-y-6 mt-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Type:</span>
+            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulant' | 'hospitalisatie')}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ambulant">Ambulant</SelectItem>
+                <SelectItem value="hospitalisatie">Hospitalisatie</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!prestatieData ? (
+            <div className="text-center py-12 text-muted-foreground">Geen prestaties beschikbaar voor {prestatieType} in {selectedYear}.</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Stethoscope className="h-5 w-5 text-primary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Totaal prestaties</p><p className="text-xl font-semibold">{prestatieData.totalCount}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center"><BarChart3 className="h-5 w-5 text-secondary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Aantal codes</p><p className="text-xl font-semibold">{prestatieData.aantalCodes}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center"><Activity className="h-5 w-5 text-muted-foreground" /></div>
+                    <div><p className="text-sm text-muted-foreground">Gemiddeld / code</p><p className="text-xl font-semibold">{prestatieData.gemiddeld.toFixed(1)}</p></div>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                    <div><p className="text-sm text-muted-foreground">Top code</p><p className="text-xl font-semibold">{prestatieData.beste.code}</p></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Beste & Slechtste Prestatie</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-primary" />
+                        <div>
+                          <span className="text-sm font-medium">Meest uitgevoerd</span>
+                          <p className="text-xs text-muted-foreground">{prestatieData.beste.code} – {prestatieData.beste.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right"><p className="font-semibold">{prestatieData.beste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.beste.netto)}</p></div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                      <div className="flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-destructive" />
+                        <div>
+                          <span className="text-sm font-medium">Minst uitgevoerd</span>
+                          <p className="text-xs text-muted-foreground">{prestatieData.slechtste.code} – {prestatieData.slechtste.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right"><p className="font-semibold">{prestatieData.slechtste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.slechtste.netto)}</p></div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30">
+                      <span className="text-sm text-muted-foreground">Verschil</span>
+                      <p className="font-semibold">{prestatieData.beste.count - prestatieData.slechtste.count}×</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Top prestaties</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                    {prestatieData.list.slice(0, 6).map(item => (
+                      <div key={item.code} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{item.code}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                        </div>
+                        <div className="text-right ml-3"><p className="font-semibold">{item.count}×</p><p className="text-xs text-muted-foreground">{fmt(item.netto)}</p></div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Aantal prestaties per nomenclatuur (top 10)</CardTitle></CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={prestatieData.chartData} margin={{ bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" angle={-25} textAnchor="end" interval={0} height={70} />
+                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
+                      <Tooltip formatter={(val: number) => `${val}×`} />
+                      <Bar dataKey="aantal" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
         {/* Jaarvergelijking */}
         <TabsContent value="vergelijking" className="space-y-6 mt-4">
           <div className="flex items-center gap-3 mb-2">
