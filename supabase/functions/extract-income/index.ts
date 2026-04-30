@@ -15,27 +15,35 @@ serve(async (req) => {
     const { image, mimeType } = await req.json();
     if (!image) throw new Error("No image provided");
 
-    const systemPrompt = `You are a data extraction assistant for a Belgian medical oncologist. You extract income data from screenshots of income statements/reports.
+    const systemPrompt = `You are a data extraction assistant for a Belgian medical oncologist. You extract income data from screenshots of RIZIV/INAMI income statements ("Per nomenclatuur" or "Per kostenplaats" views).
 
 Extract ALL line items from the image. For each item, determine:
 - record_date: The date in YYYY-MM-DD format. If only month/year visible, use the 1st of that month.
 - month: Month number (1-12)
 - year: Year (e.g. 2024)
-- income_type: Either "ambulatory" or "hospitalized". Ambulatory = outpatient/consultation. Hospitalized = inpatient/hospital.
-- nomenclature_code: The RIZIV/INAMI nomenclature code (numeric code)
-- description: Brief description of the service/act
-- quantity: Number of acts/services
-- unit_amount: Price per unit in EUR
-- total_amount: Total amount in EUR (ereloon/honorarium)
-- aandeel_arts: The doctor's share ("aandeel arts") in EUR.
-- bouwfonds: The building fund contribution ("bouwfonds") in EUR. 
-- mif: The MIF (Medisch-Interdisciplinair Fonds) amount in EUR.
-- netto: The net amount actually paid out to the doctor in EUR. This is total_amount minus all deductions.
+- income_type: Either "ambulatory" (Ambulant / outpatient / consultation) or "hospitalized" (Gehospitaliseerden / inpatient / hospital).
+- nomenclature_code: The RIZIV/INAMI nomenclature code (numeric code, exactly as printed — do not invent leading digits).
+- description: Brief description of the service/act if visible; otherwise leave empty.
+- quantity: Number of times this act was performed for this line.
+- unit_amount: Net price per single act in EUR.
+- total_amount: Total/gross amount ("Totaal" / "Ereloon" / "Honorarium") in EUR for this line (= quantity × bruto unit price).
+- aandeel_arts: The doctor's share ("Aandeel arts") in EUR for this line.
+- bouwfonds: The building fund contribution ("Bouwfonds") in EUR for this line.
+- mif: The MIF (Medisch-Interdisciplinair Fonds) amount in EUR for this line.
+- netto: The net amount actually paid out to the doctor in EUR for this line (= aandeel_arts − bouwfonds − mif).
 
-These Belgian-specific fields (aandeel_arts, bouwfonds, mif) may appear as columns in the income statement. Look for headers like "Aandeel arts", "Bouwfonds", "MIF", "Pool", or similar. If not present for a line item, use 0.
+CRITICAL — DETERMINING quantity:
+1. If the screenshot has an explicit "Aantal" or "Q" column, use that value.
+2. If NOT, the same nomenclature_code may appear MULTIPLE times in the table (different rows, often per "Kostenplaats"). Each row is an aggregate of multiple acts. You MUST infer quantity by dividing the row's netto amount by the official RIZIV unit netto amount for that code, and rounding to the nearest integer.
+   - Example: code 598205 official netto/act = €31.83. Row shows netto €350.13 → quantity = round(350.13 / 31.83) = 11.
+   - Example: same code, another row shows netto €63.66 → quantity = 2.
+   - If you do not know the official unit price, estimate it from the smallest occurrence of the same code (the row with the smallest netto is most likely a single act → quantity = 1, unit_amount = that netto). Then derive quantity for the larger rows by dividing.
+3. Never set quantity = 1 by default when multiple rows for the same code exist with very different totals — always compute it.
+4. quantity must be ≥ 1 and an integer.
 
-Return a JSON object with a "records" array. If you cannot extract data, return {"records": []}.
-Be thorough - extract every single line item visible in the image.`;
+These Belgian-specific fields (aandeel_arts, bouwfonds, mif) appear as columns. Headers: "Aandeel arts", "Bouwfonds", "MIF", "Pool". If not present for a line item, use 0.
+
+Return a JSON object with a "records" array. Extract every visible line item, including duplicates of the same nomenclature_code on different rows.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
