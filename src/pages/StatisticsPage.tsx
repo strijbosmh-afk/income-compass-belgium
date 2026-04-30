@@ -150,6 +150,44 @@ export default function StatisticsPage() {
     return { monthlyComparison, cumulativeComparison, totY1, totY2, nettoDiff, nettoPct };
   }, [yearFiltered, compareFiltered, selectedYear, compareYear]);
 
+  // --- Prestaties per nomenclatuur ---
+  const prestatieData = useMemo(() => {
+    const filtered = yearFiltered.filter(r => r.income_type === prestatieType);
+    if (filtered.length === 0) return null;
+
+    const byCode: Record<string, { code: string; description: string; count: number; netto: number }> = {};
+    filtered.forEach(r => {
+      const info = codeToInfo[r.nomenclature_code];
+      const unit = info?.netto || 0;
+      const qty = r.quantity && r.quantity > 0
+        ? r.quantity
+        : (unit > 0 ? Math.round(r.netto / unit) : 0);
+      const desc = info?.description || r.description || r.nomenclature_code;
+      if (!byCode[r.nomenclature_code]) {
+        byCode[r.nomenclature_code] = { code: r.nomenclature_code, description: desc, count: 0, netto: 0 };
+      }
+      byCode[r.nomenclature_code].count += qty;
+      byCode[r.nomenclature_code].netto += r.netto;
+    });
+
+    const list = Object.values(byCode).sort((a, b) => b.count - a.count);
+    if (list.length === 0) return null;
+
+    const totalCount = list.reduce((s, x) => s + x.count, 0);
+    const beste = list[0];
+    const slechtste = list[list.length - 1];
+    const gemiddeld = totalCount / list.length;
+    const aantalCodes = list.length;
+
+    const chartData = list.slice(0, 10).map(x => ({
+      code: x.code,
+      label: x.description.length > 24 ? x.description.slice(0, 24) + '…' : x.description,
+      aantal: x.count,
+    }));
+
+    return { list, chartData, totalCount, beste, slechtste, gemiddeld, aantalCodes };
+  }, [yearFiltered, prestatieType, codeToInfo]);
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
