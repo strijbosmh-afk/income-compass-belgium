@@ -9,16 +9,25 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick, GripVertical } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
 import { exportPeriodsCSV, exportPeriodsPDF, ExportRow } from '@/lib/goalExport';
 import { toast } from 'sonner';
+import { DndContext, DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, sortableKeyboardCoordinates, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const MONTH_SHORT = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const fmt = (val: number) => `€ ${val.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const periodLabel = (g: Goal) => {
   if (g.period_type === 'year') return `Jaar ${g.year}`;
   if (g.period_type === 'quarter') return `Q${g.period_value} ${g.year}`;
+  if (g.period_type === 'custom') {
+    const s = g.period_start ?? 1;
+    const e = g.period_end ?? s;
+    return `${MONTH_SHORT[s - 1]}–${MONTH_SHORT[e - 1]} ${g.year}`;
+  }
   return `${MONTH_NAMES[(g.period_value || 1) - 1]} ${g.year}`;
 };
 const incomeTypeLabel: Record<GoalIncomeType, string> = {
@@ -36,6 +45,8 @@ type FormState = {
   year: number;
   period_type: GoalPeriodType;
   period_value: number;
+  period_start: number;
+  period_end: number;
   income_type: GoalIncomeType;
   metric: GoalMetric;
   amount: string;
@@ -46,6 +57,8 @@ const emptyForm = (): FormState => ({
   year: new Date().getFullYear(),
   period_type: 'year',
   period_value: 1,
+  period_start: 1,
+  period_end: 6,
   income_type: 'all',
   metric: 'netto',
   amount: '',
