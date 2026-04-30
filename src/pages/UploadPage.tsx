@@ -68,7 +68,7 @@ export default function UploadPage() {
 
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke('extract-income', {
-        body: { image: base64, mimeType: file.type },
+        body: { image: base64, mimeType: file.type, unitNettoByCode },
       });
       if (error) throw error;
 
