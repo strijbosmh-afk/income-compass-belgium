@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface Props {
   records: ExtractedRecord[];
+  unitNettoByCode?: Record<string, number>;
   onSave: (records: ExtractedRecord[]) => void;
   onCancel: () => void;
 }
@@ -16,7 +17,7 @@ interface Props {
 // Tolerantie voor afrondingsverschillen (€0,02 cent).
 const TOLERANCE = 0.02;
 
-export function ExtractedDataReview({ records: initialRecords, onSave, onCancel }: Props) {
+export function ExtractedDataReview({ records: initialRecords, unitNettoByCode = {}, onSave, onCancel }: Props) {
   // Bewaar bedragen EXACT zoals door de AI uit de screenshot gehaald — niet herberekenen.
   const [records, setRecords] = useState<ExtractedRecord[]>(initialRecords);
 
@@ -36,41 +37,73 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
     const expectedTotal = Math.round((r.quantity || 0) * (r.unit_amount || 0) * 100) / 100;
     const qtyDiff = Math.round(((r.total_amount || 0) - expectedTotal) * 100) / 100;
     const tol = Math.max(0.05, (r.total_amount || 0) * 0.02);
-    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= tol;
 
-    // Suggestie: zoek een (qty, unit)-combinatie waarbij qty × unit ≈ total
-    // én unit overeenkomt met de unit/total van een ANDERE rij met dezelfde code.
-    let suggestion: { qty: number; unit: number } | null = null;
-    if (!qtyOk && r.total_amount > 0) {
-      const code = String(r.nomenclature_code || '').trim();
-      const peers = records
-        .map((p, i) => ({ p, i }))
-        .filter(({ p, i }) => i !== idx && String(p.nomenclature_code || '').trim() === code);
-      for (let k = 2; k <= 10; k++) {
-        const candidateUnit = Math.round((r.total_amount / k) * 100) / 100;
-        if (candidateUnit <= 0) continue;
-        const matches = peers.some(({ p }) => {
-          const ptol = Math.max(0.05, (p.total_amount || 0) * 0.02);
-          if (p.unit_amount > 0 && Math.abs(p.unit_amount - candidateUnit) <= Math.max(0.05, p.unit_amount * 0.02)) return true;
-          if (p.total_amount > 0) {
-            const di = Math.round(p.total_amount / candidateUnit);
-            return di >= 1 && Math.abs(di * candidateUnit - p.total_amount) <= ptol;
-          }
-          return false;
-        });
-        if (matches) { suggestion = { qty: k, unit: candidateUnit }; break; }
+    const code = String(r.nomenclature_code || '').trim();
+    const knownUnit = unitNettoByCode[code]; // unit-netto uit nomenclatuurbeheer
+
+    // PRIMAIRE check (autoritatief): netto / known_unit_netto moet integer ≥ 1 geven.
+    let nomenclatureExpectedQty: number | null = null;
+    let nomenclatureOk = true;
+    if (knownUnit && knownUnit > 0 && r.netto > 0) {
+      const derived = Math.round(r.netto / knownUnit);
+      const expectedNetto = derived * knownUnit;
+      const nettoTol = Math.max(0.05 * Math.max(derived, 1), r.netto * 0.02);
+      if (derived >= 1 && Math.abs(expectedNetto - r.netto) <= nettoTol) {
+        nomenclatureExpectedQty = derived;
+        nomenclatureOk = derived === r.quantity;
+      } else {
+        // netto deelt niet netjes door known unit → markeren als verdacht
+        nomenclatureOk = false;
       }
-      // Fallback: enkel qty herberekenen op basis van huidige unit.
-      if (!suggestion && r.unit_amount > 0) {
-        const di = Math.round(r.total_amount / r.unit_amount);
-        if (di >= 1 && di !== r.quantity && Math.abs(di * r.unit_amount - r.total_amount) <= tol) {
-          suggestion = { qty: di, unit: r.unit_amount };
+    }
+
+    // SECUNDAIRE check (fallback wanneer geen known unit): qty × unit_amount ≈ total_amount.
+    const localQtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= tol;
+    const qtyOk = knownUnit ? nomenclatureOk : localQtyOk;
+
+    // Suggestie opbouwen
+    let suggestion: { qty: number; unit: number } | null = null;
+    if (!qtyOk) {
+      // 1) Voorkeur: gebruik nomenclatuur unit-netto.
+      if (nomenclatureExpectedQty !== null && knownUnit) {
+        suggestion = { qty: nomenclatureExpectedQty, unit: knownUnit };
+      } else if (r.total_amount > 0) {
+        // 2) Fallback: zoek gedeelde-unit met peers.
+        const peers = records
+          .map((p, i) => ({ p, i }))
+          .filter(({ p, i }) => i !== idx && String(p.nomenclature_code || '').trim() === code);
+        for (let k = 2; k <= 10; k++) {
+          const candidateUnit = Math.round((r.total_amount / k) * 100) / 100;
+          if (candidateUnit <= 0) continue;
+          const matches = peers.some(({ p }) => {
+            const ptol = Math.max(0.05, (p.total_amount || 0) * 0.02);
+            if (p.unit_amount > 0 && Math.abs(p.unit_amount - candidateUnit) <= Math.max(0.05, p.unit_amount * 0.02)) return true;
+            if (p.total_amount > 0) {
+              const di = Math.round(p.total_amount / candidateUnit);
+              return di >= 1 && Math.abs(di * candidateUnit - p.total_amount) <= ptol;
+            }
+            return false;
+          });
+          if (matches) { suggestion = { qty: k, unit: candidateUnit }; break; }
+        }
+        // 3) Laatste fallback: enkel qty herberekenen via huidige unit.
+        if (!suggestion && r.unit_amount > 0) {
+          const di = Math.round(r.total_amount / r.unit_amount);
+          if (di >= 1 && di !== r.quantity && Math.abs(di * r.unit_amount - r.total_amount) <= tol) {
+            suggestion = { qty: di, unit: r.unit_amount };
+          }
         }
       }
     }
 
-    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff, suggestion };
-  }), [records]);
+    return {
+      computed, diff, ok: Math.abs(diff) <= TOLERANCE,
+      qtyOk, expectedTotal, qtyDiff,
+      suggestion,
+      nomenclatureExpectedQty,
+      knownUnit: knownUnit ?? null,
+    };
+  }), [records, unitNettoByCode]);
 
   const applySuggestion = (idx: number) => {
     const s = flags[idx]?.suggestion;
@@ -179,12 +212,14 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p className="text-xs">
-                                  Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
+                                  {f.knownUnit ? (
+                                    <>Netto ({fmt(r.netto)}) ÷ unit-netto nomenclatuur ({fmt(f.knownUnit)}) = <span className="font-mono">{f.nomenclatureExpectedQty ?? '?'}</span>, niet {r.quantity}.<br /></>
+                                  ) : (
+                                    <>Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br /></>
+                                  )}
                                   {f.suggestion ? (
                                     <>Voorstel: <span className="font-mono">{f.suggestion.qty} × {fmt(f.suggestion.unit)}</span> = {fmt(f.suggestion.qty * f.suggestion.unit)}.<br /></>
-                                  ) : (
-                                    <>Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br /></>
-                                  )}
+                                  ) : null}
                                   Controleer tegen de screenshot.
                                 </p>
                               </TooltipContent>

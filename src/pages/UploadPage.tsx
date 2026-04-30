@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ export default function UploadPage() {
   const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+  const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
@@ -67,7 +68,7 @@ export default function UploadPage() {
 
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke('extract-income', {
-        body: { image: base64, mimeType: file.type },
+        body: { image: base64, mimeType: file.type, unitNettoByCode },
       });
       if (error) throw error;
 
@@ -94,7 +95,26 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
-  }, [user, toast, incomeType, selectedMonth, selectedYear]);
+  }, [user, toast, incomeType, selectedMonth, selectedYear, unitNettoByCode]);
+
+  // Haal nomenclatuur netto-bedragen op zodat de extractie quantity correct kan afleiden.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('nomenclature_codes')
+        .select('code, netto_amount')
+        .eq('user_id', user.id);
+      if (data) {
+        const map: Record<string, number> = {};
+        data.forEach((nc: any) => {
+          const v = Number(nc.netto_amount);
+          if (nc.code && Number.isFinite(v) && v > 0) map[String(nc.code).trim()] = v;
+        });
+        setUnitNettoByCode(map);
+      }
+    })();
+  }, [user]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -309,7 +329,7 @@ export default function UploadPage() {
       )}
 
       {extractedData && (
-        <ExtractedDataReview records={extractedData} onSave={handleSaveRecords} onCancel={() => { setExtractedData(null); setPreviewUrl(null); }} />
+        <ExtractedDataReview records={extractedData} unitNettoByCode={unitNettoByCode} onSave={handleSaveRecords} onCancel={() => { setExtractedData(null); setPreviewUrl(null); }} />
       )}
     </div>
   );
