@@ -196,6 +196,38 @@ export default function StatisticsPage() {
     return { list, chartData, totalCount, beste, slechtste, gemiddeld, aantalCodes };
   }, [yearFiltered, prestatieType, prestatieMonth, codeToInfo]);
 
+  const codeDetail = useMemo(() => {
+    if (!selectedCode) return null;
+    const filtered = yearFiltered.filter(r =>
+      r.income_type === prestatieType &&
+      r.nomenclature_code === selectedCode &&
+      (prestatieMonth === 'all' || r.month === Number(prestatieMonth))
+    );
+    const info = codeToInfo[selectedCode];
+    const unit = info?.netto || 0;
+    const description = info?.description || filtered[0]?.description || selectedCode;
+    let totalQty = 0;
+    const rows = filtered.map(r => {
+      const qty = r.quantity && r.quantity > 0 ? r.quantity : (unit > 0 ? Math.round(r.netto / unit) : 0);
+      totalQty += qty;
+      return { ...r, qty };
+    }).sort((a, b) => a.month - b.month);
+    const totals = {
+      netto: filtered.reduce((s, r) => s + r.netto, 0),
+      aandeel: filtered.reduce((s, r) => s + r.aandeel_arts, 0),
+      total: filtered.reduce((s, r) => s + r.total_amount, 0),
+      mif: filtered.reduce((s, r) => s + r.mif, 0),
+      bouwfonds: filtered.reduce((s, r) => s + r.bouwfonds, 0),
+    };
+    // monthly breakdown
+    const monthly = MONTHS.map((name, idx) => {
+      const mr = rows.filter(r => r.month === idx + 1);
+      const qty = mr.reduce((s, r) => s + r.qty, 0);
+      return { month: name, qty, netto: mr.reduce((s, r) => s + r.netto, 0) };
+    });
+    return { description, rows, totalQty, totals, unit, monthly };
+  }, [selectedCode, yearFiltered, prestatieType, prestatieMonth, codeToInfo]);
+
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
