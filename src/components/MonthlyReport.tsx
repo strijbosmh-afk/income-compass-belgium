@@ -1,0 +1,495 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion } from '@/hooks/useDataVersion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, FileText, Lock, Unlock, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+type IncomeRecord = {
+  id: string;
+  month: number;
+  year: number;
+  income_type: string;
+  nomenclature_code: string;
+  description: string | null;
+  total_amount: number;
+  aandeel_arts: number;
+  bouwfonds: number;
+  mif: number;
+  netto: number;
+  quantity: number;
+};
+
+type Closure = { id: string; year: number; month: number; closed_at: string };
+
+const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const fmt = (val: number) => val.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtPct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
+
+function aggregate(recs: IncomeRecord[]) {
+  return recs.reduce(
+    (acc, r) => {
+      acc.bruto += r.total_amount;
+      acc.aandeel += r.aandeel_arts;
+      acc.bouwfonds += r.bouwfonds;
+      acc.mif += r.mif;
+      acc.netto += r.netto;
+      acc.qty += r.quantity;
+      acc.count += 1;
+      return acc;
+    },
+    { bruto: 0, aandeel: 0, bouwfonds: 0, mif: 0, netto: 0, qty: 0, count: 0 }
+  );
+}
+
+function pctChange(curr: number, prev: number): number | null {
+  if (prev === 0) return curr === 0 ? 0 : null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+export function MonthlyReport() {
+  const { user } = useAuth();
+  const dataVersion = useDataVersion();
+  const [records, setRecords] = useState<IncomeRecord[]>([]);
+  const [closures, setClosures] = useState<Closure[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const now = new Date();
+  const [year, setYear] = useState<string>(String(now.getFullYear()));
+  const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
+
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    Promise.all([
+      supabase.from('income_records').select('id,month,year,income_type,nomenclature_code,description,total_amount,aandeel_arts,bouwfonds,mif,netto,quantity').eq('user_id', user.id),
+      supabase.from('month_closures').select('id,year,month,closed_at').eq('user_id', user.id),
+    ]).then(([recRes, closeRes]) => {
+      setRecords((recRes.data as IncomeRecord[]) || []);
+      setClosures((closeRes.data as Closure[]) || []);
+      setLoading(false);
+    });
+  }, [user, dataVersion]);
+
+  const yearNum = parseInt(year);
+  const monthNum = parseInt(month);
+
+  const years = useMemo(() => {
+    const set = new Set<number>(records.map(r => r.year));
+    set.add(now.getFullYear());
+    return [...set].sort((a, b) => b - a);
+  }, [records]);
+
+  const currentRecs = useMemo(() => records.filter(r => r.year === yearNum && r.month === monthNum), [records, yearNum, monthNum]);
+  const prevDate = useMemo(() => {
+    const d = new Date(yearNum, monthNum - 2, 1);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  }, [yearNum, monthNum]);
+  const prevMonthRecs = useMemo(() => records.filter(r => r.year === prevDate.year && r.month === prevDate.month), [records, prevDate]);
+  const prevYearRecs = useMemo(() => records.filter(r => r.year === yearNum - 1 && r.month === monthNum), [records, yearNum, monthNum]);
+
+  const closure = useMemo(() => closures.find(c => c.year === yearNum && c.month === monthNum), [closures, yearNum, monthNum]);
+
+  const totals = useMemo(() => aggregate(currentRecs), [currentRecs]);
+  const ambulant = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'ambulatory')), [currentRecs]);
+  const hospitalized = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'hospitalized')), [currentRecs]);
+  const prevTotals = useMemo(() => aggregate(prevMonthRecs), [prevMonthRecs]);
+  const prevYearTotals = useMemo(() => aggregate(prevYearRecs), [prevYearRecs]);
+
+  const topCodes = useMemo(() => {
+    const map = new Map<string, { code: string; description: string; bruto: number; netto: number; qty: number }>();
+    for (const r of currentRecs) {
+      const ex = map.get(r.nomenclature_code);
+      if (ex) {
+        ex.bruto += r.total_amount;
+        ex.netto += r.netto;
+        ex.qty += r.quantity;
+      } else {
+        map.set(r.nomenclature_code, {
+          code: r.nomenclature_code,
+          description: r.description || '',
+          bruto: r.total_amount,
+          netto: r.netto,
+          qty: r.quantity,
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.netto - a.netto).slice(0, 10);
+  }, [currentRecs]);
+
+  const toggleClosure = async () => {
+    if (!user) return;
+    setBusy(true);
+    try {
+      if (closure) {
+        const { error } = await supabase.from('month_closures').delete().eq('id', closure.id);
+        if (error) throw error;
+        setClosures(prev => prev.filter(c => c.id !== closure.id));
+        toast.success('Maand heropend');
+      } else {
+        const { data, error } = await supabase.from('month_closures').insert({ user_id: user.id, year: yearNum, month: monthNum }).select().single();
+        if (error) throw error;
+        setClosures(prev => [...prev, data as Closure]);
+        toast.success('Maand afgesloten');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Fout bij wijzigen status');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const generatePDF = () => {
+    if (currentRecs.length === 0) {
+      toast.error('Geen data voor deze maand');
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const monthLabel = `${MONTH_NAMES[monthNum - 1]} ${yearNum}`;
+
+    // ===== HEADER BAND =====
+    doc.setFillColor(30, 60, 80);
+    doc.rect(0, 0, pageW, 32, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Maandrapport', 14, 14);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'normal');
+    doc.text(monthLabel, 14, 23);
+
+    // Status badge
+    if (closure) {
+      doc.setFillColor(60, 140, 90);
+      doc.roundedRect(pageW - 50, 8, 36, 8, 1.5, 1.5, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('AFGESLOTEN', pageW - 32, 13.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(new Date(closure.closed_at).toLocaleDateString('nl-BE'), pageW - 32, 19.5, { align: 'center' });
+    } else {
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(pageW - 50, 8, 36, 8, 1.5, 1.5);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CONCEPT', pageW - 32, 13.5, { align: 'center' });
+    }
+
+    doc.setTextColor(0, 0, 0);
+    let y = 42;
+
+    // ===== KERNCIJFERS BLOK =====
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Kerncijfers', 14, y);
+    y += 5;
+
+    const cards = [
+      { label: 'Bruto', val: totals.bruto, color: [70, 110, 140] },
+      { label: 'Aandeel Arts', val: totals.aandeel, color: [70, 140, 90] },
+      { label: 'Afdracht', val: totals.bruto - totals.aandeel, color: [180, 110, 60] },
+      { label: 'Netto', val: totals.netto, color: [30, 60, 80] },
+    ] as const;
+    const cardW = (pageW - 28 - 9) / 4;
+    cards.forEach((c, i) => {
+      const x = 14 + i * (cardW + 3);
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(x, y, cardW, 22, 1.5, 1.5, 'F');
+      doc.setFillColor(c.color[0], c.color[1], c.color[2]);
+      doc.rect(x, y, 1.5, 22, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(110, 110, 110);
+      doc.setFont('helvetica', 'normal');
+      doc.text(c.label.toUpperCase(), x + 4, y + 6);
+      doc.setFontSize(13);
+      doc.setTextColor(20, 20, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`EUR ${fmt(c.val)}`, x + 4, y + 15);
+    });
+    y += 28;
+
+    // ===== INKOMSTSTROMEN =====
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Per inkomststroom', 14, y);
+    y += 3;
+    autoTable(doc, {
+      startY: y,
+      head: [['Stroom', 'Prestaties', 'Bruto (EUR)', 'Aandeel Arts', 'Afdracht', 'Netto (EUR)']],
+      body: [
+        ['Ambulant', String(ambulant.qty), fmt(ambulant.bruto), fmt(ambulant.aandeel), fmt(ambulant.bruto - ambulant.aandeel), fmt(ambulant.netto)],
+        ['Gehospitaliseerd', String(hospitalized.qty), fmt(hospitalized.bruto), fmt(hospitalized.aandeel), fmt(hospitalized.bruto - hospitalized.aandeel), fmt(hospitalized.netto)],
+      ],
+      foot: [['TOTAAL', String(totals.qty), fmt(totals.bruto), fmt(totals.aandeel), fmt(totals.bruto - totals.aandeel), fmt(totals.netto)]],
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [30, 60, 80], textColor: 255 },
+      footStyles: { fillColor: [230, 230, 230], fontStyle: 'bold', textColor: [0, 0, 0] },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // ===== WATERVAL Bruto -> Netto =====
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Waterval: Bruto naar Netto', 14, y);
+    y += 6;
+
+    const wfX = 14;
+    const wfW = pageW - 28;
+    const wfH = 38;
+    const wfMax = totals.bruto || 1;
+    const steps = [
+      { label: 'Bruto', val: totals.bruto, color: [70, 110, 140] as [number, number, number], cumul: totals.bruto },
+      { label: '- Afdracht ZH', val: totals.bruto - totals.aandeel, color: [180, 110, 60] as [number, number, number], cumul: totals.aandeel, sub: -(totals.bruto - totals.aandeel) },
+      { label: '- MIF', val: totals.mif, color: [180, 70, 70] as [number, number, number], cumul: totals.aandeel - totals.mif, sub: -totals.mif },
+      { label: '- Bouwfonds', val: totals.bouwfonds, color: [200, 140, 50] as [number, number, number], cumul: totals.aandeel - totals.mif - totals.bouwfonds, sub: -totals.bouwfonds },
+      { label: 'Netto', val: totals.netto, color: [30, 60, 80] as [number, number, number], cumul: totals.netto },
+    ];
+    const stepW = (wfW - 4 * 3) / 5;
+    steps.forEach((s, i) => {
+      const sx = wfX + i * (stepW + 3);
+      const h = (s.cumul / wfMax) * wfH;
+      const sy = y + wfH - h;
+      doc.setFillColor(s.color[0], s.color[1], s.color[2]);
+      doc.rect(sx, sy, stepW, h, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(80, 80, 80);
+      doc.text(s.label, sx + stepW / 2, y + wfH + 4, { align: 'center' });
+      doc.setFontSize(8);
+      doc.setTextColor(20, 20, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.text(fmt(s.cumul), sx + stepW / 2, y + wfH + 9, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      if (s.sub !== undefined) {
+        doc.setFontSize(6);
+        doc.setTextColor(180, 70, 70);
+        doc.text(`(${fmt(s.sub)})`, sx + stepW / 2, y + wfH + 13, { align: 'center' });
+      }
+    });
+    y += wfH + 18;
+
+    // ===== VERGELIJKING =====
+    if (y > pageH - 80) { doc.addPage(); y = 18; }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Vergelijking', 14, y);
+    y += 3;
+
+    const prevMonthLabel = `${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`;
+    const prevYearLabel = `${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`;
+
+    const buildCompareRow = (label: string, curr: number, prevM: number, prevY: number) => {
+      const dM = pctChange(curr, prevM);
+      const dY = pctChange(curr, prevY);
+      return [
+        label,
+        fmt(curr),
+        fmt(prevM),
+        dM === null ? 'n.v.t.' : fmtPct(dM),
+        fmt(prevY),
+        dY === null ? 'n.v.t.' : fmtPct(dY),
+      ];
+    };
+
+    autoTable(doc, {
+      startY: y,
+      head: [['', monthLabel, prevMonthLabel, 'vs vorige', prevYearLabel, 'vs vorig jaar']],
+      body: [
+        buildCompareRow('Bruto', totals.bruto, prevTotals.bruto, prevYearTotals.bruto),
+        buildCompareRow('Aandeel Arts', totals.aandeel, prevTotals.aandeel, prevYearTotals.aandeel),
+        buildCompareRow('Netto', totals.netto, prevTotals.netto, prevYearTotals.netto),
+        ['Prestaties', String(totals.qty), String(prevTotals.qty), prevTotals.qty === 0 ? 'n.v.t.' : fmtPct(((totals.qty - prevTotals.qty) / prevTotals.qty) * 100), String(prevYearTotals.qty), prevYearTotals.qty === 0 ? 'n.v.t.' : fmtPct(((totals.qty - prevYearTotals.qty) / prevYearTotals.qty) * 100)],
+      ],
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [30, 60, 80], textColor: 255 },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+      didParseCell: (data) => {
+        if (data.section === 'body' && (data.column.index === 3 || data.column.index === 5)) {
+          const txt = data.cell.text[0] || '';
+          if (txt.startsWith('+')) data.cell.styles.textColor = [40, 130, 70];
+          else if (txt.startsWith('-')) data.cell.styles.textColor = [180, 60, 60];
+        }
+      },
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // ===== TOP NOMENCLATUURCODES =====
+    if (y > pageH - 80) { doc.addPage(); y = 18; }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Top ${topCodes.length} nomenclatuurcodes (op netto)`, 14, y);
+    y += 3;
+    autoTable(doc, {
+      startY: y,
+      head: [['#', 'Code', 'Omschrijving', 'Aantal', 'Bruto (EUR)', 'Netto (EUR)', '% v. netto']],
+      body: topCodes.map((c, i) => [
+        String(i + 1),
+        c.code,
+        c.description.length > 50 ? c.description.substring(0, 47) + '...' : c.description,
+        String(c.qty),
+        fmt(c.bruto),
+        fmt(c.netto),
+        totals.netto > 0 ? `${((c.netto / totals.netto) * 100).toFixed(1)}%` : '-',
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30, 60, 80], textColor: 255 },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+      columnStyles: { 0: { halign: 'right', cellWidth: 8 }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+      margin: { left: 14, right: 14 },
+    });
+
+    // ===== FOOTER op alle pagina's =====
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(140, 140, 140);
+      doc.text(`MedIncome • Gegenereerd ${new Date().toLocaleDateString('nl-BE')} ${new Date().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}`, 14, pageH - 6);
+      doc.text(`Pagina ${i} / ${total}`, pageW - 14, pageH - 6, { align: 'right' });
+    }
+
+    // ===== AFGESLOTEN watermerk diagonaal op pagina 1 =====
+    if (closure) {
+      doc.setPage(1);
+      doc.saveGraphicsState();
+      // @ts-ignore - jsPDF GState exists at runtime
+      doc.setGState(new (doc as any).GState({ opacity: 0.08 }));
+      doc.setTextColor(60, 140, 90);
+      doc.setFontSize(110);
+      doc.setFont('helvetica', 'bold');
+      doc.text('AFGESLOTEN', pageW / 2, pageH / 2 + 20, { align: 'center', angle: 30 });
+      doc.restoreGraphicsState();
+    }
+
+    doc.save(`maandrapport_${yearNum}_${String(monthNum).padStart(2, '0')}${closure ? '_afgesloten' : '_concept'}.pdf`);
+    toast.success('Maandrapport gedownload');
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="py-12 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const monthHasData = currentRecs.length > 0;
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              Maandrapport
+              {closure && (
+                <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400 gap-1">
+                  <CheckCircle2 className="h-3 w-3" /> Afgesloten
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Eén-pagina overzicht per maand met vergelijking en status.
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
+          <div>
+            <label className="text-xs text-muted-foreground">Jaar</label>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Maand</label>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            onClick={toggleClosure}
+            variant={closure ? 'outline' : 'secondary'}
+            disabled={busy || !monthHasData}
+            className="gap-2"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : closure ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {closure ? 'Heropenen' : 'Afsluiten'}
+          </Button>
+          <Button onClick={generatePDF} disabled={!monthHasData} className="gap-2">
+            <FileText className="h-4 w-4" /> PDF
+          </Button>
+        </div>
+
+        {!monthHasData ? (
+          <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/50 rounded-md">
+            Geen records voor {MONTH_NAMES[monthNum - 1]} {yearNum}.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <PreviewTile label="Bruto" value={totals.bruto} />
+            <PreviewTile label="Aandeel Arts" value={totals.aandeel} />
+            <PreviewTile label="Netto" value={totals.netto} highlight />
+            <PreviewTile label="Prestaties" value={totals.qty} isCount />
+            <CompareTile label="vs vorige maand" curr={totals.netto} prev={prevTotals.netto} subLabel={`${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`} />
+            <CompareTile label="vs vorig jaar" curr={totals.netto} prev={prevYearTotals.netto} subLabel={`${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`} />
+            <PreviewTile label="Ambulant netto" value={ambulant.netto} small />
+            <PreviewTile label="Gehosp. netto" value={hospitalized.netto} small />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PreviewTile({ label, value, highlight, isCount, small }: { label: string; value: number; highlight?: boolean; isCount?: boolean; small?: boolean }) {
+  return (
+    <div className={`rounded-md border p-3 ${highlight ? 'border-primary/40 bg-primary/5' : 'border-border/50 bg-muted/30'}`}>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-semibold tabular-nums ${small ? 'text-sm' : 'text-lg'}`}>
+        {isCount ? value : `€ ${fmt(value)}`}
+      </div>
+    </div>
+  );
+}
+
+function CompareTile({ label, curr, prev, subLabel }: { label: string; curr: number; prev: number; subLabel: string }) {
+  const pct = pctChange(curr, prev);
+  const Icon = pct === null || pct === 0 ? Minus : pct > 0 ? TrendingUp : TrendingDown;
+  const tone = pct === null || pct === 0 ? 'text-muted-foreground' : pct > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+  return (
+    <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`mt-1 flex items-center gap-1.5 font-semibold ${tone}`}>
+        <Icon className="h-4 w-4" />
+        {pct === null ? 'n.v.t.' : fmtPct(pct)}
+      </div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{subLabel}: € {fmt(prev)}</div>
+    </div>
+  );
+}
