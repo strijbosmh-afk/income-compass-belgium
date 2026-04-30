@@ -49,7 +49,7 @@ export default function StatisticsPage() {
     if (!user) return;
     Promise.all([
       supabase.from('income_records')
-        .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
+        .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description, quantity')
         .eq('user_id', user.id),
       supabase.from('nomenclature_codes')
         .select('code, description, netto_amount')
