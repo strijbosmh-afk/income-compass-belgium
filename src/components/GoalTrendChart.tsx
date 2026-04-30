@@ -33,6 +33,15 @@ function buildBuckets(goal: Goal): { label: string; longLabel: string; monthIdx:
     const [m1, m2] = QUARTER_MONTHS[goal.period_value || 1];
     return [m1, m1 + 1, m2].map(m => ({ label: MONTH_SHORT[m - 1], longLabel: `${MONTH_LONG[m - 1]} ${goal.year}`, monthIdx: m }));
   }
+  if (goal.period_type === 'custom') {
+    const ms = Math.max(1, Math.min(12, goal.period_start || 1));
+    const me = Math.max(ms, Math.min(12, goal.period_end || ms));
+    const out: { label: string; longLabel: string; monthIdx: number }[] = [];
+    for (let m = ms; m <= me; m++) {
+      out.push({ label: MONTH_SHORT[m - 1], longLabel: `${MONTH_LONG[m - 1]} ${goal.year}`, monthIdx: m });
+    }
+    return out;
+  }
   const m = goal.period_value || 1;
   return [{ label: MONTH_SHORT[m - 1], longLabel: `${MONTH_LONG[m - 1]} ${goal.year}`, monthIdx: m }];
 }
