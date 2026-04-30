@@ -113,15 +113,23 @@ export default function UploadPage() {
     try {
       // Harde guardrail: netto MOET binnen €0,02 matchen met aandeel - bouwfonds - mif.
       const TOLERANCE = 0.02;
-      const invalid = records.filter(r => {
+      const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const invalid = records.map((r, idx) => {
         const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
-        return Math.abs((r.netto || 0) - computed) > TOLERANCE;
-      });
+        const diff = Math.round(((r.netto || 0) - computed) * 100) / 100;
+        return { r, idx, computed, diff };
+      }).filter(x => Math.abs(x.diff) > TOLERANCE);
+
       if (invalid.length > 0) {
+        const preview = invalid.slice(0, 3).map(x =>
+          `• Regel ${x.idx + 1} (${x.r.nomenclature_code || '—'}): netto ${fmt(x.r.netto || 0)} vs berekend ${fmt(x.computed)} (Δ ${fmt(x.diff)})`
+        ).join('\n');
+        const extra = invalid.length > 3 ? `\n…en nog ${invalid.length - 3} regel(s).` : '';
         toast({
-          title: 'Opslaan geblokkeerd',
-          description: `${invalid.length} regel(s) hebben een netto-bedrag dat niet matcht met aandeel − bouwfonds − MIF. Corrigeer of verwijder ze eerst.`,
+          title: `🚫 Opslaan geblokkeerd — ${invalid.length} regel(s) wijken af`,
+          description: `Netto moet gelijk zijn aan aandeel − bouwfonds − MIF (tolerantie €0,02).\n\n${preview}${extra}\n\nCorrigeer of verwijder deze regel(s) en probeer opnieuw.`,
           variant: 'destructive',
+          duration: 10000,
         });
         return;
       }
