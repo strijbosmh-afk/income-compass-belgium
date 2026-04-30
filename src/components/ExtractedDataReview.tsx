@@ -30,14 +30,54 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
 
   // Bereken per record de verificatie: netto moet = aandeel - bouwfonds - mif zijn.
   // Daarnaast: quantity × unit_amount moet ≈ total_amount zijn (sanity-check).
-  const flags = useMemo(() => records.map(r => {
+  const flags = useMemo(() => records.map((r, idx) => {
     const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
     const diff = Math.round(((r.netto || 0) - computed) * 100) / 100;
     const expectedTotal = Math.round((r.quantity || 0) * (r.unit_amount || 0) * 100) / 100;
     const qtyDiff = Math.round(((r.total_amount || 0) - expectedTotal) * 100) / 100;
-    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= Math.max(0.05, (r.total_amount || 0) * 0.02);
-    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff };
+    const tol = Math.max(0.05, (r.total_amount || 0) * 0.02);
+    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= tol;
+
+    // Suggestie: zoek een (qty, unit)-combinatie waarbij qty × unit ≈ total
+    // én unit overeenkomt met de unit/total van een ANDERE rij met dezelfde code.
+    let suggestion: { qty: number; unit: number } | null = null;
+    if (!qtyOk && r.total_amount > 0) {
+      const code = String(r.nomenclature_code || '').trim();
+      const peers = records
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => i !== idx && String(p.nomenclature_code || '').trim() === code);
+      for (let k = 2; k <= 10; k++) {
+        const candidateUnit = Math.round((r.total_amount / k) * 100) / 100;
+        if (candidateUnit <= 0) continue;
+        const matches = peers.some(({ p }) => {
+          const ptol = Math.max(0.05, (p.total_amount || 0) * 0.02);
+          if (p.unit_amount > 0 && Math.abs(p.unit_amount - candidateUnit) <= Math.max(0.05, p.unit_amount * 0.02)) return true;
+          if (p.total_amount > 0) {
+            const di = Math.round(p.total_amount / candidateUnit);
+            return di >= 1 && Math.abs(di * candidateUnit - p.total_amount) <= ptol;
+          }
+          return false;
+        });
+        if (matches) { suggestion = { qty: k, unit: candidateUnit }; break; }
+      }
+      // Fallback: enkel qty herberekenen op basis van huidige unit.
+      if (!suggestion && r.unit_amount > 0) {
+        const di = Math.round(r.total_amount / r.unit_amount);
+        if (di >= 1 && di !== r.quantity && Math.abs(di * r.unit_amount - r.total_amount) <= tol) {
+          suggestion = { qty: di, unit: r.unit_amount };
+        }
+      }
+    }
+
+    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff, suggestion };
   }), [records]);
+
+  const applySuggestion = (idx: number) => {
+    const s = flags[idx]?.suggestion;
+    if (!s) return;
+    setRecords(prev => prev.map((r, i) => i === idx ? { ...r, quantity: s.qty, unit_amount: s.unit } : r));
+  };
+
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
