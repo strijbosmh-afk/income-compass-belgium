@@ -180,7 +180,11 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                               <TooltipContent>
                                 <p className="text-xs">
                                   Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
-                                  Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br />
+                                  {f.suggestion ? (
+                                    <>Voorstel: <span className="font-mono">{f.suggestion.qty} × {fmt(f.suggestion.unit)}</span> = {fmt(f.suggestion.qty * f.suggestion.unit)}.<br /></>
+                                  ) : (
+                                    <>Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br /></>
+                                  )}
                                   Controleer tegen de screenshot.
                                 </p>
                               </TooltipContent>
@@ -189,6 +193,16 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                         )}
                         <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className={`h-8 text-xs w-14 text-right ${!f.qtyOk ? 'border-amber-500' : ''}`} />
                       </div>
+                      {!f.qtyOk && f.suggestion && (
+                        <button
+                          type="button"
+                          onClick={() => applySuggestion(idx)}
+                          className="mt-1 text-[10px] text-amber-700 dark:text-amber-400 underline hover:no-underline whitespace-nowrap"
+                          title={`Pas ${f.suggestion.qty} × ${fmt(f.suggestion.unit)} toe`}
+                        >
+                          → {f.suggestion.qty}×{fmt(f.suggestion.unit)}
+                        </button>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <Input type="number" step="0.01" value={r.unit_amount} onChange={e => updateRecord(idx, 'unit_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
