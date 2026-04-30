@@ -74,6 +74,7 @@ export default function ExportPage() {
     ALL_COLUMNS.map(c => c.key)
   );
   const [includeSummary, setIncludeSummary] = useState(true);
+  const dataVersion = useDataVersion();
 
   useEffect(() => {
     if (!user) return;
