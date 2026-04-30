@@ -65,7 +65,7 @@ export default function RecordsPage() {
     if (filterMonth !== 'all') query = query.eq('month', parseInt(filterMonth));
     const [recordsRes, nomenclatureRes] = await Promise.all([
       query,
-      supabase.from('nomenclature_codes').select('code, description').eq('user_id', user.id),
+      supabase.from('nomenclature_codes').select('code, description, netto_amount').eq('user_id', user.id),
     ]);
     if (recordsRes.error) toast({ title: 'Fout', description: recordsRes.error.message, variant: 'destructive' });
     else setRecords(recordsRes.data || []);
