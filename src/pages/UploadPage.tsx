@@ -111,6 +111,20 @@ export default function UploadPage() {
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
     try {
+      // Harde guardrail: netto MOET binnen €0,02 matchen met aandeel - bouwfonds - mif.
+      const TOLERANCE = 0.02;
+      const invalid = records.filter(r => {
+        const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
+        return Math.abs((r.netto || 0) - computed) > TOLERANCE;
+      });
+      if (invalid.length > 0) {
+        toast({
+          title: 'Opslaan geblokkeerd',
+          description: `${invalid.length} regel(s) hebben een netto-bedrag dat niet matcht met aandeel − bouwfonds − MIF. Corrigeer of verwijder ze eerst.`,
+          variant: 'destructive',
+        });
+        return;
+      }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
       const insertData = records.map(({ _verification, ...r }: any) => ({
         ...r,
