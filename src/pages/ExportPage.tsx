@@ -78,6 +78,7 @@ export default function ExportPage() {
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     Promise.all([
       supabase.from('income_records').select('*').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
@@ -86,7 +87,7 @@ export default function ExportPage() {
       setNomenclatureCodes(nomRes.data || []);
       setLoading(false);
     });
-  }, [user]);
+  }, [user, dataVersion]);
 
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
 
