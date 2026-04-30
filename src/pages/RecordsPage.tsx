@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion, bumpDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -55,6 +56,7 @@ export default function RecordsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const dataVersion = useDataVersion();
 
   const fetchRecords = async () => {
     if (!user) return;
@@ -73,7 +75,7 @@ export default function RecordsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType, filterMonth]);
+  useEffect(() => { fetchRecords(); }, [user, filterYear, filterType, filterMonth, dataVersion]);
 
   const codeToLabel = useMemo(() => {
     const map: Record<string, string> = {};
@@ -137,6 +139,7 @@ export default function RecordsPage() {
     else {
       setRecords(prev => prev.filter(r => r.id !== id));
       toast({ title: 'Verwijderd' });
+      bumpDataVersion();
     }
   };
 

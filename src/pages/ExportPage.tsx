@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -73,9 +74,11 @@ export default function ExportPage() {
     ALL_COLUMNS.map(c => c.key)
   );
   const [includeSummary, setIncludeSummary] = useState(true);
+  const dataVersion = useDataVersion();
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     Promise.all([
       supabase.from('income_records').select('*').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
@@ -84,7 +87,7 @@ export default function ExportPage() {
       setNomenclatureCodes(nomRes.data || []);
       setLoading(false);
     });
-  }, [user]);
+  }, [user, dataVersion]);
 
   const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
 

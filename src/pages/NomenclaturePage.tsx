@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Plus, Trash2, Loader2, Pencil, Tag, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { bumpDataVersion } from '@/hooks/useDataVersion';
 
 type NomenclatureCode = {
   id: string;
@@ -74,13 +75,14 @@ export default function NomenclaturePage() {
       toast({ title: 'Code toegevoegd' });
       setNewCode(''); setNewDesc(''); setNewCategory('algemeen'); setNewNettoAmount('');
       fetchCodes();
+      bumpDataVersion();
     }
     setAdding(false);
   };
 
   const deleteCode = async (id: string) => {
     const { error } = await supabase.from('nomenclature_codes').delete().eq('id', id);
-    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code verwijderd' }); }
+    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code verwijderd' }); bumpDataVersion(); }
   };
 
   const openEditDialog = (code: NomenclatureCode) => {
@@ -107,6 +109,7 @@ export default function NomenclaturePage() {
       toast({ title: 'Code bijgewerkt' });
       setEditDialogOpen(false);
       fetchCodes();
+      bumpDataVersion();
     }
     setSaving(false);
   };

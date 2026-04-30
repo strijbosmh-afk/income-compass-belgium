@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,9 +49,11 @@ export default function StatisticsPage() {
   const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
   const [prestatieMonth, setPrestatieMonth] = useState<string>('all');
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const dataVersion = useDataVersion();
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
     Promise.all([
       supabase.from('income_records')
         .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description, quantity')
@@ -63,7 +66,7 @@ export default function StatisticsPage() {
       setNomenclature((r2.data as any) || []);
       setLoading(false);
     });
-  }, [user]);
+  }, [user, dataVersion]);
 
   const codeToInfo = useMemo(() => {
     const m: Record<string, { description: string; netto: number }> = {};

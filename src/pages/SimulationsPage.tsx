@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +62,7 @@ export default function SimulationsPage() {
   const [activeScenario, setActiveScenario] = useState(0);
   const [monthRecords, setMonthRecords] = useState<Record<string, MonthRecord[]>>({});
   const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
+  const dataVersion = useDataVersion();
 
   useEffect(() => {
     if (!user) return;
@@ -80,7 +82,8 @@ export default function SimulationsPage() {
     };
     fetchCodes();
     fetchYears();
-  }, [user]);
+    setMonthRecords({}); // invalidate cached month-base lookups when data changes
+  }, [user, dataVersion]);
 
   // Fetch month data when a scenario's monthBase changes
   const currentScenario = scenarios[activeScenario] || scenarios[0];
