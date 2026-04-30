@@ -48,8 +48,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { image, mimeType } = await req.json();
+    const { image, mimeType, unitNettoByCode } = await req.json();
     if (!image) throw new Error("No image provided");
+    // unitNettoByCode: optioneel object { "102292": 57.23, ... } met de unit-netto per
+    // nomenclatuurcode uit de gebruikers nomenclatuur-tabel. Wordt als AUTORITATIEVE
+    // bron gebruikt om quantity af te leiden uit de geëxtraheerde netto.
+    const knownUnitNetto: Record<string, number> =
+      unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
 
     const systemPrompt = `You are a precision OCR + data-extraction assistant for a Belgian medical oncologist.
 You extract income data from screenshots of RIZIV/INAMI income statements ("Per nomenclatuur" or "Per kostenplaats" views).
