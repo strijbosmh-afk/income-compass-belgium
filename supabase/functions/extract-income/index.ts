@@ -126,13 +126,27 @@ Return a JSON object with a "records" array. Extract every visible line item, in
     let records = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
-      records = (parsed.records || []).map((r: any) => ({
-        ...r,
-        aandeel_arts: r.aandeel_arts || 0,
-        bouwfonds: r.bouwfonds || 0,
-        mif: r.mif || 0,
-        netto: r.netto || (r.total_amount || 0) - (r.bouwfonds || 0) - (r.mif || 0),
-      }));
+      records = (parsed.records || []).map((r: any) => {
+        const aandeel = Number(r.aandeel_arts) || 0;
+        const bouwfonds = Number(r.bouwfonds) || 0;
+        const mif = Number(r.mif) || 0;
+        const netto = Number(r.netto) || (aandeel - bouwfonds - mif);
+        const total = Number(r.total_amount) || 0;
+        let quantity = Math.max(1, Math.round(Number(r.quantity) || 1));
+        let unit = Number(r.unit_amount) || 0;
+        // If quantity is 1 but unit < netto, the AI likely missed the multiplier — keep as-is, frontend Controle page will flag it.
+        if (!unit && quantity > 0) unit = Math.round((netto / quantity) * 100) / 100;
+        return {
+          ...r,
+          aandeel_arts: aandeel,
+          bouwfonds,
+          mif,
+          netto,
+          total_amount: total,
+          quantity,
+          unit_amount: unit,
+        };
+      });
     }
 
     return new Response(JSON.stringify({ records }), {
