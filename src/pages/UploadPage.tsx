@@ -195,10 +195,13 @@ export default function UploadPage() {
         return;
       }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
-      const insertData = records.map(({ _verification, ...r }: any) => ({
-        ...r,
-        user_id: user.id,
-      }));
+      const insertData = records.map((rec: any) => {
+        const clean: any = { user_id: user.id };
+        for (const [k, v] of Object.entries(rec)) {
+          if (!k.startsWith('_')) clean[k] = v;
+        }
+        return clean;
+      });
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
       toast({ title: 'Opgeslagen!', description: `${records.length} record(s) opgeslagen.` });
