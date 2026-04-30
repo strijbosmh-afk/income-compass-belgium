@@ -403,6 +403,7 @@ export default function GoalsPage() {
                     <SelectItem value="year">Volledig jaar</SelectItem>
                     <SelectItem value="quarter">Kwartaal</SelectItem>
                     <SelectItem value="month">Maand</SelectItem>
+                    <SelectItem value="custom">Aangepaste periode</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -427,6 +428,36 @@ export default function GoalsPage() {
                     {MONTH_NAMES.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {form.period_type === 'custom' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Van maand</Label>
+                  <Select value={String(form.period_start)} onValueChange={v => {
+                    const ns = parseInt(v);
+                    setForm(f => ({ ...f, period_start: ns, period_end: f.period_end < ns ? ns : f.period_end }));
+                  }}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Tot en met</Label>
+                  <Select value={String(form.period_end)} onValueChange={v => setForm(f => ({ ...f, period_end: parseInt(v) }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTH_NAMES.map((n, i) => (
+                        <SelectItem key={i} value={String(i + 1)} disabled={i + 1 < form.period_start}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="col-span-2 text-[11px] text-muted-foreground -mt-1">
+                  Bijv. <span className="font-medium text-foreground">Januari–Juni</span> voor een halfjaardoel.
+                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
