@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      income_goals: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          income_type: string
+          metric: string
+          note: string | null
+          period_type: string
+          period_value: number | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          income_type?: string
+          metric?: string
+          note?: string | null
+          period_type: string
+          period_value?: number | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          income_type?: string
+          metric?: string
+          note?: string | null
+          period_type?: string
+          period_value?: number | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       income_records: {
         Row: {
           aandeel_arts: number
