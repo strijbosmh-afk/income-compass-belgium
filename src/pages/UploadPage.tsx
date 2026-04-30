@@ -22,6 +22,7 @@ export interface ExtractedRecord {
   bouwfonds: number;
   mif: number;
   netto: number;
+  source_image_url?: string | null;
 }
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
