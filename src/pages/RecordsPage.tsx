@@ -364,6 +364,25 @@ export default function RecordsPage() {
                               <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalBouwfonds)}</td>
                               <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalMif)}</td>
                               <td className="py-2.5 px-3 text-right font-semibold">{fmt(g.totalNetto)}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="Bekijk originele screenshots"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const paths = g.records.map(r => r.source_image_url).filter((p): p is string => !!p);
+                                    setScreenshotDialog({
+                                      open: true,
+                                      title: `${g.label} (${g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}) — ${g.nomenclature_code}`,
+                                      paths,
+                                    });
+                                  }}
+                                >
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </td>
                             </tr>
                             {isExpanded && g.records.map(r => (
                               <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
