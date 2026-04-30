@@ -132,11 +132,13 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       return res;
     };
 
-    let response = await callModel("google/gemini-2.5-pro");
+    // Flash is used as primary: ~5-10x faster than Pro on vision+tool-call.
+    // Nomenclatuur-tabel is sowieso LEIDEND (stap C hieronder), dus de marginaal
+    // hogere precisie van Pro weegt niet op tegen het 150s timeout-risico.
+    let response = await callModel("google/gemini-2.5-flash");
     if (response.status === 429 || response.status === 402 || response.status >= 500) {
-      // Fallback to flash if Pro is unavailable / rate-limited
-      console.warn(`Pro model returned ${response.status}, falling back to flash`);
-      response = await callModel("google/gemini-2.5-flash");
+      console.warn(`Flash model returned ${response.status}, falling back to pro`);
+      response = await callModel("google/gemini-2.5-pro");
     }
 
     if (!response.ok) {
