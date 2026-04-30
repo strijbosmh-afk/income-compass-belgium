@@ -57,7 +57,16 @@ serve(async (req) => {
       unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
 
     const systemPrompt = `You are a precision OCR + data-extraction assistant for a Belgian medical oncologist.
-You extract income data from screenshots of RIZIV/INAMI income statements ("Per nomenclatuur" or "Per kostenplaats" views).
+You extract income data from screenshots of RIZIV/INAMI income statements.
+
+═══════════════════════════════════════════════════════════
+ABSOLUTE RULE — IGNORE KOSTENPLAATS / COST CENTRE COMPLETELY
+═══════════════════════════════════════════════════════════
+• NEVER split a nomenclature_code across multiple rows because of "kostenplaats", "cost centre", "afdeling", "dienst", "locatie", or any similar grouping column.
+• If the screenshot shows the SAME nomenclature_code on multiple rows differing only by kostenplaats → AGGREGATE them into ONE row per (code + income_type): sum quantity, sum total_amount, sum aandeel_arts, sum bouwfonds, sum mif, sum netto.
+• unit_amount stays the per-act price (do NOT sum it).
+• Output exactly ONE record per unique (nomenclature_code, income_type) combination.
+• If the screenshot is a "Per nomenclatuur" view (already 1 row per code) → keep it as is.
 
 ═══════════════════════════════════════════════════════════
 ABSOLUTE RULE — EXACT TRANSCRIPTION OF EUR AMOUNTS
@@ -152,59 +161,119 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
     let records: any[] = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
-      const rawRecords = parsed.records || [];
+      const rawRecords: any[] = parsed.records || [];
 
-      // Pas 1: bouw per nomenclature_code een betrouwbare unit_amount op
-      // (kleinste netto van een rij met die code = unit netto). Zo kunnen we
-      // quantity her-afleiden ook als de AI unit_amount op 0 liet staan.
       const num = (v: any) => {
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
       };
-      const unitByCode = new Map<string, number>();
+
+      // ─────────────────────────────────────────────────────────────
+      // STAP A: AGGREGEER per (nomenclature_code + income_type).
+      // Kostenplaats wordt volledig genegeerd — alle rijen met dezelfde
+      // code+type worden samengevoegd tot één rij (sommatie van bedragen
+      // en quantity). Dit voorkomt dubbele rijen door kostenplaats-splits.
+      // ─────────────────────────────────────────────────────────────
+      const aggMap = new Map<string, any>();
       for (const r of rawRecords) {
         const code = String(r.nomenclature_code || '').trim();
         if (!code) continue;
-        const total = num(r.total_amount);
+        const type = String(r.income_type || '').trim() || 'ambulatory';
+        const key = `${code}|${type}`;
+        const existing = aggMap.get(key);
         const qty = Math.max(1, Math.round(num(r.quantity) || 1));
-        const explicitUnit = num(r.unit_amount);
-        // Kandidaat-units: expliciete unit als die >0 is, anders total/qty.
+        if (!existing) {
+          aggMap.set(key, {
+            ...r,
+            nomenclature_code: code,
+            income_type: type,
+            quantity: qty,
+            unit_amount: num(r.unit_amount),
+            total_amount: num(r.total_amount),
+            aandeel_arts: num(r.aandeel_arts),
+            bouwfonds: num(r.bouwfonds),
+            mif: num(r.mif),
+            netto: num(r.netto),
+            _merged_rows: 1,
+          });
+        } else {
+          existing.quantity += qty;
+          existing.total_amount += num(r.total_amount);
+          existing.aandeel_arts += num(r.aandeel_arts);
+          existing.bouwfonds += num(r.bouwfonds);
+          existing.mif += num(r.mif);
+          existing.netto += num(r.netto);
+          // unit_amount: behoud de eerste >0 waarde (per-act prijs is constant).
+          if (existing.unit_amount <= 0 && num(r.unit_amount) > 0) {
+            existing.unit_amount = num(r.unit_amount);
+          }
+          existing._merged_rows += 1;
+        }
+      }
+      const aggregated = Array.from(aggMap.values()).map((r) => ({
+        ...r,
+        total_amount: Math.round(r.total_amount * 100) / 100,
+        aandeel_arts: Math.round(r.aandeel_arts * 100) / 100,
+        bouwfonds: Math.round(r.bouwfonds * 100) / 100,
+        mif: Math.round(r.mif * 100) / 100,
+        netto: Math.round(r.netto * 100) / 100,
+      }));
+
+      // ─────────────────────────────────────────────────────────────
+      // STAP B: Bepaal per code de fallback unit_amount uit de geëxtraheerde
+      // data (als de nomenclatuur-tabel die code niet kent).
+      // ─────────────────────────────────────────────────────────────
+      const fallbackUnitByCode = new Map<string, number>();
+      for (const r of aggregated) {
+        const code = r.nomenclature_code;
         const candidates: number[] = [];
-        if (explicitUnit > 0) candidates.push(explicitUnit);
-        if (total > 0 && qty >= 1) candidates.push(total / qty);
+        if (r.unit_amount > 0) candidates.push(r.unit_amount);
+        if (r.total_amount > 0 && r.quantity >= 1) candidates.push(r.total_amount / r.quantity);
         for (const c of candidates) {
-          const prev = unitByCode.get(code);
-          if (!prev || c < prev) unitByCode.set(code, c);
+          const prev = fallbackUnitByCode.get(code);
+          if (!prev || c < prev) fallbackUnitByCode.set(code, c);
         }
       }
 
-      records = rawRecords.map((r: any) => {
-        const aandeel = num(r.aandeel_arts);
-        const bouwfonds = num(r.bouwfonds);
-        const mif = num(r.mif);
+      // ─────────────────────────────────────────────────────────────
+      // STAP C: Nomenclatuur is ALTIJD LEIDEND. Voor elke rij:
+      //   • als de code in de gebruikers-nomenclatuur staat → quantity =
+      //     round(netto / known_unit_netto), unit_amount = known_unit_netto.
+      //   • anders → fallback op afgeleide unit + sanity-check op total/unit.
+      // ─────────────────────────────────────────────────────────────
+      records = aggregated.map((r) => {
+        const code = r.nomenclature_code;
         const netto = num(r.netto);
         const total = num(r.total_amount);
         let unit = num(r.unit_amount);
         let quantity = Math.max(1, Math.round(num(r.quantity) || 1));
-        const code = String(r.nomenclature_code || '').trim();
 
-        // Pas 2: als unit ontbreekt, vul aan vanuit de per-code map.
+        let quantity_from_nomenclature = false;
         let unit_inferred = false;
-        if (unit <= 0 && unitByCode.has(code)) {
-          unit = Math.round((unitByCode.get(code) as number) * 100) / 100;
-          unit_inferred = true;
-        }
-
-        // Pas 3: quantity sanity. Als unit en total beide aanwezig zijn,
-        // moet quantity ≈ total/unit. Bij grote afwijking → herbereken.
         let quantity_recomputed = false;
-        const tol = (t: number) => Math.max(0.05, t * 0.02);
-        if (unit > 0 && total > 0) {
-          const derived = Math.round(total / unit);
-          if (derived >= 1 && derived !== quantity) {
+
+        const knownUnit = knownUnitNetto[code];
+        if (knownUnit && knownUnit > 0 && netto > 0) {
+          // LEIDEND: bereken quantity uit netto en bekende unit.
+          const derived = Math.max(1, Math.round(netto / knownUnit));
+          if (derived !== quantity) {
+            console.warn(`[qty-from-nomenclature] code ${code}: qty ${quantity} → ${derived} (netto=${netto}, known unit=${knownUnit})`);
+            quantity = derived;
+            quantity_from_nomenclature = true;
+          }
+          unit = knownUnit;
+          unit_inferred = true;
+        } else {
+          // Fallback wanneer code niet in nomenclatuur-tabel zit.
+          if (unit <= 0 && fallbackUnitByCode.has(code)) {
+            unit = Math.round((fallbackUnitByCode.get(code) as number) * 100) / 100;
+            unit_inferred = true;
+          }
+          if (unit > 0 && total > 0) {
+            const derived = Math.round(total / unit);
             const expected = derived * unit;
-            const diff = Math.abs(expected - total);
-            if (diff <= tol(total)) {
+            const tol = Math.max(0.05, total * 0.02);
+            if (derived >= 1 && derived !== quantity && Math.abs(expected - total) <= tol) {
               console.warn(`[qty-fix] code ${code}: AI qty=${quantity} → recomputed ${derived} (total=${total}, unit=${unit})`);
               quantity = derived;
               quantity_recomputed = true;
@@ -212,80 +281,9 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
           }
         }
 
-        // Pas 4: gedeelde-unit detectie. Als de huidige rij nog steeds niet
-        // klopt (quantity × unit ≠ total), zoek dan een KLEINERE plausibele
-        // unit door total te delen door 2..10 en te kijken of dat resultaat
-        // overeenkomt met de unit/total van een ANDERE rij met dezelfde code.
-        // Voorbeeld: code 102292 verschijnt 2x — rij A: total 950,6 unit 950,6 (qty 1),
-        // rij B: total 1029,8 unit 950,6 (qty 1, fout). Dan vinden we niet
-        // direct een match, maar als rij B eigenlijk 2× iets is, dan is
-        // unit_B = 514,9 en zou rij A → unit 950,6 blijven. We accepteren een
-        // kandidaat-unit enkel als ze ook bij ≥1 andere rij van dezelfde code
-        // total deelt in een integer (binnen tolerantie). Strenger: enkel als
-        // unit zelf óók in andere rij voorkomt als total/qty.
-        if (!quantity_recomputed && unit > 0 && total > 0) {
-          const stillOff = Math.abs(quantity * unit - total) > tol(total);
-          if (stillOff) {
-            // Verzamel alle (total, qty)-paren van andere rijen met deze code.
-            const peers = rawRecords
-              .filter((p: any) => String(p.nomenclature_code || '').trim() === code && p !== r)
-              .map((p: any) => ({ total: num(p.total_amount), qty: Math.max(1, Math.round(num(p.quantity) || 1)), unit: num(p.unit_amount) }));
-            let bestUnit = 0;
-            let bestQty = 0;
-            for (let k = 2; k <= 10; k++) {
-              const candidateUnit = Math.round((total / k) * 100) / 100;
-              if (candidateUnit <= 0) continue;
-              // Match-criterium: candidateUnit komt overeen met unit van een peer
-              // OF deelt total van een peer in een integer (binnen tolerantie).
-              const matches = peers.some(p => {
-                if (p.unit > 0 && Math.abs(p.unit - candidateUnit) <= tol(p.unit)) return true;
-                if (p.total > 0) {
-                  const d = p.total / candidateUnit;
-                  const di = Math.round(d);
-                  return di >= 1 && Math.abs(di * candidateUnit - p.total) <= tol(p.total);
-                }
-                return false;
-              });
-              if (matches) { bestUnit = candidateUnit; bestQty = k; break; }
-            }
-            if (bestUnit > 0) {
-              console.warn(`[qty-shared-unit] code ${code}: total=${total} herlezen als ${bestQty}× ${bestUnit} (oude unit ${unit})`);
-              unit = bestUnit;
-              quantity = bestQty;
-              quantity_recomputed = true;
-            } else {
-              console.warn(`[qty-suspect] code ${code}: qty=${quantity}, unit=${unit}, total=${total} — geen plausibele gedeelde unit gevonden`);
-            }
-          }
-        }
-
-        // Pas 5 (AUTORITATIEF): als we de unit-netto kennen uit de nomenclatuur-tabel,
-        // gebruik die als waarheid. quantity = round(netto / known_unit_netto).
-        // Dit overschrijft eerdere afleidingen, want screenshot-data is vaak een
-        // aggregaat (1 rij = N prestaties met 1 unit-prijs in beeld).
-        let quantity_from_nomenclature = false;
-        const knownUnit = knownUnitNetto[code];
-        if (knownUnit && knownUnit > 0 && netto > 0) {
-          const derived = Math.round(netto / knownUnit);
-          const expected = derived * knownUnit;
-          const diff = Math.abs(expected - netto);
-          // Tolereer 5 cent of 2% per prestatie.
-          if (derived >= 1 && diff <= Math.max(0.05 * derived, netto * 0.02)) {
-            if (derived !== quantity) {
-              console.warn(`[qty-from-nomenclature] code ${code}: qty ${quantity} → ${derived} (netto=${netto}, known unit=${knownUnit})`);
-              quantity = derived;
-              quantity_from_nomenclature = true;
-            }
-            // Vul ook unit_amount aan als die nog leeg of fout is.
-            if (unit <= 0 || Math.abs(unit - knownUnit) > Math.max(0.05, knownUnit * 0.02)) {
-              unit = knownUnit;
-            }
-          } else {
-            console.warn(`[qty-nomenclature-mismatch] code ${code}: netto ${netto} niet deelbaar door unit ${knownUnit} (best derived=${derived}, diff=${diff.toFixed(2)})`);
-          }
-        }
-
-        // Sanity flag: difference between printed netto and (aandeel - bouwfonds - mif).
+        const aandeel = num(r.aandeel_arts);
+        const bouwfonds = num(r.bouwfonds);
+        const mif = num(r.mif);
         const computedNetto = Math.round((aandeel - bouwfonds - mif) * 100) / 100;
         const nettoDiff = Math.round((netto - computedNetto) * 100) / 100;
 
@@ -305,6 +303,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
             quantity_recomputed,
             quantity_from_nomenclature,
             unit_inferred,
+            merged_rows: r._merged_rows ?? 1,
           },
         };
       });
