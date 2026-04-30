@@ -448,16 +448,21 @@ export default function StatisticsPage() {
                 </Card>
 
                 <Card className="border-border/50">
-                  <CardHeader><CardTitle className="text-base">Top prestaties</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                    {prestatieData.list.slice(0, 6).map(item => (
-                      <div key={item.code} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
+                  <CardHeader><CardTitle className="text-base">Alle prestaties</CardTitle></CardHeader>
+                  <CardContent className="space-y-2 max-h-[320px] overflow-y-auto">
+                    {prestatieData.list.map(item => (
+                      <button
+                        type="button"
+                        key={item.code}
+                        onClick={() => setSelectedCode(item.code)}
+                        className="w-full flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30 hover:bg-muted/60 hover:border-primary/40 transition-colors text-left"
+                      >
                         <div className="min-w-0">
                           <p className="text-sm font-medium">{item.code}</p>
                           <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                         </div>
                         <div className="text-right ml-3"><p className="font-semibold">{item.count}×</p><p className="text-xs text-muted-foreground">{fmt(item.netto)}</p></div>
-                      </div>
+                      </button>
                     ))}
                   </CardContent>
                 </Card>
@@ -466,13 +471,18 @@ export default function StatisticsPage() {
               <Card className="border-border/50">
                 <CardHeader><CardTitle className="text-base">Aantal prestaties per nomenclatuur (top 10)</CardTitle></CardHeader>
                 <CardContent>
+                  <p className="text-xs text-muted-foreground mb-2">Klik op een balk voor details.</p>
                   <ResponsiveContainer width="100%" height={350}>
                     <BarChart data={prestatieData.chartData} margin={{ bottom: 60 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" angle={-25} textAnchor="end" interval={0} height={70} />
                       <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
                       <Tooltip formatter={(val: number) => `${val}×`} />
-                      <Bar dataKey="aantal" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="aantal" name="Aantal" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(d: any) => d?.code && setSelectedCode(d.code)}>
+                        {prestatieData.chartData.map((entry) => (
+                          <Cell key={entry.code} fill="hsl(174, 50%, 40%)" />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
