@@ -29,13 +29,18 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
   };
 
   // Bereken per record de verificatie: netto moet = aandeel - bouwfonds - mif zijn.
+  // Daarnaast: quantity × unit_amount moet ≈ total_amount zijn (sanity-check).
   const flags = useMemo(() => records.map(r => {
     const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
     const diff = Math.round(((r.netto || 0) - computed) * 100) / 100;
-    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE };
+    const expectedTotal = Math.round((r.quantity || 0) * (r.unit_amount || 0) * 100) / 100;
+    const qtyDiff = Math.round(((r.total_amount || 0) - expectedTotal) * 100) / 100;
+    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= Math.max(0.05, (r.total_amount || 0) * 0.02);
+    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff };
   }), [records]);
 
   const totalIssues = flags.filter(f => !f.ok).length;
+  const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
   const totals = useMemo(() => ({
     bruto: records.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
     netto: records.reduce((s, r) => s + (Number(r.netto) || 0), 0),
@@ -125,7 +130,25 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                       <Input value={r.description} onChange={e => updateRecord(idx, 'description', e.target.value)} className="h-8 text-xs w-36" />
                     </td>
                     <td className="py-2 px-2">
-                      <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className="h-8 text-xs w-14 text-right" />
+                      <div className="flex items-center gap-1 justify-end">
+                        {!f.qtyOk && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
+                                  Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br />
+                                  Controleer tegen de screenshot.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className={`h-8 text-xs w-14 text-right ${!f.qtyOk ? 'border-amber-500' : ''}`} />
+                      </div>
                     </td>
                     <td className="py-2 px-2">
                       <Input type="number" step="0.01" value={r.unit_amount} onChange={e => updateRecord(idx, 'unit_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
@@ -163,6 +186,17 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
               <p className="font-medium">Opslaan geblokkeerd — {totalIssues} regel(s) wijken af.</p>
               <p className="mt-0.5 text-destructive/80">
                 Voor elke regel moet netto gelijk zijn aan <span className="font-mono">aandeel arts − bouwfonds − MIF</span> (tolerantie €0,02). Corrigeer de afwijkende waarden tegen de screenshot of verwijder de regel(s) vóór je kan opslaan.
+              </p>
+            </div>
+          </div>
+        )}
+        {totalQtyIssues > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">{totalQtyIssues} regel(s) met verdacht aantal.</p>
+              <p className="mt-0.5 opacity-80">
+                Bij deze regels matcht <span className="font-mono">aantal × eenheid</span> niet met het totaal. Controleer het aantal tegen de screenshot — dit blokkeert opslaan niet, maar foute aantallen vertekenen de statistieken per nomenclatuur.
               </p>
             </div>
           </div>
