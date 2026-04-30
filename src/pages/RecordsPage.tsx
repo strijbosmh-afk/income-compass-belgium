@@ -395,6 +395,7 @@ export default function RecordsPage() {
                                 <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.bouwfonds.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.mif.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-right text-xs">€{r.netto.toFixed(2)}</td>
+                                <td className="py-2 px-3"></td>
                               </tr>
                             ))}
                           </>
@@ -408,6 +409,7 @@ export default function RecordsPage() {
                         <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(totalBouwfonds)}</td>
                         <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(totalMif)}</td>
                         <td className="py-2.5 px-3 text-right font-semibold">{fmt(netto)}</td>
+                        <td></td>
                       </tr>
                     </tfoot>
                   </table>
