@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
 
 type IncomeRecord = {
   id: string;
@@ -25,6 +26,7 @@ type IncomeRecord = {
   bouwfonds: number;
   mif: number;
   netto: number;
+  source_image_url: string | null;
 };
 
 type NomenclatureCode = {
@@ -56,6 +58,7 @@ export default function RecordsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [screenshotDialog, setScreenshotDialog] = useState<{ open: boolean; title: string; paths: string[] }>({ open: false, title: '', paths: [] });
   const dataVersion = useDataVersion();
 
   const fetchRecords = async () => {
@@ -241,7 +244,25 @@ export default function RecordsPage() {
                               <td className="py-2.5 px-3 text-right font-medium">{g.totalQuantity}</td>
                               <td className="py-2.5 px-3 text-right text-muted-foreground font-medium">{fmt(g.totalBruto)}</td>
                               <td className="py-2.5 px-3 text-right font-semibold">{fmt(g.totalNetto)}</td>
-                              <td className="py-2.5 px-3"></td>
+                              <td className="py-2.5 px-3 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="Bekijk originele screenshots"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const paths = g.records.map(r => r.source_image_url).filter((p): p is string => !!p);
+                                    setScreenshotDialog({
+                                      open: true,
+                                      title: `${g.label} (${g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}) — ${g.nomenclature_code}`,
+                                      paths,
+                                    });
+                                  }}
+                                >
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </td>
                             </tr>
                             {isExpanded && g.records.map(r => (
                               <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
@@ -320,6 +341,7 @@ export default function RecordsPage() {
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Bouwfonds €</th>
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">MIF €</th>
                         <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Netto €</th>
+                        <th className="py-2.5 px-3"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -343,6 +365,25 @@ export default function RecordsPage() {
                               <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalBouwfonds)}</td>
                               <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(g.totalMif)}</td>
                               <td className="py-2.5 px-3 text-right font-semibold">{fmt(g.totalNetto)}</td>
+                              <td className="py-2.5 px-3 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="Bekijk originele screenshots"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const paths = g.records.map(r => r.source_image_url).filter((p): p is string => !!p);
+                                    setScreenshotDialog({
+                                      open: true,
+                                      title: `${g.label} (${g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}) — ${g.nomenclature_code}`,
+                                      paths,
+                                    });
+                                  }}
+                                >
+                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </td>
                             </tr>
                             {isExpanded && g.records.map(r => (
                               <tr key={r.id} className="border-b border-border/10 bg-muted/10 hover:bg-muted/20 transition-colors">
@@ -354,6 +395,7 @@ export default function RecordsPage() {
                                 <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.bouwfonds.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-right text-destructive/80 text-xs">€{r.mif.toFixed(2)}</td>
                                 <td className="py-2 px-3 text-right text-xs">€{r.netto.toFixed(2)}</td>
+                                <td className="py-2 px-3"></td>
                               </tr>
                             ))}
                           </>
@@ -367,6 +409,7 @@ export default function RecordsPage() {
                         <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(totalBouwfonds)}</td>
                         <td className="py-2.5 px-3 text-right text-destructive/80 font-medium">{fmt(totalMif)}</td>
                         <td className="py-2.5 px-3 text-right font-semibold">{fmt(netto)}</td>
+                        <td></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -376,6 +419,14 @@ export default function RecordsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ScreenshotsDialog
+        open={screenshotDialog.open}
+        onOpenChange={(v) => setScreenshotDialog(s => ({ ...s, open: v }))}
+        title={screenshotDialog.title}
+        description="Originele screenshots gekoppeld aan deze prestatie + type."
+        paths={screenshotDialog.paths}
+      />
     </div>
   );
 }
