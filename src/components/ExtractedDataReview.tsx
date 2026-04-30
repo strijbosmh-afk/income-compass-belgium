@@ -130,7 +130,25 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                       <Input value={r.description} onChange={e => updateRecord(idx, 'description', e.target.value)} className="h-8 text-xs w-36" />
                     </td>
                     <td className="py-2 px-2">
-                      <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className="h-8 text-xs w-14 text-right" />
+                      <div className="flex items-center gap-1 justify-end">
+                        {!f.qtyOk && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
+                                  Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br />
+                                  Controleer tegen de screenshot.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className={`h-8 text-xs w-14 text-right ${!f.qtyOk ? 'border-amber-500' : ''}`} />
+                      </div>
                     </td>
                     <td className="py-2 px-2">
                       <Input type="number" step="0.01" value={r.unit_amount} onChange={e => updateRecord(idx, 'unit_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
