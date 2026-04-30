@@ -419,6 +419,14 @@ export default function RecordsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ScreenshotsDialog
+        open={screenshotDialog.open}
+        onOpenChange={(v) => setScreenshotDialog(s => ({ ...s, open: v }))}
+        title={screenshotDialog.title}
+        description="Originele screenshots gekoppeld aan deze prestatie + type."
+        paths={screenshotDialog.paths}
+      />
     </div>
   );
 }
