@@ -13,6 +13,7 @@ import NomenclaturePage from "./pages/NomenclaturePage";
 import StatisticsPage from "./pages/StatisticsPage";
 import ExportPage from "./pages/ExportPage";
 import SimulationsPage from "./pages/SimulationsPage";
+import ControlePage from "./pages/ControlePage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
