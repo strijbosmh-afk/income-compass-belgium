@@ -154,7 +154,10 @@ export default function StatisticsPage() {
 
   // --- Prestaties per nomenclatuur ---
   const prestatieData = useMemo(() => {
-    const filtered = yearFiltered.filter(r => r.income_type === prestatieType);
+    const filtered = yearFiltered.filter(r =>
+      r.income_type === prestatieType &&
+      (prestatieMonth === 'all' || r.month === Number(prestatieMonth))
+    );
     if (filtered.length === 0) return null;
 
     const byCode: Record<string, { code: string; description: string; count: number; netto: number }> = {};
