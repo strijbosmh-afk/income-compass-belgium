@@ -13,6 +13,7 @@ import NomenclaturePage from "./pages/NomenclaturePage";
 import StatisticsPage from "./pages/StatisticsPage";
 import ExportPage from "./pages/ExportPage";
 import SimulationsPage from "./pages/SimulationsPage";
+import ControlePage from "./pages/ControlePage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
             <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
             <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
+            <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
