@@ -139,6 +139,7 @@ export default function RecordsPage() {
     else {
       setRecords(prev => prev.filter(r => r.id !== id));
       toast({ title: 'Verwijderd' });
+      bumpDataVersion();
     }
   };
 
