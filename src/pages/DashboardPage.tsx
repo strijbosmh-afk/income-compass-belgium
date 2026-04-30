@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { GoalsWidget } from '@/components/GoalsWidget';
 
 type IncomeEntry = {
   id: string;
@@ -244,6 +245,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Doelstellingen & Forecast */}
+      <GoalsWidget year={parseInt(selectedYear)} />
 
       {/* Tabbladen */}
       <Tabs value={viewMode} onValueChange={setViewMode}>
