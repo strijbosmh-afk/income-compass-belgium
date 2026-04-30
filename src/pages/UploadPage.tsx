@@ -121,15 +121,24 @@ export default function UploadPage() {
       }).filter(x => Math.abs(x.diff) > TOLERANCE);
 
       if (invalid.length > 0) {
-        const preview = invalid.slice(0, 3).map(x =>
-          `• Regel ${x.idx + 1} (${x.r.nomenclature_code || '—'}): netto ${fmt(x.r.netto || 0)} vs berekend ${fmt(x.computed)} (Δ ${fmt(x.diff)})`
-        ).join('\n');
-        const extra = invalid.length > 3 ? `\n…en nog ${invalid.length - 3} regel(s).` : '';
+        const previewLines = invalid.slice(0, 3).map(x =>
+          `• Regel ${x.idx + 1} (${x.r.nomenclature_code || '—'}): netto ${fmt(x.r.netto || 0)} ≠ berekend ${fmt(x.computed)} (Δ ${fmt(x.diff)})`
+        );
+        const extra = invalid.length > 3 ? `…en nog ${invalid.length - 3} regel(s).` : '';
         toast({
           title: `🚫 Opslaan geblokkeerd — ${invalid.length} regel(s) wijken af`,
-          description: `Netto moet gelijk zijn aan aandeel − bouwfonds − MIF (tolerantie €0,02).\n\n${preview}${extra}\n\nCorrigeer of verwijder deze regel(s) en probeer opnieuw.`,
+          description: (
+            <div className="space-y-1 whitespace-pre-line text-xs">
+              <p>Netto moet gelijk zijn aan aandeel − bouwfonds − MIF (tolerantie €0,02).</p>
+              <div className="font-mono">
+                {previewLines.map((l, i) => <div key={i}>{l}</div>)}
+                {extra && <div className="opacity-80">{extra}</div>}
+              </div>
+              <p>Corrigeer of verwijder deze regel(s) en probeer opnieuw.</p>
+            </div>
+          ) as any,
           variant: 'destructive',
-          duration: 10000,
+          duration: 12000,
         });
         return;
       }
