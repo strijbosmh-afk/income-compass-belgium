@@ -49,6 +49,7 @@ const App = () => (
             <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
             <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
             <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
+            <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
