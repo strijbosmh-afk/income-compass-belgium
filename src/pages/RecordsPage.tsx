@@ -370,13 +370,13 @@ export default function RecordsPage() {
                     <thead>
                       <tr className="border-b border-border/50">
                         <th className="text-left py-2.5 px-3 font-medium text-muted-foreground w-8"></th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Type</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">RIZIV</th>
-                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Omschrijving</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Ereloon €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Bouwfonds €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">MIF €</th>
-                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground">Netto €</th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('type')}>Type<SortIcon k="type" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('code')}>RIZIV<SortIcon k="code" /></th>
+                        <th className="text-left py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('label')}>Omschrijving<SortIcon k="label" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('bruto')}>Ereloon €<SortIcon k="bruto" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('bouwfonds')}>Bouwfonds €<SortIcon k="bouwfonds" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('mif')}>MIF €<SortIcon k="mif" /></th>
+                        <th className="text-right py-2.5 px-3 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('netto')}>Netto €<SortIcon k="netto" /></th>
                         <th className="py-2.5 px-3"></th>
                       </tr>
                     </thead>
