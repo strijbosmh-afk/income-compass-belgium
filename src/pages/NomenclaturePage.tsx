@@ -75,6 +75,7 @@ export default function NomenclaturePage() {
       toast({ title: 'Code toegevoegd' });
       setNewCode(''); setNewDesc(''); setNewCategory('algemeen'); setNewNettoAmount('');
       fetchCodes();
+      bumpDataVersion();
     }
     setAdding(false);
   };
