@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 interface Props {
   records: ExtractedRecord[];
+  unitNettoByCode?: Record<string, number>;
   onSave: (records: ExtractedRecord[]) => void;
   onCancel: () => void;
 }
@@ -16,7 +17,7 @@ interface Props {
 // Tolerantie voor afrondingsverschillen (€0,02 cent).
 const TOLERANCE = 0.02;
 
-export function ExtractedDataReview({ records: initialRecords, onSave, onCancel }: Props) {
+export function ExtractedDataReview({ records: initialRecords, unitNettoByCode = {}, onSave, onCancel }: Props) {
   // Bewaar bedragen EXACT zoals door de AI uit de screenshot gehaald — niet herberekenen.
   const [records, setRecords] = useState<ExtractedRecord[]>(initialRecords);
 
