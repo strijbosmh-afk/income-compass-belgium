@@ -210,6 +210,7 @@ export default function StatisticsPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="statistieken">Statistieken</TabsTrigger>
+          <TabsTrigger value="prestaties">Prestaties</TabsTrigger>
           <TabsTrigger value="vergelijking">Jaarvergelijking</TabsTrigger>
         </TabsList>
 
