@@ -193,18 +193,63 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
         // Pas 3: quantity sanity. Als unit en total beide aanwezig zijn,
         // moet quantity ≈ total/unit. Bij grote afwijking → herbereken.
         let quantity_recomputed = false;
+        const tol = (t: number) => Math.max(0.05, t * 0.02);
         if (unit > 0 && total > 0) {
           const derived = Math.round(total / unit);
           if (derived >= 1 && derived !== quantity) {
             const expected = derived * unit;
             const diff = Math.abs(expected - total);
-            // Tolereer 5 cent of 2% (afrondingen op rij-niveau).
-            if (diff <= Math.max(0.05, total * 0.02)) {
+            if (diff <= tol(total)) {
               console.warn(`[qty-fix] code ${code}: AI qty=${quantity} → recomputed ${derived} (total=${total}, unit=${unit})`);
               quantity = derived;
               quantity_recomputed = true;
+            }
+          }
+        }
+
+        // Pas 4: gedeelde-unit detectie. Als de huidige rij nog steeds niet
+        // klopt (quantity × unit ≠ total), zoek dan een KLEINERE plausibele
+        // unit door total te delen door 2..10 en te kijken of dat resultaat
+        // overeenkomt met de unit/total van een ANDERE rij met dezelfde code.
+        // Voorbeeld: code 102292 verschijnt 2x — rij A: total 950,6 unit 950,6 (qty 1),
+        // rij B: total 1029,8 unit 950,6 (qty 1, fout). Dan vinden we niet
+        // direct een match, maar als rij B eigenlijk 2× iets is, dan is
+        // unit_B = 514,9 en zou rij A → unit 950,6 blijven. We accepteren een
+        // kandidaat-unit enkel als ze ook bij ≥1 andere rij van dezelfde code
+        // total deelt in een integer (binnen tolerantie). Strenger: enkel als
+        // unit zelf óók in andere rij voorkomt als total/qty.
+        if (!quantity_recomputed && unit > 0 && total > 0) {
+          const stillOff = Math.abs(quantity * unit - total) > tol(total);
+          if (stillOff) {
+            // Verzamel alle (total, qty)-paren van andere rijen met deze code.
+            const peers = rawRecords
+              .filter((p: any) => String(p.nomenclature_code || '').trim() === code && p !== r)
+              .map((p: any) => ({ total: num(p.total_amount), qty: Math.max(1, Math.round(num(p.quantity) || 1)), unit: num(p.unit_amount) }));
+            let bestUnit = 0;
+            let bestQty = 0;
+            for (let k = 2; k <= 10; k++) {
+              const candidateUnit = Math.round((total / k) * 100) / 100;
+              if (candidateUnit <= 0) continue;
+              // Match-criterium: candidateUnit komt overeen met unit van een peer
+              // OF deelt total van een peer in een integer (binnen tolerantie).
+              const matches = peers.some(p => {
+                if (p.unit > 0 && Math.abs(p.unit - candidateUnit) <= tol(p.unit)) return true;
+                if (p.total > 0) {
+                  const d = p.total / candidateUnit;
+                  const di = Math.round(d);
+                  return di >= 1 && Math.abs(di * candidateUnit - p.total) <= tol(p.total);
+                }
+                return false;
+              });
+              if (matches) { bestUnit = candidateUnit; bestQty = k; break; }
+            }
+            if (bestUnit > 0) {
+              console.warn(`[qty-shared-unit] code ${code}: total=${total} herlezen als ${bestQty}× ${bestUnit} (oude unit ${unit})`);
+              unit = bestUnit;
+              quantity = bestQty;
+              quantity_recomputed = true;
             } else {
-              console.warn(`[qty-suspect] code ${code}: qty=${quantity}, unit=${unit}, total=${total}, derived=${derived}, diff=${diff.toFixed(2)} — leaving for user review`);
+              console.warn(`[qty-suspect] code ${code}: qty=${quantity}, unit=${unit}, total=${total} — geen plausibele gedeelde unit gevonden`);
             }
           }
         }
