@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2 } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
 import { toast } from 'sonner';
 
@@ -58,6 +58,7 @@ export default function GoalsPage() {
   const [editing, setEditing] = useState<Goal | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busy, setBusy] = useState(false);
+  const [fullscreen, setFullscreen] = useState<typeof progressList[number] | null>(null);
 
   const openNew = () => {
     setEditing(null);
@@ -165,8 +166,9 @@ export default function GoalsPage() {
                       <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 </CardHeader>
@@ -207,6 +209,76 @@ export default function GoalsPage() {
           })}
         </div>
       )}
+
+      {/* Fullscreen-weergave van één doel */}
+      <Dialog open={!!fullscreen} onOpenChange={(o) => !o && setFullscreen(null)}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[92vh] flex flex-col p-6 sm:rounded-lg">
+          {fullscreen && (
+            <>
+              <DialogHeader className="shrink-0">
+                <DialogTitle className="text-xl flex items-center gap-3 flex-wrap">
+                  {periodLabel(fullscreen.goal)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {incomeTypeLabel[fullscreen.goal.income_type]} • {metricLabel[fullscreen.goal.metric]}
+                  </span>
+                  <StatusBadge status={fullscreen.status} />
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0 mt-2">
+                <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Werkelijk</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums">{fmt(fullscreen.actual)}</div>
+                </div>
+                <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Doel</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums">{fmt(fullscreen.target)}</div>
+                </div>
+                <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Projectie</div>
+                  <div className="mt-1 text-xl font-semibold tabular-nums">{fmt(fullscreen.projected)}</div>
+                </div>
+                <div className="rounded-md border border-border/50 bg-muted/30 p-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Afwijking</div>
+                  <div className={`mt-1 text-xl font-semibold tabular-nums ${fullscreen.deviationPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {fullscreen.deviationPct >= 0 ? '+' : ''}{fullscreen.deviationPct.toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 mt-4 space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{fullscreen.progressPct.toFixed(0)}% behaald</span>
+                  <span>{fullscreen.periodPct.toFixed(0)}% van periode verstreken</span>
+                </div>
+                <div className="h-3 rounded-full bg-muted overflow-hidden relative">
+                  <div className={`h-full ${fullscreen.status === 'behind' ? 'bg-red-500' : fullscreen.status === 'ahead' ? 'bg-green-500' : 'bg-primary'} transition-all`} style={{ width: `${Math.min(100, Math.max(0, fullscreen.progressPct))}%` }} />
+                  {fullscreen.periodPct > 0 && fullscreen.periodPct < 100 && (
+                    <div className="absolute top-0 bottom-0 w-px bg-foreground/50" style={{ left: `${fullscreen.periodPct}%` }} title="Verwachte voortgang" />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 mt-4 flex flex-col">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                  <span>Cumulatieve evolutie</span>
+                  <span className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-primary" /> Werkelijk</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <GoalTrendChart goal={fullscreen.goal} records={records} fullHeight />
+                </div>
+              </div>
+
+              {fullscreen.goal.note && (
+                <p className="text-sm text-muted-foreground italic shrink-0 mt-2 border-t border-border/50 pt-3">"{fullscreen.goal.note}"</p>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
