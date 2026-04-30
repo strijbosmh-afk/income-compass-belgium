@@ -505,3 +505,92 @@ export default function GoalsPage() {
     </div>
   );
 }
+
+// =================== Sortable card component ===================
+type GoalProgressItem = ReturnType<typeof useGoals>['progressList'][number];
+
+function SortableGoalCard({
+  p, records, onFullscreen, onEdit, onRemove, StatusBadge,
+}: {
+  p: GoalProgressItem;
+  records: ReturnType<typeof useGoals>['records'];
+  onFullscreen: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+  StatusBadge: (props: { status: 'on_track' | 'ahead' | 'behind' | 'no_data' }) => JSX.Element;
+}) {
+  const { goal: g } = p;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: g.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+  };
+  const barPct = Math.min(100, Math.max(0, p.progressPct));
+  const barColor = p.status === 'behind' ? 'bg-red-500' : p.status === 'ahead' ? 'bg-green-500' : 'bg-primary';
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className={`border-border/50 ${isDragging ? 'shadow-lg ring-2 ring-primary/40' : ''}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 min-w-0">
+              <button
+                type="button"
+                {...attributes}
+                {...listeners}
+                className="mt-0.5 -ml-1 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none shrink-0"
+                title="Sleep om te herschikken"
+                aria-label="Sleep om te herschikken"
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+              <div className="min-w-0">
+                <CardTitle className="text-base truncate">{periodLabel(g)}</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onFullscreen} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <div className="text-xl font-semibold tabular-nums">{fmt(p.actual)}</div>
+            <div className="text-sm text-muted-foreground tabular-nums">van {fmt(p.target)}</div>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full ${barColor} transition-all`} style={{ width: `${barPct}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{p.progressPct.toFixed(0)}% behaald • {p.periodPct.toFixed(0)}% van periode</span>
+            <StatusBadge status={p.status} />
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+              <span>Cumulatieve evolutie</span>
+              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-primary" /> Werkelijk</span>
+                <span className="flex items-center gap-1"><span className="inline-block w-2 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
+              </span>
+            </div>
+            <GoalTrendChart goal={g} records={records} />
+          </div>
+          <div className="text-xs text-muted-foreground border-t border-border/50 pt-2">
+            Projectie eindbedrag: <span className="font-medium text-foreground">{fmt(p.projected)}</span>
+            {p.target > 0 && (
+              <span className={`ml-2 ${p.deviationPct >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                ({p.deviationPct >= 0 ? '+' : ''}{p.deviationPct.toFixed(1)}% t.o.v. doel)
+              </span>
+            )}
+          </div>
+          {g.note && <p className="text-xs text-muted-foreground italic">"{g.note}"</p>}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
