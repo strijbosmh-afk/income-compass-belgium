@@ -109,6 +109,7 @@ export default function NomenclaturePage() {
       toast({ title: 'Code bijgewerkt' });
       setEditDialogOpen(false);
       fetchCodes();
+      bumpDataVersion();
     }
     setSaving(false);
   };
