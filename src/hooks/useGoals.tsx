@@ -106,7 +106,6 @@ export function computeProgress(goal: Goal, records: IncomeRecord[], today: Date
   const daysTotal = Math.max(1, Math.round((end.getTime() - start.getTime()) / msDay) + 1);
   const elapsedRaw = Math.round((today.getTime() - start.getTime()) / msDay) + 1;
   const daysElapsed = Math.max(0, Math.min(daysTotal, elapsedRaw));
-  const periodPct = (daysElapsed / daysTotal) * 100;
 
   const inPeriod = records.filter(r =>
     r.year === goal.year && months.includes(r.month) && matchesIncomeType(r, goal.income_type)
@@ -115,11 +114,19 @@ export function computeProgress(goal: Goal, records: IncomeRecord[], today: Date
   const target = goal.amount || 0;
   const progressPct = target > 0 ? (actual / target) * 100 : 0;
 
-  // Run-rate projectie: lineaire extrapolatie op basis van verstreken dagen
+  // Voortgang en projectie op basis van AANWEZIGE maanden (niet kalenderdagen).
+  // Een maand telt als "verstreken" zodra er minstens één record voor bestaat
+  // binnen deze periode (jaar + maand-bucket + income_type).
+  const monthsTotal = months.length;
+  const presentMonths = new Set(inPeriod.map(r => r.month));
+  const monthsElapsed = presentMonths.size;
+  const periodPct = monthsTotal > 0 ? (monthsElapsed / monthsTotal) * 100 : 0;
+
+  // Run-rate projectie: extrapoleer op basis van aanwezige maanden
   let projected = actual;
-  if (daysElapsed > 0 && daysElapsed < daysTotal) {
-    projected = (actual / daysElapsed) * daysTotal;
-  } else if (daysElapsed === 0) {
+  if (monthsElapsed > 0 && monthsElapsed < monthsTotal) {
+    projected = (actual / monthsElapsed) * monthsTotal;
+  } else if (monthsElapsed === 0) {
     projected = 0;
   }
   const projectedPct = target > 0 ? (projected / target) * 100 : 0;
