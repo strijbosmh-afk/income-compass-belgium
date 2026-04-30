@@ -30,14 +30,54 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
 
   // Bereken per record de verificatie: netto moet = aandeel - bouwfonds - mif zijn.
   // Daarnaast: quantity × unit_amount moet ≈ total_amount zijn (sanity-check).
-  const flags = useMemo(() => records.map(r => {
+  const flags = useMemo(() => records.map((r, idx) => {
     const computed = Math.round(((r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0)) * 100) / 100;
     const diff = Math.round(((r.netto || 0) - computed) * 100) / 100;
     const expectedTotal = Math.round((r.quantity || 0) * (r.unit_amount || 0) * 100) / 100;
     const qtyDiff = Math.round(((r.total_amount || 0) - expectedTotal) * 100) / 100;
-    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= Math.max(0.05, (r.total_amount || 0) * 0.02);
-    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff };
+    const tol = Math.max(0.05, (r.total_amount || 0) * 0.02);
+    const qtyOk = !(r.unit_amount > 0 && r.total_amount > 0) || Math.abs(qtyDiff) <= tol;
+
+    // Suggestie: zoek een (qty, unit)-combinatie waarbij qty × unit ≈ total
+    // én unit overeenkomt met de unit/total van een ANDERE rij met dezelfde code.
+    let suggestion: { qty: number; unit: number } | null = null;
+    if (!qtyOk && r.total_amount > 0) {
+      const code = String(r.nomenclature_code || '').trim();
+      const peers = records
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => i !== idx && String(p.nomenclature_code || '').trim() === code);
+      for (let k = 2; k <= 10; k++) {
+        const candidateUnit = Math.round((r.total_amount / k) * 100) / 100;
+        if (candidateUnit <= 0) continue;
+        const matches = peers.some(({ p }) => {
+          const ptol = Math.max(0.05, (p.total_amount || 0) * 0.02);
+          if (p.unit_amount > 0 && Math.abs(p.unit_amount - candidateUnit) <= Math.max(0.05, p.unit_amount * 0.02)) return true;
+          if (p.total_amount > 0) {
+            const di = Math.round(p.total_amount / candidateUnit);
+            return di >= 1 && Math.abs(di * candidateUnit - p.total_amount) <= ptol;
+          }
+          return false;
+        });
+        if (matches) { suggestion = { qty: k, unit: candidateUnit }; break; }
+      }
+      // Fallback: enkel qty herberekenen op basis van huidige unit.
+      if (!suggestion && r.unit_amount > 0) {
+        const di = Math.round(r.total_amount / r.unit_amount);
+        if (di >= 1 && di !== r.quantity && Math.abs(di * r.unit_amount - r.total_amount) <= tol) {
+          suggestion = { qty: di, unit: r.unit_amount };
+        }
+      }
+    }
+
+    return { computed, diff, ok: Math.abs(diff) <= TOLERANCE, qtyOk, expectedTotal, qtyDiff, suggestion };
   }), [records]);
+
+  const applySuggestion = (idx: number) => {
+    const s = flags[idx]?.suggestion;
+    if (!s) return;
+    setRecords(prev => prev.map((r, i) => i === idx ? { ...r, quantity: s.qty, unit_amount: s.unit } : r));
+  };
+
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
@@ -140,7 +180,11 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                               <TooltipContent>
                                 <p className="text-xs">
                                   Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
-                                  Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br />
+                                  {f.suggestion ? (
+                                    <>Voorstel: <span className="font-mono">{f.suggestion.qty} × {fmt(f.suggestion.unit)}</span> = {fmt(f.suggestion.qty * f.suggestion.unit)}.<br /></>
+                                  ) : (
+                                    <>Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br /></>
+                                  )}
                                   Controleer tegen de screenshot.
                                 </p>
                               </TooltipContent>
@@ -149,6 +193,16 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
                         )}
                         <Input type="number" value={r.quantity} onChange={e => updateRecord(idx, 'quantity', parseInt(e.target.value) || 0)} className={`h-8 text-xs w-14 text-right ${!f.qtyOk ? 'border-amber-500' : ''}`} />
                       </div>
+                      {!f.qtyOk && f.suggestion && (
+                        <button
+                          type="button"
+                          onClick={() => applySuggestion(idx)}
+                          className="mt-1 text-[10px] text-amber-700 dark:text-amber-400 underline hover:no-underline whitespace-nowrap"
+                          title={`Pas ${f.suggestion.qty} × ${fmt(f.suggestion.unit)} toe`}
+                        >
+                          → {f.suggestion.qty}×{fmt(f.suggestion.unit)}
+                        </button>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <Input type="number" step="0.01" value={r.unit_amount} onChange={e => updateRecord(idx, 'unit_amount', parseFloat(e.target.value) || 0)} className="h-8 text-xs w-20 text-right" />
@@ -193,11 +247,25 @@ export function ExtractedDataReview({ records: initialRecords, onSave, onCancel 
         {totalQtyIssues > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <div>
+            <div className="flex-1">
               <p className="font-medium">{totalQtyIssues} regel(s) met verdacht aantal.</p>
               <p className="mt-0.5 opacity-80">
                 Bij deze regels matcht <span className="font-mono">aantal × eenheid</span> niet met het totaal. Controleer het aantal tegen de screenshot — dit blokkeert opslaan niet, maar foute aantallen vertekenen de statistieken per nomenclatuur.
               </p>
+              {flags.some(f => !f.qtyOk && f.suggestion) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecords(prev => prev.map((r, i) => {
+                      const s = flags[i]?.suggestion;
+                      return (!flags[i]?.qtyOk && s) ? { ...r, quantity: s.qty, unit_amount: s.unit } : r;
+                    }));
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-medium hover:bg-amber-500/20"
+                >
+                  Pas alle voorstellen toe ({flags.filter(f => !f.qtyOk && f.suggestion).length})
+                </button>
+              )}
             </div>
           </div>
         )}
