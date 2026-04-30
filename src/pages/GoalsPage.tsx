@@ -58,6 +58,7 @@ export default function GoalsPage() {
   const [editing, setEditing] = useState<Goal | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [busy, setBusy] = useState(false);
+  const [fullscreen, setFullscreen] = useState<typeof progressList[number] | null>(null);
 
   const openNew = () => {
     setEditing(null);
@@ -165,8 +166,9 @@ export default function GoalsPage() {
                       <p className="text-xs text-muted-foreground mt-0.5">{incomeTypeLabel[g.income_type]} • {metricLabel[g.metric]}</p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFullscreen(p)} title="Volledig scherm"><Maximize2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(g)} title="Bewerken"><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(g)} title="Verwijderen"><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 </CardHeader>
