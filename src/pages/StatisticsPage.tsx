@@ -412,7 +412,11 @@ export default function StatisticsPage() {
                 <Card className="border-border/50">
                   <CardHeader><CardTitle className="text-base">Beste & Slechtste Prestatie</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCode(prestatieData.beste.code)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-primary" />
                         <div>
@@ -421,8 +425,12 @@ export default function StatisticsPage() {
                         </div>
                       </div>
                       <div className="text-right"><p className="font-semibold">{prestatieData.beste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.beste.netto)}</p></div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCode(prestatieData.slechtste.code)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2">
                         <TrendingDown className="h-4 w-4 text-destructive" />
                         <div>
@@ -431,7 +439,7 @@ export default function StatisticsPage() {
                         </div>
                       </div>
                       <div className="text-right"><p className="font-semibold">{prestatieData.slechtste.count}×</p><p className="text-xs text-muted-foreground">{fmt(prestatieData.slechtste.netto)}</p></div>
-                    </div>
+                    </button>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/30">
                       <span className="text-sm text-muted-foreground">Verschil</span>
                       <p className="font-semibold">{prestatieData.beste.count - prestatieData.slechtste.count}×</p>
