@@ -147,33 +147,64 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
     let records: any[] = [];
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
-      records = (parsed.records || []).map((r: any) => {
-        // Preserve EXACT amounts from the screenshot — DO NOT recompute.
-        const num = (v: any) => {
-          const n = Number(v);
-          return Number.isFinite(n) ? n : 0;
-        };
+      const rawRecords = parsed.records || [];
+
+      // Pas 1: bouw per nomenclature_code een betrouwbare unit_amount op
+      // (kleinste netto van een rij met die code = unit netto). Zo kunnen we
+      // quantity her-afleiden ook als de AI unit_amount op 0 liet staan.
+      const num = (v: any) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const unitByCode = new Map<string, number>();
+      for (const r of rawRecords) {
+        const code = String(r.nomenclature_code || '').trim();
+        if (!code) continue;
+        const total = num(r.total_amount);
+        const qty = Math.max(1, Math.round(num(r.quantity) || 1));
+        const explicitUnit = num(r.unit_amount);
+        // Kandidaat-units: expliciete unit als die >0 is, anders total/qty.
+        const candidates: number[] = [];
+        if (explicitUnit > 0) candidates.push(explicitUnit);
+        if (total > 0 && qty >= 1) candidates.push(total / qty);
+        for (const c of candidates) {
+          const prev = unitByCode.get(code);
+          if (!prev || c < prev) unitByCode.set(code, c);
+        }
+      }
+
+      records = rawRecords.map((r: any) => {
         const aandeel = num(r.aandeel_arts);
         const bouwfonds = num(r.bouwfonds);
         const mif = num(r.mif);
         const netto = num(r.netto);
         const total = num(r.total_amount);
-        const unit = num(r.unit_amount);
+        let unit = num(r.unit_amount);
         let quantity = Math.max(1, Math.round(num(r.quantity) || 1));
+        const code = String(r.nomenclature_code || '').trim();
 
-        // Quantity sanity: als unit_amount en total_amount beide aanwezig zijn,
-        // moet quantity ≈ total / unit zijn. Als de AI er ver naast zit, herbereken.
-        // (Dit is pure rekenkunde op de geëxtraheerde bedragen — bedragen zelf blijven 1‑op‑1.)
+        // Pas 2: als unit ontbreekt, vul aan vanuit de per-code map.
+        let unit_inferred = false;
+        if (unit <= 0 && unitByCode.has(code)) {
+          unit = Math.round((unitByCode.get(code) as number) * 100) / 100;
+          unit_inferred = true;
+        }
+
+        // Pas 3: quantity sanity. Als unit en total beide aanwezig zijn,
+        // moet quantity ≈ total/unit. Bij grote afwijking → herbereken.
         let quantity_recomputed = false;
         if (unit > 0 && total > 0) {
           const derived = Math.round(total / unit);
           if (derived >= 1 && derived !== quantity) {
-            // Vertrouw de afgeleide qty als de AI's qty duidelijk inconsistent is met total/unit.
             const expected = derived * unit;
             const diff = Math.abs(expected - total);
+            // Tolereer 5 cent of 2% (afrondingen op rij-niveau).
             if (diff <= Math.max(0.05, total * 0.02)) {
+              console.warn(`[qty-fix] code ${code}: AI qty=${quantity} → recomputed ${derived} (total=${total}, unit=${unit})`);
               quantity = derived;
               quantity_recomputed = true;
+            } else {
+              console.warn(`[qty-suspect] code ${code}: qty=${quantity}, unit=${unit}, total=${total}, derived=${derived}, diff=${diff.toFixed(2)} — leaving for user review`);
             }
           }
         }
@@ -184,6 +215,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
 
         return {
           ...r,
+          nomenclature_code: code,
           aandeel_arts: aandeel,
           bouwfonds,
           mif,
@@ -195,6 +227,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
             computed_netto: computedNetto,
             netto_diff: nettoDiff,
             quantity_recomputed,
+            unit_inferred,
           },
         };
       });
