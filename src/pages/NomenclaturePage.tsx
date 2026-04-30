@@ -82,7 +82,7 @@ export default function NomenclaturePage() {
 
   const deleteCode = async (id: string) => {
     const { error } = await supabase.from('nomenclature_codes').delete().eq('id', id);
-    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code verwijderd' }); }
+    if (!error) { setCodes(prev => prev.filter(c => c.id !== id)); toast({ title: 'Code verwijderd' }); bumpDataVersion(); }
   };
 
   const openEditDialog = (code: NomenclatureCode) => {
