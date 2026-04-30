@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { GoalTrendChart } from '@/components/GoalTrendChart';
 import { toast } from 'sonner';
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
@@ -52,7 +53,7 @@ const emptyForm = (): FormState => ({
 
 export default function GoalsPage() {
   const { user } = useAuth();
-  const { progressList, loading, refresh } = useGoals();
+  const { progressList, loading, refresh, records } = useGoals();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Goal | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -180,6 +181,16 @@ export default function GoalsPage() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{p.progressPct.toFixed(0)}% behaald • {p.periodPct.toFixed(0)}% van periode</span>
                     <StatusBadge status={p.status} />
+                  </div>
+                  <div className="pt-1">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                      <span>Cumulatieve evolutie</span>
+                      <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-primary" /> Werkelijk</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-2 border-t border-dashed border-muted-foreground" /> Lineair doel</span>
+                      </span>
+                    </div>
+                    <GoalTrendChart goal={g} records={records} />
                   </div>
                   <div className="text-xs text-muted-foreground border-t border-border/50 pt-2">
                     Projectie eindbedrag: <span className="font-medium text-foreground">{fmt(p.projected)}</span>
