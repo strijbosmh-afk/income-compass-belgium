@@ -572,6 +572,89 @@ export default function StatisticsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedCode} onOpenChange={(open) => !open && setSelectedCode(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedCode} – {codeDetail?.description}</DialogTitle>
+            <DialogDescription>
+              {prestatieType === 'ambulatory' ? 'Ambulant' : 'Hospitalisatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {codeDetail && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs text-muted-foreground">Aantal</p>
+                  <p className="text-lg font-semibold">{codeDetail.totalQty}×</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Netto totaal</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.totals.netto)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Aandeel arts</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.totals.aandeel)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border/30">
+                  <p className="text-xs text-muted-foreground">Eenheid netto</p>
+                  <p className="text-lg font-semibold">{fmt(codeDetail.unit)}</p>
+                </div>
+              </div>
+
+              {prestatieMonth === 'all' && (
+                <Card className="border-border/50">
+                  <CardHeader><CardTitle className="text-base">Per maand</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={codeDetail.monthly}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" />
+                        <YAxis tick={{ fontSize: 11 }} stroke="hsl(220, 10%, 46%)" allowDecimals={false} />
+                        <Tooltip formatter={(val: number, name) => name === 'netto' ? fmt(val) : `${val}×`} />
+                        <Bar dataKey="qty" name="Aantal" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className="border-border/50">
+                <CardHeader><CardTitle className="text-base">Records ({codeDetail.rows.length})</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Maand</TableHead>
+                        <TableHead className="text-right">Aantal</TableHead>
+                        <TableHead className="text-right">Bruto</TableHead>
+                        <TableHead className="text-right">Aandeel arts</TableHead>
+                        <TableHead className="text-right">Netto</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {codeDetail.rows.map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell>{MONTH_NAMES[r.month - 1]}</TableCell>
+                          <TableCell className="text-right">{r.qty}×</TableCell>
+                          <TableCell className="text-right">{fmt(r.total_amount)}</TableCell>
+                          <TableCell className="text-right">{fmt(r.aandeel_arts)}</TableCell>
+                          <TableCell className="text-right font-medium">{fmt(r.netto)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {codeDetail.rows.length === 0 && (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Geen records</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
