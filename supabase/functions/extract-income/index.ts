@@ -58,7 +58,7 @@ Return a JSON object with a "records" array. Extract every visible line item, in
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract all income data from this screenshot. Return JSON with a records array. Include aandeel_arts, bouwfonds, mif, and netto columns." },
+              { type: "text", text: "Extract all income data from this screenshot. The same nomenclature code may appear on multiple rows (per kostenplaats). When no 'aantal' column is shown, infer quantity by dividing the row's netto by the per-act netto (use the smallest row of the same code as reference). Return JSON with a records array including aandeel_arts, bouwfonds, mif, netto and a correctly computed quantity (≥1, integer)." },
               { type: "image_url", image_url: { url: `data:${mimeType || "image/png"};base64,${image}` } },
             ],
           },
