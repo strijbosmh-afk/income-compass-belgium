@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { MonthlyReport } from '@/components/MonthlyReport';
 
 type IncomeRecord = {
   id: string;
@@ -408,6 +409,8 @@ export default function ExportPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Exporteren</h1>
         <p className="text-muted-foreground mt-1">Exporteer je inkomsten als Excel of PDF.</p>
       </div>
+
+      <MonthlyReport />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Filters */}
