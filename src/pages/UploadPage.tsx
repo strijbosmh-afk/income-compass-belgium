@@ -111,9 +111,9 @@ export default function UploadPage() {
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
     try {
-      const insertData = records.map(r => ({
+      // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
+      const insertData = records.map(({ _verification, ...r }: any) => ({
         ...r,
-        netto: (r.aandeel_arts || 0) - (r.bouwfonds || 0) - (r.mif || 0),
         user_id: user.id,
       }));
       const { error } = await supabase.from('income_records').insert(insertData);
