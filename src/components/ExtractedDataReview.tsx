@@ -212,12 +212,14 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p className="text-xs">
-                                  Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br />
+                                  {f.knownUnit ? (
+                                    <>Netto ({fmt(r.netto)}) ÷ unit-netto nomenclatuur ({fmt(f.knownUnit)}) = <span className="font-mono">{f.nomenclatureExpectedQty ?? '?'}</span>, niet {r.quantity}.<br /></>
+                                  ) : (
+                                    <>Aantal × eenheid ({fmt(f.expectedTotal)}) ≠ totaal ({fmt(r.total_amount)}).<br /></>
+                                  )}
                                   {f.suggestion ? (
                                     <>Voorstel: <span className="font-mono">{f.suggestion.qty} × {fmt(f.suggestion.unit)}</span> = {fmt(f.suggestion.qty * f.suggestion.unit)}.<br /></>
-                                  ) : (
-                                    <>Verwacht aantal: {r.unit_amount > 0 ? Math.round(r.total_amount / r.unit_amount) : '?'}.<br /></>
-                                  )}
+                                  ) : null}
                                   Controleer tegen de screenshot.
                                 </p>
                               </TooltipContent>
