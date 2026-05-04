@@ -143,6 +143,31 @@ export default function NomenclaturePage() {
 
   const fmt = (v: number) => v.toLocaleString('nl-BE', { style: 'currency', currency: 'EUR' });
 
+  const exportCSV = () => {
+    const esc = (v: string) => /[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const fmtNum = (v: number) =>
+      (v ?? 0).toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const sorted = [...codes].sort((a, b) =>
+      a.category.localeCompare(b.category) || a.code.localeCompare(b.code),
+    );
+    const header = ['Code', 'Omschrijving', 'Categorie', 'Netto bedrag (EUR)'];
+    const lines = [
+      `# Nomenclatuur export`,
+      `# Geëxporteerd: ${new Date().toLocaleString('nl-BE')}`,
+      `# Aantal codes: ${sorted.length}`,
+      header.map(esc).join(';'),
+      ...sorted.map(c => [c.code, c.description || '', c.category, fmtNum(c.netto_amount)].map(esc).join(';')),
+    ];
+    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nomenclatuur_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'CSV geëxporteerd', description: `${sorted.length} codes` });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -150,10 +175,16 @@ export default function NomenclaturePage() {
           <h1 className="text-2xl font-semibold tracking-tight">Nomenclatuurbeheer</h1>
           <p className="text-muted-foreground mt-1">Beheer je RIZIV nomenclatuurcodes en categorieën.</p>
         </div>
-        <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
-          <Tag className="h-4 w-4 mr-2" />
-          Categorieën Beheren
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV} disabled={codes.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+            <Tag className="h-4 w-4 mr-2" />
+            Categorieën Beheren
+          </Button>
+        </div>
       </div>
 
       <Card className="border-border/50">
