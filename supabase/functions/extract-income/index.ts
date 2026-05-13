@@ -238,7 +238,6 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       // - 'associatie' (gepoold met dr. Schrevens): bewaar rek 9, verwerp rek 0.
       // - geen rekening-kolom of andere stroom: niet filteren.
       // ─────────────────────────────────────────────────────────────
-      let skippedAccount0 = 0;
       const filteredForAccount = aggregated.filter((r) => {
         const acct = String(r.account_number ?? '').trim();
         if (acct !== '0' && acct !== '9') return true;
