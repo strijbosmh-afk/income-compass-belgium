@@ -57,7 +57,7 @@ export default function SimulationsPage() {
   const [codes, setCodes] = useState<NomenclatureCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [scenarios, setScenarios] = useState<Scenario[]>([
-    { id: crypto.randomUUID(), name: 'Scenario 1', lines: [], monthBase: { enabled: false, month: new Date().getMonth() + 1, year: new Date().getFullYear() } },
+    { id: crypto.randomUUID(), name: 'Scenario 1', lines: [], monthBase: { enabled: true, month: new Date().getMonth() + 1, year: new Date().getFullYear() } },
   ]);
   const [activeScenario, setActiveScenario] = useState(0);
   const [monthRecords, setMonthRecords] = useState<Record<string, MonthRecord[]>>({});
