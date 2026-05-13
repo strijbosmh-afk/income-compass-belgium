@@ -169,6 +169,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
     let records: any[] = [];
+    let skippedAccount9 = 0;
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
       const rawRecords: any[] = parsed.records || [];
