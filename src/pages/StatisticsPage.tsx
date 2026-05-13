@@ -46,7 +46,7 @@ export default function StatisticsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
   const [tab, setTab] = useState('statistieken');
-  const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
+  const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized' | 'associatie'>('ambulatory');
   const [prestatieMonth, setPrestatieMonth] = useState<string>('all');
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const dataVersion = useDataVersion();
