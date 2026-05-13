@@ -49,13 +49,14 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { image, mimeType, unitNettoByCode } = await req.json();
+    const { image, mimeType, unitNettoByCode, incomeType: selectedIncomeType } = await req.json();
     if (!image) throw new Error("No image provided");
-    // unitNettoByCode: optioneel object { "102292": 57.23, ... } met de unit-netto per
-    // nomenclatuurcode uit de gebruikers nomenclatuur-tabel. Wordt als AUTORITATIEVE
-    // bron gebruikt om quantity af te leiden uit de geëxtraheerde netto.
     const knownUnitNetto: Record<string, number> =
       unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
+    // selectedIncomeType: door de gebruiker gekozen stroom in de UI. Bepaalt hoe het
+    // rekeningnummer-filter werkt: 'hospitalized' = alleen rek 0 bewaren, 'associatie'
+    // = alleen rek 9 (gepoold met dr. Schrevens) bewaren, 'ambulatory' = geen filter.
+    const userIncomeType: string = typeof selectedIncomeType === 'string' ? selectedIncomeType : '';
 
     const systemPrompt = `You are a precision OCR + data-extraction assistant for a Belgian medical oncologist.
 You extract income data from screenshots of RIZIV/INAMI income statements.
@@ -231,17 +232,21 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       }));
 
       // ─────────────────────────────────────────────────────────────
-      // STAP A2: FILTER hospital records met rekeningnummer 9.
-      // Voor hospitalisatie-overzichten met een rekeningnummer-kolom:
-      // alleen rekeningnummer 0 importeren, rekeningnummer 9 negeren.
+      // STAP A2: FILTER op rekeningnummer-kolom afhankelijk van de gekozen stroom.
+      // - 'hospitalized' (eigen): bewaar rek 0, verwerp rek 9 (= pool).
+      // - 'associatie' (gepoold met dr. Schrevens): bewaar rek 9, verwerp rek 0.
+      // - geen rekening-kolom of andere stroom: niet filteren.
       // ─────────────────────────────────────────────────────────────
-      
+      let skippedAccount0 = 0;
       const filteredForAccount = aggregated.filter((r) => {
         const acct = String(r.account_number ?? '').trim();
-        if (r.income_type === 'hospitalized' && acct === '9') {
-          skippedAccount9++;
-          return false;
+        if (acct !== '0' && acct !== '9') return true;
+        if (userIncomeType === 'associatie') {
+          if (acct === '0') { skippedAccount0++; return false; }
+          return true; // keep '9'
         }
+        // default / hospitalized gedrag
+        if (acct === '9') { skippedAccount9++; return false; }
         return true;
       });
 
@@ -335,7 +340,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       });
     }
 
-    return new Response(JSON.stringify({ records, skippedAccount9 }), {
+    return new Response(JSON.stringify({ records, skippedAccount9, skippedAccount0 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
