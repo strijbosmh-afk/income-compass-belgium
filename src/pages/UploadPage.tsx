@@ -4,15 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Loader2, Image, Activity, Building2 } from 'lucide-react';
+import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
+import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
 
 export interface ExtractedRecord {
   record_date: string;
   month: number;
   year: number;
-  income_type: 'ambulatory' | 'hospitalized';
+  income_type: IncomeType;
   nomenclature_code: string;
   description: string;
   quantity: number;
