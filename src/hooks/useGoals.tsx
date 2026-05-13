@@ -174,7 +174,7 @@ export function useGoals(year?: number) {
       supabase.from('income_records').select('year,month,income_type,total_amount,aandeel_arts,netto').eq('user_id', user.id),
     ]).then(([gRes, rRes]) => {
       setGoals((gRes.data as Goal[]) || []);
-      setRecords((rRes.data as IncomeRecord[]) || []);
+      setRecords((((rRes.data as any[]) || []).map((r) => applyShare(r))) as IncomeRecord[]);
       setLoading(false);
     });
   }, [user, dataVersion, refreshTick]);
