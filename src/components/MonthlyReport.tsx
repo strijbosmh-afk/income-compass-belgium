@@ -233,6 +233,7 @@ export function MonthlyReport() {
       body: [
         ['Ambulant', String(ambulant.qty), fmt(ambulant.bruto), fmt(ambulant.aandeel), fmt(ambulant.bruto - ambulant.aandeel), fmt(ambulant.netto)],
         ['Gehospitaliseerd', String(hospitalized.qty), fmt(hospitalized.bruto), fmt(hospitalized.aandeel), fmt(hospitalized.bruto - hospitalized.aandeel), fmt(hospitalized.netto)],
+        ['Associatie (50%)', String(associatie.qty), fmt(associatie.bruto), fmt(associatie.aandeel), fmt(associatie.bruto - associatie.aandeel), fmt(associatie.netto)],
       ],
       foot: [['TOTAAL', String(totals.qty), fmt(totals.bruto), fmt(totals.aandeel), fmt(totals.bruto - totals.aandeel), fmt(totals.netto)]],
       styles: { fontSize: 9, cellPadding: 2.5 },
