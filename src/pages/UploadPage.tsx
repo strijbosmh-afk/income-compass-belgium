@@ -87,10 +87,11 @@ export default function UploadPage() {
           // netto blijft EXACT zoals geëxtraheerd uit de screenshot — niet herberekenen.
         }));
         setExtractedData(records);
-        const skipMsg = data.skippedAccount9 > 0 ? ` (${data.skippedAccount9} regel(s) met rekeningnummer 9 overgeslagen)` : '';
-        toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden${skipMsg}.` });
-      } else if (data?.skippedAccount9 > 0) {
-        toast({ title: 'Alles gefilterd', description: `${data.skippedAccount9} regel(s) met rekeningnummer 9 overgeslagen — niets om op te slaan.`, variant: 'destructive' });
+        const skip9 = data.skippedAccount9 > 0 ? ` (${data.skippedAccount9} regel(s) met rek. 9 overgeslagen)` : '';
+        const skip0 = data.skippedAccount0 > 0 ? ` (${data.skippedAccount0} regel(s) met rek. 0 overgeslagen)` : '';
+        toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden${skip9}${skip0}.` });
+      } else if (data?.skippedAccount9 > 0 || data?.skippedAccount0 > 0) {
+        toast({ title: 'Alles gefilterd', description: `Alle regels weggefilterd op rekeningnummer — niets om op te slaan.`, variant: 'destructive' });
       } else {
         toast({ title: 'Geen data gevonden', description: 'Kon geen inkomstengegevens uit deze afbeelding halen.', variant: 'destructive' });
       }
