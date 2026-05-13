@@ -470,6 +470,7 @@ export default function GoalsPage() {
                     <SelectItem value="all">Totaal (alle)</SelectItem>
                     <SelectItem value="ambulatory">Ambulant</SelectItem>
                     <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+                    <SelectItem value="associatie">Associatie</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
