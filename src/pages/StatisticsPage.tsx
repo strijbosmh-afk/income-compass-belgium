@@ -63,7 +63,8 @@ export default function StatisticsPage() {
         .select('code, description, netto_amount')
         .eq('user_id', user.id),
     ]).then(([r1, r2]) => {
-      setRecords(r1.data || []);
+      // Associatie wordt gehalveerd voor weergave (50% eigen aandeel uit dr. Schrevens-pool).
+      setRecords(((r1.data as any[]) || []).map((r) => applyShare(r)));
       setNomenclature((r2.data as any) || []);
       setLoading(false);
     });
