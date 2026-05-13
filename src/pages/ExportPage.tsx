@@ -111,9 +111,12 @@ export default function ExportPage() {
     );
   };
 
+  const incomeTypeLabel = (t: string) =>
+    t === 'ambulatory' ? 'Ambulant' : t === 'hospitalized' ? 'Gehospitaliseerd' : t === 'associatie' ? 'Associatie' : t;
+
   const getDisplayValue = (record: IncomeRecord, key: string): string => {
     switch (key) {
-      case 'income_type': return record.income_type === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd';
+      case 'income_type': return incomeTypeLabel(record.income_type);
       case 'nomenclature_code': return codeToLabel[record.nomenclature_code] || record.nomenclature_code;
       case 'month': return MONTH_NAMES[record.month - 1];
       case 'total_amount': case 'aandeel_arts': case 'bouwfonds': case 'mif': case 'netto': case 'unit_amount':
@@ -125,7 +128,7 @@ export default function ExportPage() {
 
   const getRawValue = (record: IncomeRecord, key: string): string | number => {
     switch (key) {
-      case 'income_type': return record.income_type === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd';
+      case 'income_type': return incomeTypeLabel(record.income_type);
       case 'nomenclature_code': return codeToLabel[record.nomenclature_code] || record.nomenclature_code;
       case 'month': return MONTH_NAMES[record.month - 1];
       case 'description': return record.description || '';
