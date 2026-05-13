@@ -340,7 +340,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       });
     }
 
-    return new Response(JSON.stringify({ records, skippedAccount9 }), {
+    return new Response(JSON.stringify({ records, skippedAccount9, skippedAccount0 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
