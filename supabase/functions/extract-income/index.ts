@@ -49,13 +49,14 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { image, mimeType, unitNettoByCode } = await req.json();
+    const { image, mimeType, unitNettoByCode, incomeType: selectedIncomeType } = await req.json();
     if (!image) throw new Error("No image provided");
-    // unitNettoByCode: optioneel object { "102292": 57.23, ... } met de unit-netto per
-    // nomenclatuurcode uit de gebruikers nomenclatuur-tabel. Wordt als AUTORITATIEVE
-    // bron gebruikt om quantity af te leiden uit de geëxtraheerde netto.
     const knownUnitNetto: Record<string, number> =
       unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
+    // selectedIncomeType: door de gebruiker gekozen stroom in de UI. Bepaalt hoe het
+    // rekeningnummer-filter werkt: 'hospitalized' = alleen rek 0 bewaren, 'associatie'
+    // = alleen rek 9 (gepoold met dr. Schrevens) bewaren, 'ambulatory' = geen filter.
+    const userIncomeType: string = typeof selectedIncomeType === 'string' ? selectedIncomeType : '';
 
     const systemPrompt = `You are a precision OCR + data-extraction assistant for a Belgian medical oncologist.
 You extract income data from screenshots of RIZIV/INAMI income statements.
