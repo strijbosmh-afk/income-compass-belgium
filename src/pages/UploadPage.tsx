@@ -199,9 +199,7 @@ export default function UploadPage() {
         return;
       }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
-      // Uitzondering: voor 'associatie' (gepoolde inkomsten) wordt 50% naar eigen
-      // rekening gestort; we halveren daarom alle bedragen vóór insert zodat
-      // de records het effectieve eigen aandeel weergeven.
+      // Voor 'associatie' bewaren we het volledige poolbedrag (niet halveren).
       const insertData = records.map((rec: any) => {
         const clean: any = { user_id: user.id };
         for (const [k, v] of Object.entries(rec)) {
@@ -209,16 +207,13 @@ export default function UploadPage() {
           if (k === 'account_number') continue; // niet in DB-schema
           clean[k] = v;
         }
-        return applyShare(clean);
+        return clean;
       });
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
-      const assocCount = records.filter(r => r.income_type === 'associatie').length;
       toast({
         title: 'Opgeslagen!',
-        description: assocCount > 0
-          ? `${records.length} record(s) opgeslagen — ${assocCount} associatie-regel(s) gehalveerd (${Math.round(ASSOCIATIE_SHARE * 100)}% eigen aandeel).`
-          : `${records.length} record(s) opgeslagen.`,
+        description: `${records.length} record(s) opgeslagen.`,
       });
       setExtractedData(null);
       setPreviewUrl(null);
@@ -280,13 +275,13 @@ export default function UploadPage() {
               <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
-                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — 50% eigen aandeel</p>
+                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — volledig poolbedrag</p>
               </div>
             </button>
           </div>
           {incomeType === 'associatie' && (
             <p className="mt-3 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/30 p-2">
-              Bedragen uit deze upload worden bij opslaan automatisch gehalveerd — alleen het eigen aandeel (50%) wordt opgeslagen.
+              Bedragen uit deze upload worden 1-op-1 opgeslagen (volledig poolbedrag, niet gehalveerd).
             </p>
           )}
         </CardContent>
