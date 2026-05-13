@@ -287,6 +287,7 @@ export default function DashboardPage() {
                     <Legend />
                     <Bar dataKey="ambulant" name="Ambulant" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="gehospitaliseerd" name="Gehospitaliseerd" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="associatie" name="Associatie" fill="hsl(280, 45%, 50%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
