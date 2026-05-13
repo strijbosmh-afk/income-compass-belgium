@@ -1,0 +1,2 @@
+ALTER TABLE public.income_records DROP CONSTRAINT income_records_income_type_check;
+ALTER TABLE public.income_records ADD CONSTRAINT income_records_income_type_check CHECK (income_type = ANY (ARRAY['ambulatory'::text, 'hospitalized'::text, 'associatie'::text]));
