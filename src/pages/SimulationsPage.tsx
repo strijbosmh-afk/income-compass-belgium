@@ -57,7 +57,7 @@ export default function SimulationsPage() {
   const [codes, setCodes] = useState<NomenclatureCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [scenarios, setScenarios] = useState<Scenario[]>([
-    { id: crypto.randomUUID(), name: 'Scenario 1', lines: [], monthBase: { enabled: false, month: new Date().getMonth() + 1, year: new Date().getFullYear() } },
+    { id: crypto.randomUUID(), name: 'Scenario 1', lines: [], monthBase: { enabled: true, month: new Date().getMonth() + 1, year: new Date().getFullYear() } },
   ]);
   const [activeScenario, setActiveScenario] = useState(0);
   const [monthRecords, setMonthRecords] = useState<Record<string, MonthRecord[]>>({});
@@ -136,7 +136,7 @@ export default function SimulationsPage() {
     const existing = new Set(currentScenario.lines.map(l => l.nomenclature_code_id));
     const newLines: SimulationLine[] = codesWithNetto
       .filter(c => !existing.has(c.id))
-      .map(c => ({ id: crypto.randomUUID(), nomenclature_code_id: c.id, quantity: 1 }));
+      .map(c => ({ id: crypto.randomUUID(), nomenclature_code_id: c.id, quantity: 0 }));
     if (newLines.length === 0) {
       toast({ title: 'Alle codes al toegevoegd' });
       return;
@@ -149,7 +149,7 @@ export default function SimulationsPage() {
       id: crypto.randomUUID(),
       name: `Scenario ${prev.length + 1}`,
       lines: [],
-      monthBase: { enabled: false, month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+      monthBase: { enabled: true, month: new Date().getMonth() + 1, year: new Date().getFullYear() },
     }]);
     setActiveScenario(scenarios.length);
   };
