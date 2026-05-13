@@ -582,7 +582,7 @@ export default function StatisticsPage() {
           <DialogHeader>
             <DialogTitle>{selectedCode} – {codeDetail?.description}</DialogTitle>
             <DialogDescription>
-              {prestatieType === 'ambulatory' ? 'Ambulant' : 'Hospitalisatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
+              {prestatieType === 'ambulatory' ? 'Ambulant' : prestatieType === 'hospitalized' ? 'Hospitalisatie' : 'Associatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
             </DialogDescription>
           </DialogHeader>
 
