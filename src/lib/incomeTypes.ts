@@ -8,7 +8,7 @@ export const ASSOCIATIE_SHARE = 0.5;
 export const incomeTypeLabel: Record<string, string> = {
   ambulatory: 'Ambulant',
   hospitalized: 'Gehospitaliseerd',
-  associatie: 'Associatie',
+  associatie: 'Hospitalisatie associatie',
 };
 
 export const incomeTypeShort: Record<string, string> = {

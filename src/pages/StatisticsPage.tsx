@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, TrendingUp, TrendingDown, Activity, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Stethoscope } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, Cell } from 'recharts';
+import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeEntry = {
   id: string;
@@ -62,7 +63,8 @@ export default function StatisticsPage() {
         .select('code, description, netto_amount')
         .eq('user_id', user.id),
     ]).then(([r1, r2]) => {
-      setRecords(r1.data || []);
+      // Associatie wordt gehalveerd voor weergave (50% eigen aandeel uit dr. Schrevens-pool).
+      setRecords(((r1.data as any[]) || []).map((r) => applyShare(r)));
       setNomenclature((r2.data as any) || []);
       setLoading(false);
     });
@@ -582,7 +584,7 @@ export default function StatisticsPage() {
           <DialogHeader>
             <DialogTitle>{selectedCode} – {codeDetail?.description}</DialogTitle>
             <DialogDescription>
-              {prestatieType === 'ambulatory' ? 'Ambulant' : prestatieType === 'hospitalized' ? 'Hospitalisatie' : 'Associatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
+              {prestatieType === 'ambulatory' ? 'Ambulant' : prestatieType === 'hospitalized' ? 'Hospitalisatie' : 'Hospitalisatie associatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
             </DialogDescription>
           </DialogHeader>
 

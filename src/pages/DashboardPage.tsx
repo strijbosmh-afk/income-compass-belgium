@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { GoalsWidget } from '@/components/GoalsWidget';
+import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeEntry = {
   id: string;
@@ -56,7 +57,8 @@ export default function DashboardPage() {
       supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
     ]).then(([recRes, nomRes]) => {
-      setRecords(recRes.data || []);
+      // Associatie-records worden bij weergave gehalveerd: dr. Schrevens-pool wordt 50/50 verdeeld.
+      setRecords((recRes.data || []).map((r: any) => applyShare(r)));
       setNomenclatureCodes(nomRes.data || []);
       setLoading(false);
     });
@@ -171,7 +173,7 @@ export default function DashboardPage() {
   const pieData = [
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
-    { name: 'Associatie', value: nettoAssoc },
+    { name: 'Hospitalisatie associatie', value: nettoAssoc },
   ].filter(d => d.value > 0);
 
   const afdrachtPieData = [
@@ -287,7 +289,7 @@ export default function DashboardPage() {
                     <Legend />
                     <Bar dataKey="ambulant" name="Ambulant" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="gehospitaliseerd" name="Gehospitaliseerd" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="associatie" name="Associatie" fill="hsl(280, 45%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="associatie" name="Hospitalisatie associatie" fill="hsl(280, 45%, 50%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -320,7 +322,7 @@ export default function DashboardPage() {
                     <Line type="monotone" dataKey="cumulatief" name="Totaal" stroke="hsl(210, 60%, 25%)" strokeWidth={2.5} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="ambulant" name="Ambulant" stroke="hsl(174, 50%, 40%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                     <Line type="monotone" dataKey="gehospitaliseerd" name="Gehospitaliseerd" stroke="hsl(210, 60%, 35%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
-                    <Line type="monotone" dataKey="associatie" name="Associatie" stroke="hsl(280, 45%, 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                    <Line type="monotone" dataKey="associatie" name="Hospitalisatie associatie" stroke="hsl(280, 45%, 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
