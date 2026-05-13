@@ -275,7 +275,7 @@ export default function ControlePage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-base">{item.code}</span>
                         <Badge variant="outline" className="text-xs">
-                          {item.income_type === 'hospitalized' ? 'Hospitalisatie' : 'Ambulant'}
+                          {item.income_type === 'hospitalized' ? 'Hospitalisatie' : item.income_type === 'associatie' ? 'Associatie' : 'Ambulant'}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {item.occurrences}× in records
