@@ -149,7 +149,7 @@ export default function SimulationsPage() {
       id: crypto.randomUUID(),
       name: `Scenario ${prev.length + 1}`,
       lines: [],
-      monthBase: { enabled: false, month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+      monthBase: { enabled: true, month: new Date().getMonth() + 1, year: new Date().getFullYear() },
     }]);
     setActiveScenario(scenarios.length);
   };
