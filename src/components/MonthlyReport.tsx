@@ -462,11 +462,12 @@ export function MonthlyReport() {
               <PreviewTile label="Prestaties" value={totals.qty} isCount />
             </div>
             {/* Rij 2 — Context: vergelijkingen + uitsplitsing per stroom */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <CompareTile label="vs vorige maand" curr={totals.netto} prev={prevTotals.netto} subLabel={`${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`} />
               <CompareTile label="vs vorig jaar" curr={totals.netto} prev={prevYearTotals.netto} subLabel={`${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`} />
               <PreviewTile label="Ambulant netto" value={ambulant.netto} small />
               <PreviewTile label="Gehosp. netto" value={hospitalized.netto} small />
+              <PreviewTile label="Associatie netto" value={associatie.netto} small />
             </div>
           </div>
         )}
