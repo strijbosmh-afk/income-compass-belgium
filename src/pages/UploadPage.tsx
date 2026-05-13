@@ -196,16 +196,25 @@ export default function UploadPage() {
         return;
       }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
+      // Uitzondering: voor 'associatie' (gepoolde inkomsten) wordt 50% naar eigen
+      // rekening gestort; we halveren daarom alle bedragen vóór insert zodat
+      // de records het effectieve eigen aandeel weergeven.
       const insertData = records.map((rec: any) => {
         const clean: any = { user_id: user.id };
         for (const [k, v] of Object.entries(rec)) {
           if (!k.startsWith('_')) clean[k] = v;
         }
-        return clean;
+        return applyShare(clean);
       });
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
-      toast({ title: 'Opgeslagen!', description: `${records.length} record(s) opgeslagen.` });
+      const assocCount = records.filter(r => r.income_type === 'associatie').length;
+      toast({
+        title: 'Opgeslagen!',
+        description: assocCount > 0
+          ? `${records.length} record(s) opgeslagen — ${assocCount} associatie-regel(s) gehalveerd (${Math.round(ASSOCIATIE_SHARE * 100)}% eigen aandeel).`
+          : `${records.length} record(s) opgeslagen.`,
+      });
       setExtractedData(null);
       setPreviewUrl(null);
     } catch (err: any) {
