@@ -171,6 +171,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
 
     let records: any[] = [];
     let skippedAccount9 = 0;
+    let skippedAccount0 = 0;
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
       const rawRecords: any[] = parsed.records || [];
