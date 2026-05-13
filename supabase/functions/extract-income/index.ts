@@ -169,6 +169,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
     let records: any[] = [];
+    let skippedAccount9 = 0;
     if (toolCall?.function?.arguments) {
       const parsed = JSON.parse(toolCall.function.arguments);
       const rawRecords: any[] = parsed.records || [];
@@ -234,7 +235,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       // Voor hospitalisatie-overzichten met een rekeningnummer-kolom:
       // alleen rekeningnummer 0 importeren, rekeningnummer 9 negeren.
       // ─────────────────────────────────────────────────────────────
-      let skippedAccount9 = 0;
+      
       const filteredForAccount = aggregated.filter((r) => {
         const acct = String(r.account_number ?? '').trim();
         if (r.income_type === 'hospitalized' && acct === '9') {
