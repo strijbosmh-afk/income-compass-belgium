@@ -206,7 +206,7 @@ export default function ExportPage() {
     doc.text('Inkomstenrapport', 14, 20);
     doc.setFontSize(10);
     doc.text(periodLabel, 14, 28);
-    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeType === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd'}`, 14, 34);
+    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeTypeLabel(incomeType)}`, 14, 34);
 
     const headers = cols.map(c => c.label);
     const rows = filtered.map(r => cols.map(c => getDisplayValue(r, c.key)));
