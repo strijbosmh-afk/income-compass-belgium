@@ -190,6 +190,9 @@ export default function RecordsPage() {
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
   const totalAfdracht = bruto - totalAandeelArts;
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
+  const typeShort = (t: string) => t === 'ambulatory' ? 'Amb' : t === 'hospitalized' ? 'Hosp' : t === 'associatie' ? 'Assoc' : t;
+  const typeBadgeVariant = (t: string): 'default' | 'secondary' | 'outline' =>
+    t === 'ambulatory' ? 'default' : t === 'hospitalized' ? 'secondary' : 'outline';
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
