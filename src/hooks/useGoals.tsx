@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
+import { applyShare } from '@/lib/incomeTypes';
 
 export type GoalPeriodType = 'year' | 'quarter' | 'month' | 'custom';
 export type GoalIncomeType = 'all' | 'ambulatory' | 'hospitalized' | 'associatie';
