@@ -57,7 +57,8 @@ export default function DashboardPage() {
       supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
     ]).then(([recRes, nomRes]) => {
-      setRecords(recRes.data || []);
+      // Associatie-records worden bij weergave gehalveerd: dr. Schrevens-pool wordt 50/50 verdeeld.
+      setRecords((recRes.data || []).map((r: any) => applyShare(r)));
       setNomenclatureCodes(nomRes.data || []);
       setLoading(false);
     });
