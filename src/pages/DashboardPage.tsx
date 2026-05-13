@@ -5,7 +5,7 @@ import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet } from 'lucide-react';
+import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { GoalsWidget } from '@/components/GoalsWidget';
 
@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const nettoTotal = filtered.reduce((s, r) => s + r.netto, 0);
   const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
   const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
+  const nettoAssoc = filtered.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
 
   // Afdracht
   const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
@@ -108,18 +109,20 @@ export default function DashboardPage() {
         month: name,
         ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0),
         gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0),
+        associatie: mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0),
         netto: mr.reduce((s, r) => s + r.netto, 0),
       };
     });
   }, [yearFiltered]);
 
   const cumulativeData = useMemo(() => {
-    let cumAmb = 0, cumHosp = 0;
+    let cumAmb = 0, cumHosp = 0, cumAssoc = 0;
     return MONTHS.map((name, idx) => {
       const mr = yearFiltered.filter(r => r.month === idx + 1);
       cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
       cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
-      return { month: name, cumulatief: cumAmb + cumHosp, ambulant: cumAmb, gehospitaliseerd: cumHosp };
+      cumAssoc += mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
+      return { month: name, cumulatief: cumAmb + cumHosp + cumAssoc, ambulant: cumAmb, gehospitaliseerd: cumHosp, associatie: cumAssoc };
     });
   }, [yearFiltered]);
 
@@ -168,6 +171,7 @@ export default function DashboardPage() {
   const pieData = [
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
+    { name: 'Associatie', value: nettoAssoc },
   ].filter(d => d.value > 0);
 
   const afdrachtPieData = [
@@ -177,7 +181,7 @@ export default function DashboardPage() {
     { name: 'MIF', value: totalMif },
   ].filter(d => d.value > 0);
 
-  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
+  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(280, 45%, 50%)'];
   const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
   
@@ -210,7 +214,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Statistieken */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="stat-card">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -244,6 +248,17 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-accent/30 flex items-center justify-center">
+              <Users className="h-5 w-5 text-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Associatie <span className="text-xs">(50%)</span></p>
+              <p className="text-2xl font-semibold">{fmt(nettoAssoc)}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Doelstellingen & Forecast */}
@@ -272,6 +287,7 @@ export default function DashboardPage() {
                     <Legend />
                     <Bar dataKey="ambulant" name="Ambulant" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="gehospitaliseerd" name="Gehospitaliseerd" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="associatie" name="Associatie" fill="hsl(280, 45%, 50%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -304,6 +320,7 @@ export default function DashboardPage() {
                     <Line type="monotone" dataKey="cumulatief" name="Totaal" stroke="hsl(210, 60%, 25%)" strokeWidth={2.5} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="ambulant" name="Ambulant" stroke="hsl(174, 50%, 40%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                     <Line type="monotone" dataKey="gehospitaliseerd" name="Gehospitaliseerd" stroke="hsl(210, 60%, 35%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                    <Line type="monotone" dataKey="associatie" name="Associatie" stroke="hsl(280, 45%, 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>

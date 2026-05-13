@@ -100,6 +100,7 @@ export function MonthlyReport() {
   const totals = useMemo(() => aggregate(currentRecs), [currentRecs]);
   const ambulant = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'ambulatory')), [currentRecs]);
   const hospitalized = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'hospitalized')), [currentRecs]);
+  const associatie = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'associatie')), [currentRecs]);
   const prevTotals = useMemo(() => aggregate(prevMonthRecs), [prevMonthRecs]);
   const prevYearTotals = useMemo(() => aggregate(prevYearRecs), [prevYearRecs]);
 
@@ -232,6 +233,7 @@ export function MonthlyReport() {
       body: [
         ['Ambulant', String(ambulant.qty), fmt(ambulant.bruto), fmt(ambulant.aandeel), fmt(ambulant.bruto - ambulant.aandeel), fmt(ambulant.netto)],
         ['Gehospitaliseerd', String(hospitalized.qty), fmt(hospitalized.bruto), fmt(hospitalized.aandeel), fmt(hospitalized.bruto - hospitalized.aandeel), fmt(hospitalized.netto)],
+        ['Associatie (50%)', String(associatie.qty), fmt(associatie.bruto), fmt(associatie.aandeel), fmt(associatie.bruto - associatie.aandeel), fmt(associatie.netto)],
       ],
       foot: [['TOTAAL', String(totals.qty), fmt(totals.bruto), fmt(totals.aandeel), fmt(totals.bruto - totals.aandeel), fmt(totals.netto)]],
       styles: { fontSize: 9, cellPadding: 2.5 },
@@ -460,11 +462,12 @@ export function MonthlyReport() {
               <PreviewTile label="Prestaties" value={totals.qty} isCount />
             </div>
             {/* Rij 2 — Context: vergelijkingen + uitsplitsing per stroom */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <CompareTile label="vs vorige maand" curr={totals.netto} prev={prevTotals.netto} subLabel={`${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`} />
               <CompareTile label="vs vorig jaar" curr={totals.netto} prev={prevYearTotals.netto} subLabel={`${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`} />
               <PreviewTile label="Ambulant netto" value={ambulant.netto} small />
               <PreviewTile label="Gehosp. netto" value={hospitalized.netto} small />
+              <PreviewTile label="Associatie netto" value={associatie.netto} small />
             </div>
           </div>
         )}

@@ -46,7 +46,7 @@ export default function StatisticsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
   const [tab, setTab] = useState('statistieken');
-  const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized'>('ambulatory');
+  const [prestatieType, setPrestatieType] = useState<'ambulatory' | 'hospitalized' | 'associatie'>('ambulatory');
   const [prestatieMonth, setPrestatieMonth] = useState<string>('all');
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const dataVersion = useDataVersion();
@@ -359,11 +359,12 @@ export default function StatisticsPage() {
         <TabsContent value="prestaties" className="space-y-6 mt-4">
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <span className="text-sm font-medium text-muted-foreground">Type:</span>
-            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulatory' | 'hospitalized')}>
+            <Select value={prestatieType} onValueChange={(v) => setPrestatieType(v as 'ambulatory' | 'hospitalized' | 'associatie')}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ambulatory">Ambulant</SelectItem>
                 <SelectItem value="hospitalized">Hospitalisatie</SelectItem>
+                <SelectItem value="associatie">Associatie</SelectItem>
               </SelectContent>
             </Select>
             <span className="text-sm font-medium text-muted-foreground ml-2">Maand:</span>
@@ -380,7 +381,7 @@ export default function StatisticsPage() {
 
           {!prestatieData ? (
             <div className="text-center py-12 text-muted-foreground">
-              Geen prestaties beschikbaar voor {prestatieType === 'ambulatory' ? 'ambulant' : 'hospitalisatie'} in {prestatieMonth === 'all' ? selectedYear : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}.
+              Geen prestaties beschikbaar voor {prestatieType === 'ambulatory' ? 'ambulant' : prestatieType === 'hospitalized' ? 'hospitalisatie' : 'associatie'} in {prestatieMonth === 'all' ? selectedYear : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}.
             </div>
           ) : (
             <>
@@ -581,7 +582,7 @@ export default function StatisticsPage() {
           <DialogHeader>
             <DialogTitle>{selectedCode} – {codeDetail?.description}</DialogTitle>
             <DialogDescription>
-              {prestatieType === 'ambulatory' ? 'Ambulant' : 'Hospitalisatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
+              {prestatieType === 'ambulatory' ? 'Ambulant' : prestatieType === 'hospitalized' ? 'Hospitalisatie' : 'Associatie'} · {prestatieMonth === 'all' ? `Volledig ${selectedYear}` : `${MONTH_NAMES[Number(prestatieMonth) - 1]} ${selectedYear}`}
             </DialogDescription>
           </DialogHeader>
 

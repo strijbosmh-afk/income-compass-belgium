@@ -16,6 +16,7 @@ const incomeTypeLabel: Record<GoalIncomeType, string> = {
   all: 'Totaal',
   ambulatory: 'Ambulant',
   hospitalized: 'Gehospitaliseerd',
+  associatie: 'Associatie',
 };
 const metricLabel: Record<GoalMetric, string> = {
   netto: 'Netto',

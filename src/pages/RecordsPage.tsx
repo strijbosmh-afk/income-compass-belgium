@@ -190,6 +190,9 @@ export default function RecordsPage() {
   const totalMif = records.reduce((sum, r) => sum + r.mif, 0);
   const totalAfdracht = bruto - totalAandeelArts;
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
+  const typeShort = (t: string) => t === 'ambulatory' ? 'Amb' : t === 'hospitalized' ? 'Hosp' : t === 'associatie' ? 'Assoc' : t;
+  const typeBadgeVariant = (t: string): 'default' | 'secondary' | 'outline' =>
+    t === 'ambulatory' ? 'default' : t === 'hospitalized' ? 'secondary' : 'outline';
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -227,6 +230,7 @@ export default function RecordsPage() {
             <SelectItem value="all">Alle types</SelectItem>
             <SelectItem value="ambulatory">Ambulant</SelectItem>
             <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+            <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -271,8 +275,8 @@ export default function RecordsPage() {
                                 {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                               </td>
                               <td className="py-2.5 px-3">
-                                <Badge variant={g.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
-                                  {g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
+                                <Badge variant={typeBadgeVariant(g.income_type)} className="text-xs font-normal">
+                                  {typeShort(g.income_type)}
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 font-mono text-xs">{g.nomenclature_code}</td>
@@ -291,7 +295,7 @@ export default function RecordsPage() {
                                     const paths = g.records.map(r => r.source_image_url).filter((p): p is string => !!p);
                                     setScreenshotDialog({
                                       open: true,
-                                      title: `${g.label} (${g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}) — ${g.nomenclature_code}`,
+                                      title: `${g.label} (${typeShort(g.income_type)}) — ${g.nomenclature_code}`,
                                       paths,
                                     });
                                   }}
@@ -391,8 +395,8 @@ export default function RecordsPage() {
                                 {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                               </td>
                               <td className="py-2.5 px-3">
-                                <Badge variant={g.income_type === 'ambulatory' ? 'default' : 'secondary'} className="text-xs font-normal">
-                                  {g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}
+                                <Badge variant={typeBadgeVariant(g.income_type)} className="text-xs font-normal">
+                                  {typeShort(g.income_type)}
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 font-mono text-xs">{g.nomenclature_code}</td>
@@ -412,7 +416,7 @@ export default function RecordsPage() {
                                     const paths = g.records.map(r => r.source_image_url).filter((p): p is string => !!p);
                                     setScreenshotDialog({
                                       open: true,
-                                      title: `${g.label} (${g.income_type === 'ambulatory' ? 'Amb' : 'Hosp'}) — ${g.nomenclature_code}`,
+                                      title: `${g.label} (${typeShort(g.income_type)}) — ${g.nomenclature_code}`,
                                       paths,
                                     });
                                   }}

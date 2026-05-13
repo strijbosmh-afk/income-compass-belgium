@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
 
 export type GoalPeriodType = 'year' | 'quarter' | 'month' | 'custom';
-export type GoalIncomeType = 'all' | 'ambulatory' | 'hospitalized';
+export type GoalIncomeType = 'all' | 'ambulatory' | 'hospitalized' | 'associatie';
 export type GoalMetric = 'netto' | 'bruto' | 'aandeel_arts';
 
 export type Goal = {

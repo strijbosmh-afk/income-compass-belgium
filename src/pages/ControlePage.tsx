@@ -163,7 +163,7 @@ export default function ControlePage() {
       user_id: user.id,
       code: item.code,
       description: descStr || item.code,
-      category: item.income_type === 'hospitalized' ? 'hospitalisatie' : 'ambulant',
+      category: item.income_type === 'hospitalized' ? 'hospitalisatie' : item.income_type === 'associatie' ? 'associatie' : 'ambulant',
       netto_amount: amount,
     } as any);
     setBusy(null);
@@ -275,7 +275,7 @@ export default function ControlePage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-base">{item.code}</span>
                         <Badge variant="outline" className="text-xs">
-                          {item.income_type === 'hospitalized' ? 'Hospitalisatie' : 'Ambulant'}
+                          {item.income_type === 'hospitalized' ? 'Hospitalisatie' : item.income_type === 'associatie' ? 'Associatie' : 'Ambulant'}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           {item.occurrences}× in records

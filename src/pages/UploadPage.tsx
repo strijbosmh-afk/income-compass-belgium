@@ -4,15 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Loader2, Image, Activity, Building2 } from 'lucide-react';
+import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
+import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
 
 export interface ExtractedRecord {
   record_date: string;
   month: number;
   year: number;
-  income_type: 'ambulatory' | 'hospitalized';
+  income_type: IncomeType;
   nomenclature_code: string;
   description: string;
   quantity: number;
@@ -34,7 +35,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[] | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
+  const [incomeType, setIncomeType] = useState<IncomeType | ''>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
@@ -42,7 +43,7 @@ export default function UploadPage() {
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
     if (!incomeType) {
-      toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant of Gehospitaliseerd voor het uploaden.', variant: 'destructive' });
+      toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant, Gehospitaliseerd of Associatie.', variant: 'destructive' });
       return;
     }
     if (!selectedMonth) {
@@ -174,7 +175,7 @@ export default function UploadPage() {
       if (dups.length > 0) {
         const dupLines = dups.slice(0, 3).map(([key, idxs]) => {
           const [code, type] = key.split('__');
-          const typeLabel = type === 'ambulatory' ? 'Amb' : 'Hosp';
+          const typeLabel = type === 'ambulatory' ? 'Amb' : type === 'hospitalized' ? 'Hosp' : 'Assoc';
           return `• ${code} (${typeLabel}): rijen ${idxs.join(', ')}`;
         });
         const extra = dups.length > 3 ? `…en nog ${dups.length - 3} duplicaat(en).` : '';
@@ -195,16 +196,25 @@ export default function UploadPage() {
         return;
       }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
+      // Uitzondering: voor 'associatie' (gepoolde inkomsten) wordt 50% naar eigen
+      // rekening gestort; we halveren daarom alle bedragen vóór insert zodat
+      // de records het effectieve eigen aandeel weergeven.
       const insertData = records.map((rec: any) => {
         const clean: any = { user_id: user.id };
         for (const [k, v] of Object.entries(rec)) {
           if (!k.startsWith('_')) clean[k] = v;
         }
-        return clean;
+        return applyShare(clean);
       });
       const { error } = await supabase.from('income_records').insert(insertData);
       if (error) throw error;
-      toast({ title: 'Opgeslagen!', description: `${records.length} record(s) opgeslagen.` });
+      const assocCount = records.filter(r => r.income_type === 'associatie').length;
+      toast({
+        title: 'Opgeslagen!',
+        description: assocCount > 0
+          ? `${records.length} record(s) opgeslagen — ${assocCount} associatie-regel(s) gehalveerd (${Math.round(ASSOCIATIE_SHARE * 100)}% eigen aandeel).`
+          : `${records.length} record(s) opgeslagen.`,
+      });
       setExtractedData(null);
       setPreviewUrl(null);
     } catch (err: any) {
@@ -225,10 +235,10 @@ export default function UploadPage() {
           <CardTitle className="text-base">Type Inkomen</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={() => setIncomeType('ambulatory')}
-              className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
                 incomeType === 'ambulatory'
                   ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -242,7 +252,7 @@ export default function UploadPage() {
             </button>
             <button
               onClick={() => setIncomeType('hospitalized')}
-              className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
                 incomeType === 'hospitalized'
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -254,7 +264,26 @@ export default function UploadPage() {
                 <p className="text-xs text-muted-foreground">Klinische zorg</p>
               </div>
             </button>
+            <button
+              onClick={() => setIncomeType('associatie')}
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                incomeType === 'associatie'
+                  ? 'border-accent bg-accent/5 ring-1 ring-accent/20'
+                  : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
+              <div className="text-left">
+                <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
+                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — 50% eigen aandeel</p>
+              </div>
+            </button>
           </div>
+          {incomeType === 'associatie' && (
+            <p className="mt-3 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/30 p-2">
+              Bedragen uit deze upload worden bij opslaan automatisch gehalveerd — alleen het eigen aandeel (50%) wordt opgeslagen.
+            </p>
+          )}
         </CardContent>
       </Card>
 

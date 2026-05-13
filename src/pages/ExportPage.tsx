@@ -111,9 +111,12 @@ export default function ExportPage() {
     );
   };
 
+  const incomeTypeLabel = (t: string) =>
+    t === 'ambulatory' ? 'Ambulant' : t === 'hospitalized' ? 'Gehospitaliseerd' : t === 'associatie' ? 'Associatie' : t;
+
   const getDisplayValue = (record: IncomeRecord, key: string): string => {
     switch (key) {
-      case 'income_type': return record.income_type === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd';
+      case 'income_type': return incomeTypeLabel(record.income_type);
       case 'nomenclature_code': return codeToLabel[record.nomenclature_code] || record.nomenclature_code;
       case 'month': return MONTH_NAMES[record.month - 1];
       case 'total_amount': case 'aandeel_arts': case 'bouwfonds': case 'mif': case 'netto': case 'unit_amount':
@@ -125,7 +128,7 @@ export default function ExportPage() {
 
   const getRawValue = (record: IncomeRecord, key: string): string | number => {
     switch (key) {
-      case 'income_type': return record.income_type === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd';
+      case 'income_type': return incomeTypeLabel(record.income_type);
       case 'nomenclature_code': return codeToLabel[record.nomenclature_code] || record.nomenclature_code;
       case 'month': return MONTH_NAMES[record.month - 1];
       case 'description': return record.description || '';
@@ -203,7 +206,7 @@ export default function ExportPage() {
     doc.text('Inkomstenrapport', 14, 20);
     doc.setFontSize(10);
     doc.text(periodLabel, 14, 28);
-    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeType === 'ambulatory' ? 'Ambulant' : 'Gehospitaliseerd'}`, 14, 34);
+    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeTypeLabel(incomeType)}`, 14, 34);
 
     const headers = cols.map(c => c.label);
     const rows = filtered.map(r => cols.map(c => getDisplayValue(r, c.key)));
@@ -457,6 +460,7 @@ export default function ExportPage() {
                   <SelectItem value="all">Alle types</SelectItem>
                   <SelectItem value="ambulatory">Ambulant</SelectItem>
                   <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+                  <SelectItem value="associatie">Associatie</SelectItem>
                 </SelectContent>
               </Select>
             </div>

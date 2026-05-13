@@ -34,6 +34,7 @@ const incomeTypeLabel: Record<GoalIncomeType, string> = {
   all: 'Totaal',
   ambulatory: 'Ambulant',
   hospitalized: 'Gehospitaliseerd',
+  associatie: 'Associatie',
 };
 const metricLabel: Record<GoalMetric, string> = {
   netto: 'Netto',
@@ -469,6 +470,7 @@ export default function GoalsPage() {
                     <SelectItem value="all">Totaal (alle)</SelectItem>
                     <SelectItem value="ambulatory">Ambulant</SelectItem>
                     <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+                    <SelectItem value="associatie">Associatie</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

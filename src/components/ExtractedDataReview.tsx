@@ -140,6 +140,14 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {records.some(r => r.income_type === 'associatie') && (
+          <div className="rounded-md border border-accent/40 bg-accent/5 p-3 text-xs">
+            <p className="font-medium">Associatie-regel(s) gedetecteerd</p>
+            <p className="mt-0.5 text-muted-foreground">
+              Bedragen hieronder zijn nog de volledige pool-bedragen uit de screenshot. Bij opslaan worden ze automatisch gehalveerd — alleen het eigen aandeel (50%) komt in de database terecht.
+            </p>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -193,6 +201,7 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
                         <SelectContent>
                           <SelectItem value="ambulatory">Ambulant</SelectItem>
                           <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+                          <SelectItem value="associatie">Associatie</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
