@@ -175,7 +175,7 @@ export default function UploadPage() {
       if (dups.length > 0) {
         const dupLines = dups.slice(0, 3).map(([key, idxs]) => {
           const [code, type] = key.split('__');
-          const typeLabel = type === 'ambulatory' ? 'Amb' : 'Hosp';
+          const typeLabel = type === 'ambulatory' ? 'Amb' : type === 'hospitalized' ? 'Hosp' : 'Assoc';
           return `• ${code} (${typeLabel}): rijen ${idxs.join(', ')}`;
         });
         const extra = dups.length > 3 ? `…en nog ${dups.length - 3} duplicaat(en).` : '';
