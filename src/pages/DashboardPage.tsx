@@ -92,6 +92,7 @@ export default function DashboardPage() {
   const nettoTotal = filtered.reduce((s, r) => s + r.netto, 0);
   const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
   const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
+  const nettoAssoc = filtered.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
 
   // Afdracht
   const brutoTotal = filtered.reduce((s, r) => s + r.total_amount, 0);
