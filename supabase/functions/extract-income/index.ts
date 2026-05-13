@@ -21,7 +21,7 @@ const TOOL_SCHEMA = {
               record_date: { type: "string", description: "Date in YYYY-MM-DD format" },
               month: { type: "integer", description: "Month number 1-12" },
               year: { type: "integer", description: "Year" },
-              income_type: { type: "string", enum: ["ambulatory", "hospitalized"] },
+              income_type: { type: "string", enum: ["ambulatory", "hospitalized", "associatie"] },
               nomenclature_code: { type: "string", description: "RIZIV nomenclature code" },
               description: { type: "string", description: "Service description" },
               quantity: { type: "integer", description: "Number of acts" },
@@ -31,6 +31,7 @@ const TOOL_SCHEMA = {
               bouwfonds: { type: "number", description: "Building fund contribution in EUR — exact value from screenshot" },
               mif: { type: "number", description: "MIF amount in EUR — exact value from screenshot" },
               netto: { type: "number", description: "Net amount paid to doctor in EUR — exact value from screenshot" },
+              account_number: { type: "string", description: "Account/rekeningnummer shown in the statement (e.g. '0' or '9'). Only include if a separate account-number column is visible." },
             },
             required: ["record_date", "month", "year", "income_type", "nomenclature_code", "description", "quantity", "unit_amount", "total_amount", "aandeel_arts", "bouwfonds", "mif", "netto"],
           },
@@ -93,6 +94,13 @@ EXTRACTED FIELDS:
 - bouwfonds: "Bouwfonds", EXACT value printed.
 - mif: "MIF", EXACT value printed.
 - netto: net paid to doctor, EXACT value printed (column "Netto" / "Netto-ereloon" / "Saldo arts").
+- account_number: the account/rekeningnummer shown for this line (often "0" or "9" in hospital statements). Only include if a separate column clearly shows an account number. If no such column exists, omit this field.
+
+ACCOUNT NUMBER FILTERING (hospitalized statements):
+• Some hospital income statements have a "rekeningnummer" / "compte" / "account" column with values like "0" or "9".
+• "0" = the doctor's own account (keep).
+• "9" = another account / pooled account (discard).
+• If such a column is present, record the account_number for each line. If not present, omit the field entirely.
 
 DETERMINING quantity:
 1. If the screenshot has an explicit "Aantal" / "Q" / "#" column → use that integer exactly.
@@ -222,11 +230,26 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       }));
 
       // ─────────────────────────────────────────────────────────────
+      // STAP A2: FILTER hospital records met rekeningnummer 9.
+      // Voor hospitalisatie-overzichten met een rekeningnummer-kolom:
+      // alleen rekeningnummer 0 importeren, rekeningnummer 9 negeren.
+      // ─────────────────────────────────────────────────────────────
+      let skippedAccount9 = 0;
+      const filteredForAccount = aggregated.filter((r) => {
+        const acct = String(r.account_number ?? '').trim();
+        if (r.income_type === 'hospitalized' && acct === '9') {
+          skippedAccount9++;
+          return false;
+        }
+        return true;
+      });
+
+      // ─────────────────────────────────────────────────────────────
       // STAP B: Bepaal per code de fallback unit_amount uit de geëxtraheerde
       // data (als de nomenclatuur-tabel die code niet kent).
       // ─────────────────────────────────────────────────────────────
       const fallbackUnitByCode = new Map<string, number>();
-      for (const r of aggregated) {
+      for (const r of filteredForAccount) {
         const code = r.nomenclature_code;
         const candidates: number[] = [];
         if (r.unit_amount > 0) candidates.push(r.unit_amount);
@@ -243,7 +266,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       //     round(netto / known_unit_netto), unit_amount = known_unit_netto.
       //   • anders → fallback op afgeleide unit + sanity-check op total/unit.
       // ─────────────────────────────────────────────────────────────
-      records = aggregated.map((r) => {
+      records = filteredForAccount.map((r) => {
         const code = r.nomenclature_code;
         const netto = num(r.netto);
         const total = num(r.total_amount);
@@ -311,7 +334,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       });
     }
 
-    return new Response(JSON.stringify({ records }), {
+    return new Response(JSON.stringify({ records, skippedAccount9 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
