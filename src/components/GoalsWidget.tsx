@@ -19,7 +19,7 @@ const periodLabel = (g: { period_type: string; period_value: number | null; peri
   return `${MONTH_NAMES[(g.period_value || 1) - 1]} ${g.year}`;
 };
 
-const incomeShort: Record<string, string> = { all: 'Totaal', ambulatory: 'Ambulant', hospitalized: 'Gehosp.' };
+const incomeShort: Record<string, string> = { all: 'Totaal', ambulatory: 'Ambulant', hospitalized: 'Gehosp.', associatie: 'Assoc.' };
 
 export function GoalsWidget({ year }: { year: number }) {
   const { progressList, loading } = useGoals(year);
