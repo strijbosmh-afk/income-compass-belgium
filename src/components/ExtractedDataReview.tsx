@@ -193,6 +193,7 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
                         <SelectContent>
                           <SelectItem value="ambulatory">Ambulant</SelectItem>
                           <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+                          <SelectItem value="associatie">Associatie</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
