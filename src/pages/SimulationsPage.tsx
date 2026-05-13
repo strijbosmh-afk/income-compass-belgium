@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Loader2, Copy, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { applyShare } from '@/lib/incomeTypes';
 
 type NomenclatureCode = {
   id: string;
@@ -97,14 +98,14 @@ export default function SimulationsPage() {
     const fetchMonth = async () => {
       const { data } = await supabase
         .from('income_records')
-        .select('nomenclature_code, netto, quantity')
+        .select('income_type, nomenclature_code, netto, quantity')
         .eq('user_id', user.id)
         .eq('month', month)
         .eq('year', year);
 
       if (data) {
         const grouped: Record<string, MonthRecord> = {};
-        data.forEach(r => {
+        data.map((r: any) => applyShare(r)).forEach(r => {
           if (!grouped[r.nomenclature_code]) {
             grouped[r.nomenclature_code] = { nomenclature_code: r.nomenclature_code, totalNetto: 0, totalQuantity: 0 };
           }
