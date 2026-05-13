@@ -249,7 +249,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       // data (als de nomenclatuur-tabel die code niet kent).
       // ─────────────────────────────────────────────────────────────
       const fallbackUnitByCode = new Map<string, number>();
-      for (const r of aggregated) {
+      for (const r of filteredForAccount) {
         const code = r.nomenclature_code;
         const candidates: number[] = [];
         if (r.unit_amount > 0) candidates.push(r.unit_amount);
@@ -266,7 +266,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       //     round(netto / known_unit_netto), unit_amount = known_unit_netto.
       //   • anders → fallback op afgeleide unit + sanity-check op total/unit.
       // ─────────────────────────────────────────────────────────────
-      records = aggregated.map((r) => {
+      records = filteredForAccount.map((r) => {
         const code = r.nomenclature_code;
         const netto = num(r.netto);
         const total = num(r.total_amount);
@@ -334,7 +334,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       });
     }
 
-    return new Response(JSON.stringify({ records }), {
+    return new Response(JSON.stringify({ records, skippedAccount9 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
