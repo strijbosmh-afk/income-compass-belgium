@@ -235,10 +235,10 @@ export default function UploadPage() {
           <CardTitle className="text-base">Type Inkomen</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={() => setIncomeType('ambulatory')}
-              className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
                 incomeType === 'ambulatory'
                   ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -252,7 +252,7 @@ export default function UploadPage() {
             </button>
             <button
               onClick={() => setIncomeType('hospitalized')}
-              className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
                 incomeType === 'hospitalized'
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -264,7 +264,26 @@ export default function UploadPage() {
                 <p className="text-xs text-muted-foreground">Klinische zorg</p>
               </div>
             </button>
+            <button
+              onClick={() => setIncomeType('associatie')}
+              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                incomeType === 'associatie'
+                  ? 'border-accent bg-accent/5 ring-1 ring-accent/20'
+                  : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
+              <div className="text-left">
+                <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
+                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — 50% eigen aandeel</p>
+              </div>
+            </button>
           </div>
+          {incomeType === 'associatie' && (
+            <p className="mt-3 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/30 p-2">
+              Bedragen uit deze upload worden bij opslaan automatisch gehalveerd — alleen het eigen aandeel (50%) wordt opgeslagen.
+            </p>
+          )}
         </CardContent>
       </Card>
 
