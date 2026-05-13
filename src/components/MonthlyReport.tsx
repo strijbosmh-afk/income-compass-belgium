@@ -100,6 +100,7 @@ export function MonthlyReport() {
   const totals = useMemo(() => aggregate(currentRecs), [currentRecs]);
   const ambulant = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'ambulatory')), [currentRecs]);
   const hospitalized = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'hospitalized')), [currentRecs]);
+  const associatie = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'associatie')), [currentRecs]);
   const prevTotals = useMemo(() => aggregate(prevMonthRecs), [prevMonthRecs]);
   const prevYearTotals = useMemo(() => aggregate(prevYearRecs), [prevYearRecs]);
 
