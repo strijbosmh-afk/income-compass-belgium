@@ -214,7 +214,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Statistieken */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="stat-card">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -245,6 +245,17 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm text-muted-foreground">Gehospitaliseerd</p>
               <p className="text-2xl font-semibold">{fmt(nettoHosp)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-accent/30 flex items-center justify-center">
+              <Users className="h-5 w-5 text-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Associatie <span className="text-xs">(50%)</span></p>
+              <p className="text-2xl font-semibold">{fmt(nettoAssoc)}</p>
             </div>
           </div>
         </div>
