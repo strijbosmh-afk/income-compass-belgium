@@ -94,6 +94,13 @@ EXTRACTED FIELDS:
 - bouwfonds: "Bouwfonds", EXACT value printed.
 - mif: "MIF", EXACT value printed.
 - netto: net paid to doctor, EXACT value printed (column "Netto" / "Netto-ereloon" / "Saldo arts").
+- account_number: the account/rekeningnummer shown for this line (often "0" or "9" in hospital statements). Only include if a separate column clearly shows an account number. If no such column exists, omit this field.
+
+ACCOUNT NUMBER FILTERING (hospitalized statements):
+• Some hospital income statements have a "rekeningnummer" / "compte" / "account" column with values like "0" or "9".
+• "0" = the doctor's own account (keep).
+• "9" = another account / pooled account (discard).
+• If such a column is present, record the account_number for each line. If not present, omit the field entirely.
 
 DETERMINING quantity:
 1. If the screenshot has an explicit "Aantal" / "Q" / "#" column → use that integer exactly.
