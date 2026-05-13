@@ -235,7 +235,7 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       // Voor hospitalisatie-overzichten met een rekeningnummer-kolom:
       // alleen rekeningnummer 0 importeren, rekeningnummer 9 negeren.
       // ─────────────────────────────────────────────────────────────
-      let skippedAccount9 = 0;
+      
       const filteredForAccount = aggregated.filter((r) => {
         const acct = String(r.account_number ?? '').trim();
         if (r.income_type === 'hospitalized' && acct === '9') {
