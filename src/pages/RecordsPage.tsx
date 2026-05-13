@@ -227,6 +227,7 @@ export default function RecordsPage() {
             <SelectItem value="all">Alle types</SelectItem>
             <SelectItem value="ambulatory">Ambulant</SelectItem>
             <SelectItem value="hospitalized">Gehospitaliseerd</SelectItem>
+            <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
       </div>
