@@ -275,13 +275,13 @@ export default function UploadPage() {
               <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
-                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — 50% eigen aandeel</p>
+                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — volledig poolbedrag</p>
               </div>
             </button>
           </div>
           {incomeType === 'associatie' && (
             <p className="mt-3 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/30 p-2">
-              Bedragen uit deze upload worden bij opslaan automatisch gehalveerd — alleen het eigen aandeel (50%) wordt opgeslagen.
+              Bedragen uit deze upload worden 1-op-1 opgeslagen (volledig poolbedrag, niet gehalveerd).
             </p>
           )}
         </CardContent>
