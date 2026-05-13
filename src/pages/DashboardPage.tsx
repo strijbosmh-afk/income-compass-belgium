@@ -171,6 +171,7 @@ export default function DashboardPage() {
   const pieData = [
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
+    { name: 'Associatie', value: nettoAssoc },
   ].filter(d => d.value > 0);
 
   const afdrachtPieData = [
@@ -180,7 +181,7 @@ export default function DashboardPage() {
     { name: 'MIF', value: totalMif },
   ].filter(d => d.value > 0);
 
-  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)'];
+  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(280, 45%, 50%)'];
   const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
   
