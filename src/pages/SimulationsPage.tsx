@@ -136,7 +136,7 @@ export default function SimulationsPage() {
     const existing = new Set(currentScenario.lines.map(l => l.nomenclature_code_id));
     const newLines: SimulationLine[] = codesWithNetto
       .filter(c => !existing.has(c.id))
-      .map(c => ({ id: crypto.randomUUID(), nomenclature_code_id: c.id, quantity: 1 }));
+      .map(c => ({ id: crypto.randomUUID(), nomenclature_code_id: c.id, quantity: 0 }));
     if (newLines.length === 0) {
       toast({ title: 'Alle codes al toegevoegd' });
       return;
