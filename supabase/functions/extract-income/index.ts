@@ -230,6 +230,21 @@ OUTPUT: Return JSON via the tool call. Include EVERY visible line item, includin
       }));
 
       // ─────────────────────────────────────────────────────────────
+      // STAP A2: FILTER hospital records met rekeningnummer 9.
+      // Voor hospitalisatie-overzichten met een rekeningnummer-kolom:
+      // alleen rekeningnummer 0 importeren, rekeningnummer 9 negeren.
+      // ─────────────────────────────────────────────────────────────
+      let skippedAccount9 = 0;
+      const filteredForAccount = aggregated.filter((r) => {
+        const acct = String(r.account_number ?? '').trim();
+        if (r.income_type === 'hospitalized' && acct === '9') {
+          skippedAccount9++;
+          return false;
+        }
+        return true;
+      });
+
+      // ─────────────────────────────────────────────────────────────
       // STAP B: Bepaal per code de fallback unit_amount uit de geëxtraheerde
       // data (als de nomenclatuur-tabel die code niet kent).
       // ─────────────────────────────────────────────────────────────
