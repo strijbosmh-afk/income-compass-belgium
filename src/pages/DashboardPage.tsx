@@ -109,18 +109,20 @@ export default function DashboardPage() {
         month: name,
         ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0),
         gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0),
+        associatie: mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0),
         netto: mr.reduce((s, r) => s + r.netto, 0),
       };
     });
   }, [yearFiltered]);
 
   const cumulativeData = useMemo(() => {
-    let cumAmb = 0, cumHosp = 0;
+    let cumAmb = 0, cumHosp = 0, cumAssoc = 0;
     return MONTHS.map((name, idx) => {
       const mr = yearFiltered.filter(r => r.month === idx + 1);
       cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
       cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
-      return { month: name, cumulatief: cumAmb + cumHosp, ambulant: cumAmb, gehospitaliseerd: cumHosp };
+      cumAssoc += mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
+      return { month: name, cumulatief: cumAmb + cumHosp + cumAssoc, ambulant: cumAmb, gehospitaliseerd: cumHosp, associatie: cumAssoc };
     });
   }, [yearFiltered]);
 
