@@ -205,7 +205,9 @@ export default function UploadPage() {
       const insertData = records.map((rec: any) => {
         const clean: any = { user_id: user.id };
         for (const [k, v] of Object.entries(rec)) {
-          if (!k.startsWith('_')) clean[k] = v;
+          if (k.startsWith('_')) continue;
+          if (k === 'account_number') continue; // niet in DB-schema
+          clean[k] = v;
         }
         return applyShare(clean);
       });
