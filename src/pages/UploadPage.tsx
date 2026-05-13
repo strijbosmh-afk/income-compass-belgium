@@ -35,7 +35,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedRecord[] | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [incomeType, setIncomeType] = useState<'ambulatory' | 'hospitalized' | ''>('');
+  const [incomeType, setIncomeType] = useState<IncomeType | ''>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
@@ -43,7 +43,7 @@ export default function UploadPage() {
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
     if (!incomeType) {
-      toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant of Gehospitaliseerd voor het uploaden.', variant: 'destructive' });
+      toast({ title: 'Kies type inkomen', description: 'Selecteer Ambulant, Gehospitaliseerd of Associatie.', variant: 'destructive' });
       return;
     }
     if (!selectedMonth) {
