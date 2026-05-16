@@ -98,11 +98,14 @@ export default function RecordsPage() {
   const grouped = useMemo((): GroupedRecord[] => {
     const map = new Map<string, GroupedRecord>();
     records.forEach(r => {
-      const key = `${r.nomenclature_code}_${r.income_type}`;
+      // Associatie-records worden samengevoegd in één regel (eigen netto-aandeel),
+      // ongeacht de bron-arts (Schrevens / Strijbos) of nomenclatuurcode.
+      const isAssoc = r.income_type === 'associatie';
+      const key = isAssoc ? 'associatie__all' : `${r.nomenclature_code}_${r.income_type}`;
       if (!map.has(key)) {
         map.set(key, {
-          nomenclature_code: r.nomenclature_code,
-          label: codeToLabel[r.nomenclature_code] || r.description || r.nomenclature_code,
+          nomenclature_code: isAssoc ? '—' : r.nomenclature_code,
+          label: isAssoc ? 'Hospitalisatie associatie' : (codeToLabel[r.nomenclature_code] || r.description || r.nomenclature_code),
           income_type: r.income_type,
           totalQuantity: 0,
           totalBruto: 0,
