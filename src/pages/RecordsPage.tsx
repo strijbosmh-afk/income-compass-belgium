@@ -191,6 +191,47 @@ export default function RecordsPage() {
     }
   };
 
+  const runCompare = async () => {
+    if (!user) return;
+    setCompareOpen(true);
+    setCompareLoading(true);
+    // Onafhankelijke fetch (dashboard-stijl): alle records, daarna applyShare + dezelfde filters.
+    const { data, error } = await supabase
+      .from('income_records')
+      .select('id, month, year, income_type, netto')
+      .eq('user_id', user.id);
+    if (error) {
+      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
+      setCompareLoading(false);
+      return;
+    }
+    const dashRecs = ((data as any[]) || [])
+      .map((r) => applyShare(r))
+      .filter((r) => filterYear === 'all' || r.year === parseInt(filterYear))
+      .filter((r) => filterMonth === 'all' || r.month === parseInt(filterMonth))
+      .filter((r) => filterType === 'all' || r.income_type === filterType);
+
+    // Overzicht-totalen = afgeleid van de huidige `grouped` (= wat in tabel staat).
+    const overviewByType: Record<string, number> = {};
+    grouped.forEach((g) => {
+      overviewByType[g.income_type] = (overviewByType[g.income_type] || 0) + g.totalNetto;
+    });
+    const dashByType: Record<string, number> = {};
+    dashRecs.forEach((r: any) => {
+      dashByType[r.income_type] = (dashByType[r.income_type] || 0) + Number(r.netto || 0);
+    });
+    const types = Array.from(new Set([...Object.keys(overviewByType), ...Object.keys(dashByType)]));
+    const rows: CompareRow[] = types
+      .map((t) => {
+        const o = Math.round((overviewByType[t] || 0) * 100) / 100;
+        const d = Math.round((dashByType[t] || 0) * 100) / 100;
+        return { type: t, overview: o, dashboard: d, diff: Math.round((o - d) * 100) / 100 };
+      })
+      .sort((a, b) => a.type.localeCompare(b.type));
+    setCompareRows(rows);
+    setCompareLoading(false);
+  };
+
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
   const netto = records.reduce((sum, r) => sum + r.netto, 0);
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
