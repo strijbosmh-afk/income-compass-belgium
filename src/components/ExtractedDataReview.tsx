@@ -111,13 +111,56 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
     setRecords(prev => prev.map((r, i) => i === idx ? { ...r, quantity: s.qty, unit_amount: s.unit } : r));
   };
 
+  // Detecteer dubbel-geschatte rijen: binnen dezelfde nomenclatuurcode (en zelfde maand)
+  // — typisch bij associatie — bestaat soms een "Totaal"-rij plus individuele arts-rijen
+  // die samen exact dat totaal vormen. De individuele rijen zijn dan dubbel geteld.
+  // Heuristiek: voor elke code-groep, zoek een rij R waarvan total_amount ≈ som van
+  // (één of meer) andere rijen in dezelfde groep. Die andere rijen worden als duplicate
+  // gemarkeerd (R blijft als waarheid van de Totaal-rij).
+  const duplicateIdx = useMemo(() => {
+    const dups = new Set<number>();
+    const groups = new Map<string, number[]>();
+    records.forEach((r, i) => {
+      const key = `${String(r.nomenclature_code || '').trim()}|${r.year}-${r.month}|${r.income_type}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(i);
+    });
+    for (const idxs of groups.values()) {
+      if (idxs.length < 2) continue;
+      // Sorteer aflopend op total_amount — grootste is kandidaat-Totaal.
+      const sorted = [...idxs].sort((a, b) => (records[b].total_amount || 0) - (records[a].total_amount || 0));
+      for (const parent of sorted) {
+        const parentTotal = records[parent].total_amount || 0;
+        if (parentTotal <= 0) continue;
+        const others = idxs.filter(i => i !== parent && !dups.has(i));
+        if (others.length === 0) continue;
+        const sumOthers = others.reduce((s, i) => s + (records[i].total_amount || 0), 0);
+        const tol = Math.max(0.05, parentTotal * 0.02);
+        // Volledige som matcht → alle andere rijen zijn dubbels.
+        if (Math.abs(sumOthers - parentTotal) <= tol) {
+          others.forEach(i => dups.add(i));
+          continue;
+        }
+        // Of: één losse rij heeft exact dezelfde total → ook dubbel.
+        for (const o of others) {
+          const ot = records[o].total_amount || 0;
+          if (ot > 0 && Math.abs(ot - parentTotal) <= tol) dups.add(o);
+        }
+      }
+    }
+    return dups;
+  }, [records]);
+
+  const removeAllDuplicates = () => {
+    setRecords(prev => prev.filter((_, i) => !duplicateIdx.has(i)));
+  };
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
   const totals = useMemo(() => ({
-    bruto: records.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
-    netto: records.reduce((s, r) => s + (Number(r.netto) || 0), 0),
-  }), [records]);
+    bruto: records.reduce((s, r, i) => s + (duplicateIdx.has(i) ? 0 : (Number(r.total_amount) || 0)), 0),
+    netto: records.reduce((s, r, i) => s + (duplicateIdx.has(i) ? 0 : (Number(r.netto) || 0)), 0),
+  }), [records, duplicateIdx]);
 
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
