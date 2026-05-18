@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
+import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeRecord = {
   id: string;
@@ -76,7 +77,7 @@ export default function RecordsPage() {
       supabase.from('nomenclature_codes').select('code, description, netto_amount').eq('user_id', user.id),
     ]);
     if (recordsRes.error) toast({ title: 'Fout', description: recordsRes.error.message, variant: 'destructive' });
-    else setRecords(recordsRes.data || []);
+    else setRecords(((recordsRes.data as any[]) || []).map((r) => applyShare(r)));
     setNomenclatureCodes(nomenclatureRes.data || []);
     setLoading(false);
   };
