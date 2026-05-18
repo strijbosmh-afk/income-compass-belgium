@@ -183,6 +183,24 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {duplicateIdx.size > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+            <Copy className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">{duplicateIdx.size} vermoedelijk dubbel-geschatte rij(en) gedetecteerd.</p>
+              <p className="mt-0.5 opacity-80">
+                Eén rij per code bevat het Totaal-bedrag, en de overige rijen met dezelfde code tellen samen exact tot dat totaal — typisch wanneer per ongeluk individuele arts-rijen én een Totaal-rij geëxtraheerd worden. De gemarkeerde rijen zijn al uit de bruto/netto-totalen gehaald; verwijder ze vóór opslaan.
+              </p>
+              <button
+                type="button"
+                onClick={removeAllDuplicates}
+                className="mt-2 inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/20 px-2 py-1 font-medium hover:bg-amber-500/30"
+              >
+                <Trash2 className="h-3 w-3" /> Verwijder alle dubbele rijen ({duplicateIdx.size})
+              </button>
+            </div>
+          </div>
+        )}
         {records.some(r => r.income_type === 'associatie') && (
           <div className="rounded-md border border-accent/40 bg-accent/5 p-3 text-xs">
             <p className="font-medium">Associatie-regel(s) gedetecteerd</p>
