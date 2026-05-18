@@ -1,0 +1,1 @@
+ALTER TABLE public.nomenclature_codes ADD COLUMN IF NOT EXISTS last_verified_at timestamp with time zone;

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, TrendingUp, Activity, Building2, Landmark, Wallet, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { GoalsWidget } from '@/components/GoalsWidget';
+import { MissingMonthsWidget } from '@/components/MissingMonthsWidget';
 import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeEntry = {
@@ -265,6 +266,9 @@ export default function DashboardPage() {
 
       {/* Doelstellingen & Forecast */}
       <GoalsWidget year={parseInt(selectedYear)} />
+
+      {/* Maandcontrole: ontbrekende / lage maanden */}
+      <MissingMonthsWidget year={parseInt(selectedYear)} />
 
       {/* Tabbladen */}
       <Tabs value={viewMode} onValueChange={setViewMode}>
