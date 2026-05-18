@@ -394,8 +394,8 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
           <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
           <Button
             onClick={() => onSave(records)}
-            disabled={records.length === 0 || totalIssues > 0}
-            title={totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined}
+            disabled={records.length === 0 || totalIssues > 0 || duplicateIdx.size > 0}
+            title={duplicateIdx.size > 0 ? 'Verwijder eerst de gemarkeerde dubbele rijen' : (totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined)}
           >
             <CheckCircle2 className="h-4 w-4 mr-1" />
             Opslaan
