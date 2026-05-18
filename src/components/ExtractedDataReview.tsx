@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ExtractedRecord } from '@/pages/UploadPage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, X, Trash2, AlertTriangle, Copy } from 'lucide-react';
+import { CheckCircle2, X, Trash2, AlertTriangle, Copy, Undo2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Props {
@@ -151,9 +151,44 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
     return dups;
   }, [records]);
 
+  // Undo-buffer voor bulk-verwijdering van dubbele rijen (8s).
+  const UNDO_WINDOW_MS = 8000;
+  const [undoState, setUndoState] = useState<{ snapshot: ExtractedRecord[]; removedCount: number; expiresAt: number } | null>(null);
+  const [, forceTick] = useState(0);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+  }, []);
+
   const removeAllDuplicates = () => {
+    if (duplicateIdx.size === 0) return;
+    const snapshot = records;
+    const removedCount = duplicateIdx.size;
     setRecords(prev => prev.filter((_, i) => !duplicateIdx.has(i)));
+    setUndoState({ snapshot, removedCount, expiresAt: Date.now() + UNDO_WINDOW_MS });
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+    undoTimerRef.current = setTimeout(() => setUndoState(null), UNDO_WINDOW_MS);
+    tickRef.current = setInterval(() => forceTick(t => t + 1), 250);
   };
+
+  const undoRemoveDuplicates = () => {
+    if (!undoState) return;
+    setRecords(undoState.snapshot);
+    setUndoState(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+  };
+
+  useEffect(() => {
+    if (undoState && Date.now() >= undoState.expiresAt) {
+      setUndoState(null);
+      if (tickRef.current) clearInterval(tickRef.current);
+    }
+  });
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
@@ -183,6 +218,24 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {undoState && (
+          <div className="flex items-center gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">
+            <Trash2 className="h-4 w-4 shrink-0" />
+            <div className="flex-1">
+              <span className="font-medium">{undoState.removedCount} dubbele rij(en) verwijderd.</span>
+              <span className="ml-2 opacity-80">
+                Ongedaan maken mogelijk nog {Math.max(0, Math.ceil((undoState.expiresAt - Date.now()) / 1000))}s.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={undoRemoveDuplicates}
+              className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 font-medium hover:bg-emerald-500/30"
+            >
+              <Undo2 className="h-3 w-3" /> Ongedaan maken
+            </button>
+          </div>
+        )}
         {duplicateIdx.size > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
             <Copy className="h-4 w-4 mt-0.5 shrink-0" />
