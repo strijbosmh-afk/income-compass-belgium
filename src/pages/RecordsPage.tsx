@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, Scale } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
-import { applyShare } from '@/lib/incomeTypes';
+import { applyShare, incomeTypeLabel } from '@/lib/incomeTypes';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 type IncomeRecord = {
   id: string;
