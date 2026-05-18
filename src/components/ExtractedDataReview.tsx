@@ -151,9 +151,44 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
     return dups;
   }, [records]);
 
+  // Undo-buffer voor bulk-verwijdering van dubbele rijen (8s).
+  const UNDO_WINDOW_MS = 8000;
+  const [undoState, setUndoState] = useState<{ snapshot: ExtractedRecord[]; removedCount: number; expiresAt: number } | null>(null);
+  const [, forceTick] = useState(0);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+  }, []);
+
   const removeAllDuplicates = () => {
+    if (duplicateIdx.size === 0) return;
+    const snapshot = records;
+    const removedCount = duplicateIdx.size;
     setRecords(prev => prev.filter((_, i) => !duplicateIdx.has(i)));
+    setUndoState({ snapshot, removedCount, expiresAt: Date.now() + UNDO_WINDOW_MS });
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+    undoTimerRef.current = setTimeout(() => setUndoState(null), UNDO_WINDOW_MS);
+    tickRef.current = setInterval(() => forceTick(t => t + 1), 250);
   };
+
+  const undoRemoveDuplicates = () => {
+    if (!undoState) return;
+    setRecords(undoState.snapshot);
+    setUndoState(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (tickRef.current) clearInterval(tickRef.current);
+  };
+
+  useEffect(() => {
+    if (undoState && Date.now() >= undoState.expiresAt) {
+      setUndoState(null);
+      if (tickRef.current) clearInterval(tickRef.current);
+    }
+  });
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
