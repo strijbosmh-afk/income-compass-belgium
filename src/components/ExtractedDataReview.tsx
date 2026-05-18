@@ -213,10 +213,26 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
             <tbody>
               {records.map((r, idx) => {
                 const f = flags[idx];
+                const isDup = duplicateIdx.has(idx);
                 return (
-                  <tr key={idx} className={`border-b border-border/30 hover:bg-muted/30 transition-colors ${!f.ok ? 'bg-destructive/5' : ''}`}>
+                  <tr key={idx} className={`border-b border-border/30 hover:bg-muted/30 transition-colors ${isDup ? 'bg-amber-500/10 line-through opacity-60' : (!f.ok ? 'bg-destructive/5' : '')}`}>
                     <td className="py-2 px-2 text-center">
-                      {f.ok ? (
+                      {isDup ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Copy className="h-3.5 w-3.5 text-amber-600 inline" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs max-w-xs">
+                                Vermoedelijk dubbel-geschatte rij: deze code heeft al een Totaal-rij
+                                waarvan het bedrag overeenkomt met de som van deze + andere rijen.
+                                Wordt niet meegerekend in de totalen — verwijder vóór opslaan.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : f.ok ? (
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
                       ) : (
                         <TooltipProvider>
