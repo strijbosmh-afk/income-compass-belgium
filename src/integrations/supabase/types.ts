@@ -168,6 +168,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          last_verified_at: string | null
           netto_amount: number
           updated_at: string
           user_id: string
@@ -178,6 +179,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          last_verified_at?: string | null
           netto_amount?: number
           updated_at?: string
           user_id: string
@@ -188,6 +190,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          last_verified_at?: string | null
           netto_amount?: number
           updated_at?: string
           user_id?: string
