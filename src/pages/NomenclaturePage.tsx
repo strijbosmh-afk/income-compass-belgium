@@ -11,6 +11,7 @@ import { Plus, Trash2, Loader2, Pencil, Tag, X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { bumpDataVersion } from '@/hooks/useDataVersion';
+import { TariffUpdateCheck } from '@/components/TariffUpdateCheck';
 
 type NomenclatureCode = {
   id: string;
@@ -186,6 +187,8 @@ export default function NomenclaturePage() {
           </Button>
         </div>
       </div>
+
+      <TariffUpdateCheck onChanged={fetchCodes} />
 
       <Card className="border-border/50">
         <CardHeader><CardTitle className="text-base">Nieuwe Code Toevoegen</CardTitle></CardHeader>
