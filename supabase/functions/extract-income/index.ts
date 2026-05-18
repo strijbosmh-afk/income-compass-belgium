@@ -111,7 +111,24 @@ DETERMINING quantity:
 3. quantity must be an integer ≥ 1. Never guess "1" when multiple rows of the same code exist with very different totals.
 4. The amounts (total_amount, aandeel_arts, bouwfonds, mif, netto) are still the EXACT printed row totals — never multiply or divide them yourself.
 
-OUTPUT: Return JSON via the tool call. Include EVERY visible line item, including duplicates of the same nomenclature_code on different rows.`;
+OUTPUT: Return JSON via the tool call. Include EVERY visible line item, including duplicates of the same nomenclature_code on different rows.
+
+${userIncomeType === 'associatie' ? `
+═══════════════════════════════════════════════════════════
+ABSOLUTE RULE — ASSOCIATIE: ALLEEN TOTAAL-RIJEN
+═══════════════════════════════════════════════════════════
+Dit is een associatie-afrekening (gepoold met meerdere artsen).
+Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
+(bv. "Dr. X", "Dr. Y", "Dr. Schrevens") plus één samenvattende "Totaal"-rij.
+• Extracteer UITSLUITEND de Totaal-/Subtotaal-/Som-rij per nomenclatuurcode.
+• NEGEER volledig de individuele artsen-rijen — anders worden bedragen dubbel geteld.
+• Herkenningspunten van een totaal-rij: label "Totaal", "Total", "Subtotaal",
+  "Som", "Sum", "Alle artsen", of een visueel afwijkende (vette/grijze) regel
+  die de som vormt van de bovenliggende artsen-rijen.
+• Als er GEEN expliciete totaal-rij is en alleen individuele artsen-rijen
+  zichtbaar zijn voor een code → som de bedragen van die artsen-rijen op
+  tot één rij per code (NIET als aparte rijen teruggeven).
+` : ''}`;
 
     const userText = "Extract every line item from this RIZIV income statement screenshot. Copy each EUR amount EXACTLY as printed (no rounding, no recomputation). Return JSON via the tool call.";
 
