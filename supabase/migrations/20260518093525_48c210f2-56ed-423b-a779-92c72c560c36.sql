@@ -1,0 +1,1 @@
+ALTER TABLE public.nomenclature_codes DROP COLUMN IF EXISTS last_verified_at;
