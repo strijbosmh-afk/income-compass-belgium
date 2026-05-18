@@ -65,6 +65,10 @@ export default function RecordsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('netto');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const dataVersion = useDataVersion();
+  type CompareRow = { type: string; overview: number; dashboard: number; diff: number };
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
 
   const fetchRecords = async () => {
     if (!user) return;
