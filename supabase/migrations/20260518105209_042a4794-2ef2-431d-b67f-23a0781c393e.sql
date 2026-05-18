@@ -1,0 +1,1 @@
+DELETE FROM public.income_records WHERE id = '281ffd28-8a89-4e6f-a8dc-c7f8307d9eba';
