@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, X, Trash2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, X, Trash2, AlertTriangle, Copy } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Props {
@@ -111,13 +111,56 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
     setRecords(prev => prev.map((r, i) => i === idx ? { ...r, quantity: s.qty, unit_amount: s.unit } : r));
   };
 
+  // Detecteer dubbel-geschatte rijen: binnen dezelfde nomenclatuurcode (en zelfde maand)
+  // — typisch bij associatie — bestaat soms een "Totaal"-rij plus individuele arts-rijen
+  // die samen exact dat totaal vormen. De individuele rijen zijn dan dubbel geteld.
+  // Heuristiek: voor elke code-groep, zoek een rij R waarvan total_amount ≈ som van
+  // (één of meer) andere rijen in dezelfde groep. Die andere rijen worden als duplicate
+  // gemarkeerd (R blijft als waarheid van de Totaal-rij).
+  const duplicateIdx = useMemo(() => {
+    const dups = new Set<number>();
+    const groups = new Map<string, number[]>();
+    records.forEach((r, i) => {
+      const key = `${String(r.nomenclature_code || '').trim()}|${r.year}-${r.month}|${r.income_type}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(i);
+    });
+    for (const idxs of groups.values()) {
+      if (idxs.length < 2) continue;
+      // Sorteer aflopend op total_amount — grootste is kandidaat-Totaal.
+      const sorted = [...idxs].sort((a, b) => (records[b].total_amount || 0) - (records[a].total_amount || 0));
+      for (const parent of sorted) {
+        const parentTotal = records[parent].total_amount || 0;
+        if (parentTotal <= 0) continue;
+        const others = idxs.filter(i => i !== parent && !dups.has(i));
+        if (others.length === 0) continue;
+        const sumOthers = others.reduce((s, i) => s + (records[i].total_amount || 0), 0);
+        const tol = Math.max(0.05, parentTotal * 0.02);
+        // Volledige som matcht → alle andere rijen zijn dubbels.
+        if (Math.abs(sumOthers - parentTotal) <= tol) {
+          others.forEach(i => dups.add(i));
+          continue;
+        }
+        // Of: één losse rij heeft exact dezelfde total → ook dubbel.
+        for (const o of others) {
+          const ot = records[o].total_amount || 0;
+          if (ot > 0 && Math.abs(ot - parentTotal) <= tol) dups.add(o);
+        }
+      }
+    }
+    return dups;
+  }, [records]);
+
+  const removeAllDuplicates = () => {
+    setRecords(prev => prev.filter((_, i) => !duplicateIdx.has(i)));
+  };
 
   const totalIssues = flags.filter(f => !f.ok).length;
   const totalQtyIssues = flags.filter(f => !f.qtyOk).length;
   const totals = useMemo(() => ({
-    bruto: records.reduce((s, r) => s + (Number(r.total_amount) || 0), 0),
-    netto: records.reduce((s, r) => s + (Number(r.netto) || 0), 0),
-  }), [records]);
+    bruto: records.reduce((s, r, i) => s + (duplicateIdx.has(i) ? 0 : (Number(r.total_amount) || 0)), 0),
+    netto: records.reduce((s, r, i) => s + (duplicateIdx.has(i) ? 0 : (Number(r.netto) || 0)), 0),
+  }), [records, duplicateIdx]);
 
   const fmt = (v: number) => `€${v.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -140,6 +183,24 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {duplicateIdx.size > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+            <Copy className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">{duplicateIdx.size} vermoedelijk dubbel-geschatte rij(en) gedetecteerd.</p>
+              <p className="mt-0.5 opacity-80">
+                Eén rij per code bevat het Totaal-bedrag, en de overige rijen met dezelfde code tellen samen exact tot dat totaal — typisch wanneer per ongeluk individuele arts-rijen én een Totaal-rij geëxtraheerd worden. De gemarkeerde rijen zijn al uit de bruto/netto-totalen gehaald; verwijder ze vóór opslaan.
+              </p>
+              <button
+                type="button"
+                onClick={removeAllDuplicates}
+                className="mt-2 inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/20 px-2 py-1 font-medium hover:bg-amber-500/30"
+              >
+                <Trash2 className="h-3 w-3" /> Verwijder alle dubbele rijen ({duplicateIdx.size})
+              </button>
+            </div>
+          </div>
+        )}
         {records.some(r => r.income_type === 'associatie') && (
           <div className="rounded-md border border-accent/40 bg-accent/5 p-3 text-xs">
             <p className="font-medium">Associatie-regel(s) gedetecteerd</p>
@@ -170,10 +231,26 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
             <tbody>
               {records.map((r, idx) => {
                 const f = flags[idx];
+                const isDup = duplicateIdx.has(idx);
                 return (
-                  <tr key={idx} className={`border-b border-border/30 hover:bg-muted/30 transition-colors ${!f.ok ? 'bg-destructive/5' : ''}`}>
+                  <tr key={idx} className={`border-b border-border/30 hover:bg-muted/30 transition-colors ${isDup ? 'bg-amber-500/10 line-through opacity-60' : (!f.ok ? 'bg-destructive/5' : '')}`}>
                     <td className="py-2 px-2 text-center">
-                      {f.ok ? (
+                      {isDup ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Copy className="h-3.5 w-3.5 text-amber-600 inline" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs max-w-xs">
+                                Vermoedelijk dubbel-geschatte rij: deze code heeft al een Totaal-rij
+                                waarvan het bedrag overeenkomt met de som van deze + andere rijen.
+                                Wordt niet meegerekend in de totalen — verwijder vóór opslaan.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : f.ok ? (
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 inline" />
                       ) : (
                         <TooltipProvider>
@@ -317,8 +394,8 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
           <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
           <Button
             onClick={() => onSave(records)}
-            disabled={records.length === 0 || totalIssues > 0}
-            title={totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined}
+            disabled={records.length === 0 || totalIssues > 0 || duplicateIdx.size > 0}
+            title={duplicateIdx.size > 0 ? 'Verwijder eerst de gemarkeerde dubbele rijen' : (totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined)}
           >
             <CheckCircle2 className="h-4 w-4 mr-1" />
             Opslaan
