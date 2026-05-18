@@ -283,7 +283,57 @@ export default function RecordsPage() {
             <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" size="sm" className="ml-auto gap-2" onClick={runCompare}>
+          <Scale className="h-4 w-4" /> Vergelijk met dashboard
+        </Button>
       </div>
+
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Vergelijking overzicht vs. dashboard</DialogTitle>
+            <DialogDescription>
+              Netto per inkomenssoort op basis van de actieve filters. Een verschil van € 0,00 betekent dat beide weergaves consistent zijn.
+            </DialogDescription>
+          </DialogHeader>
+          {compareLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-2 px-2 font-medium text-muted-foreground">Type</th>
+                    <th className="text-right py-2 px-2 font-medium text-muted-foreground">Overzicht</th>
+                    <th className="text-right py-2 px-2 font-medium text-muted-foreground">Dashboard</th>
+                    <th className="text-right py-2 px-2 font-medium text-muted-foreground">Verschil</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareRows.length === 0 ? (
+                    <tr><td colSpan={4} className="text-center py-6 text-muted-foreground">Geen data.</td></tr>
+                  ) : compareRows.map((r) => (
+                    <tr key={r.type} className="border-b border-border/20">
+                      <td className="py-2 px-2">{incomeTypeLabel[r.type] || r.type}</td>
+                      <td className="py-2 px-2 text-right tabular-nums">{fmt(r.overview)}</td>
+                      <td className="py-2 px-2 text-right tabular-nums">{fmt(r.dashboard)}</td>
+                      <td className={`py-2 px-2 text-right tabular-nums font-medium ${Math.abs(r.diff) < 0.01 ? 'text-muted-foreground' : 'text-destructive'}`}>{fmt(r.diff)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border/50 font-semibold">
+                    <td className="py-2 px-2">Totaal</td>
+                    <td className="py-2 px-2 text-right tabular-nums">{fmt(compareRows.reduce((s, r) => s + r.overview, 0))}</td>
+                    <td className="py-2 px-2 text-right tabular-nums">{fmt(compareRows.reduce((s, r) => s + r.dashboard, 0))}</td>
+                    <td className={`py-2 px-2 text-right tabular-nums ${Math.abs(compareRows.reduce((s, r) => s + r.diff, 0)) < 0.01 ? 'text-muted-foreground' : 'text-destructive'}`}>{fmt(compareRows.reduce((s, r) => s + r.diff, 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="netto">
         <TabsList>
