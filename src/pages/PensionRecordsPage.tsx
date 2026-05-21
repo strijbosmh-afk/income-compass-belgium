@@ -47,6 +47,8 @@ export default function PensionRecordsPage() {
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeProgress, setReanalyzeProgress] = useState<{ done: number; total: number; current?: string }>({ done: 0, total: 0 });
 
   const load = async () => {
     if (!user) return;
