@@ -55,8 +55,24 @@ export default function PensionRecordsPage() {
     const { data } = await supabase.storage.from('pension-pdfs').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
+  const { sorted, tiles, chartData } = useMemo(() => {
+    const s = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const latest = s[s.length - 1];
+    const prev = s[s.length - 2];
+    return {
+      sorted: s,
+      tiles: latest ? [
+        { icon: PiggyBank, label: 'Pensioenreserve', value: latest.pensioenreserve, prev: prev?.pensioenreserve, spark: s.map(r => ({ v: r.pensioenreserve })) },
+        { icon: Shield, label: 'Overlijdensdekking', value: latest.overlijdensdekking, prev: prev?.overlijdensdekking, spark: s.map(r => ({ v: r.overlijdensdekking })) },
+        { icon: Wallet, label: 'VAPZ-reserve', value: latest.pensioenreserve_vapz, prev: prev?.pensioenreserve_vapz, spark: s.map(r => ({ v: r.pensioenreserve_vapz })) },
+        { icon: Stethoscope, label: 'VAP RIZIV', value: latest.vap_riziv_toelage, prev: prev?.vap_riziv_toelage, spark: s.map(r => ({ v: r.vap_riziv_toelage })) },
+      ] : [],
+      chartData: s.map(r => ({ date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }), v: r.pensioenreserve })),
+    };
+  }, [records]);
 
   return (
+
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
       {/* Hero header with decorative gradient */}
       <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8">
