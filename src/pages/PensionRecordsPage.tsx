@@ -114,16 +114,24 @@ export default function PensionRecordsPage() {
     const iptYearly = years.map((y, idx) => {
       const cur = byYear.get(y)!;
       const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
-      const basis = prevYear?.opgebouwde_reserve || 0;
+      const basis = cur.beginkapitaal > 0 ? cur.beginkapitaal : (prevYear?.eindkapitaal || prevYear?.opgebouwde_reserve || 0);
       const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
+      const nettoStortingen = (cur.inkomende_bewegingen || 0) + (cur.uitgaande_bewegingen || 0);
       return {
         year: y,
         snapshot_date: cur.snapshot_date,
+        beginkapitaal: cur.beginkapitaal,
+        eindkapitaal: cur.eindkapitaal || cur.opgebouwde_reserve,
         opgebouwde_reserve: cur.opgebouwde_reserve,
         jaarpremie: cur.jaarpremie,
         overlijdenskapitaal: cur.overlijdenskapitaal,
         winst_uit_beleggingen: cur.winst_uit_beleggingen,
         gewaarborgd_rendement: cur.gewaarborgd_rendement,
+        inkomende_bewegingen: cur.inkomende_bewegingen || 0,
+        uitgaande_bewegingen: cur.uitgaande_bewegingen || 0,
+        kosten_taksen: cur.kosten_taksen || 0,
+        kosten_overlijden: cur.kosten_overlijden || 0,
+        nettoStortingen,
         rendement,
       };
     });
