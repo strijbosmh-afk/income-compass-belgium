@@ -84,21 +84,29 @@ export default function PensionRecordsPage() {
     const { data } = await supabase.storage.from('pension-pdfs').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
-  const { sorted, tiles, chartData } = useMemo(() => {
+  const { sorted, tiles, chartData, sortedIpt } = useMemo(() => {
     const s = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const si = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const latest = s[s.length - 1];
     const prev = s[s.length - 2];
+    const latestIpt = si[si.length - 1];
+    const prevIpt = si[si.length - 2];
+    const baseTiles = latest ? [
+      { icon: PiggyBank, label: 'Pensioenreserve', value: latest.pensioenreserve, prev: prev?.pensioenreserve, spark: s.map(r => ({ v: r.pensioenreserve })) },
+      { icon: Shield, label: 'Overlijdensdekking', value: latest.overlijdensdekking, prev: prev?.overlijdensdekking, spark: s.map(r => ({ v: r.overlijdensdekking })) },
+      { icon: Wallet, label: 'VAPZ-reserve', value: latest.pensioenreserve_vapz, prev: prev?.pensioenreserve_vapz, spark: s.map(r => ({ v: r.pensioenreserve_vapz })) },
+      { icon: Stethoscope, label: 'VAP RIZIV', value: latest.vap_riziv_toelage, prev: prev?.vap_riziv_toelage, spark: s.map(r => ({ v: r.vap_riziv_toelage })) },
+    ] : [];
+    if (latestIpt) {
+      baseTiles.push({ icon: Briefcase, label: 'IPT-reserve', value: latestIpt.opgebouwde_reserve, prev: prevIpt?.opgebouwde_reserve, spark: si.map(r => ({ v: r.opgebouwde_reserve })) });
+    }
     return {
       sorted: s,
-      tiles: latest ? [
-        { icon: PiggyBank, label: 'Pensioenreserve', value: latest.pensioenreserve, prev: prev?.pensioenreserve, spark: s.map(r => ({ v: r.pensioenreserve })) },
-        { icon: Shield, label: 'Overlijdensdekking', value: latest.overlijdensdekking, prev: prev?.overlijdensdekking, spark: s.map(r => ({ v: r.overlijdensdekking })) },
-        { icon: Wallet, label: 'VAPZ-reserve', value: latest.pensioenreserve_vapz, prev: prev?.pensioenreserve_vapz, spark: s.map(r => ({ v: r.pensioenreserve_vapz })) },
-        { icon: Stethoscope, label: 'VAP RIZIV', value: latest.vap_riziv_toelage, prev: prev?.vap_riziv_toelage, spark: s.map(r => ({ v: r.vap_riziv_toelage })) },
-      ] : [],
+      sortedIpt: si,
+      tiles: baseTiles,
       chartData: s.map(r => ({ date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }), v: r.pensioenreserve })),
     };
-  }, [records]);
+  }, [records, iptRecords]);
 
   return (
 
