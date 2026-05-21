@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Loader2, Briefcase } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 
 interface PensionRecord {
@@ -14,6 +14,16 @@ interface PensionRecord {
   pensioenreserve_vapz: number;
   vap_riziv_toelage: number;
 }
+interface IptRecord {
+  id: string;
+  snapshot_date: string;
+  year: number;
+  opgebouwde_reserve: number;
+  jaarpremie: number;
+  overlijdenskapitaal: number;
+  gewaarborgd_rendement: number;
+}
+
 
 const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,25 +31,30 @@ const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumF
 export default function PensionDashboardPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<PensionRecord[]>([]);
+  const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from('pension_records')
-        .select('*')
-        .order('snapshot_date', { ascending: true });
+      const [{ data }, { data: iptData }] = await Promise.all([
+        supabase.from('pension_records').select('*').order('snapshot_date', { ascending: true }),
+        supabase.from('pension_ipt_records').select('*').order('snapshot_date', { ascending: true }),
+      ]);
       setRecords((data as PensionRecord[]) || []);
+      setIptRecords((iptData as IptRecord[]) || []);
       setLoading(false);
     })();
   }, [user]);
 
-  const { latest, previous, chartData } = useMemo(() => {
+  const { latest, previous, chartData, latestIpt, previousIpt, iptChartData } = useMemo(() => {
     const sorted = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const sortedIpt = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     return {
       latest: sorted[sorted.length - 1] || null,
       previous: sorted[sorted.length - 2] || null,
+      latestIpt: sortedIpt[sortedIpt.length - 1] || null,
+      previousIpt: sortedIpt[sortedIpt.length - 2] || null,
       chartData: sorted.map(r => ({
         date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }),
         Pensioenreserve: r.pensioenreserve,
@@ -47,8 +62,13 @@ export default function PensionDashboardPage() {
         VAPZ: r.pensioenreserve_vapz,
         'VAP RIZIV': r.vap_riziv_toelage,
       })),
+      iptChartData: sortedIpt.map(r => ({
+        date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }),
+        'IPT-reserve': r.opgebouwde_reserve,
+        Overlijdenskapitaal: r.overlijdenskapitaal,
+      })),
     };
-  }, [records]);
+  }, [records, iptRecords]);
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
@@ -70,12 +90,15 @@ export default function PensionDashboardPage() {
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
 
-  const tiles = [
+  const tiles: Array<{ icon: any; label: string; value: number; prev?: number }> = [
     { icon: PiggyBank, label: 'Pensioenreserve', value: latest.pensioenreserve, prev: previous?.pensioenreserve },
     { icon: Shield, label: 'Overlijdensdekking', value: latest.overlijdensdekking, prev: previous?.overlijdensdekking },
     { icon: Wallet, label: 'VAPZ-reserve', value: latest.pensioenreserve_vapz, prev: previous?.pensioenreserve_vapz },
     { icon: Stethoscope, label: 'VAP RIZIV-toelage', value: latest.vap_riziv_toelage, prev: previous?.vap_riziv_toelage },
   ];
+  if (latestIpt) {
+    tiles.push({ icon: Briefcase, label: 'IPT-reserve', value: latestIpt.opgebouwde_reserve, prev: previousIpt?.opgebouwde_reserve });
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
@@ -168,6 +191,30 @@ export default function PensionDashboardPage() {
                   <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
                   <Bar dataKey="Overlijdensdekking" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* IPT chart */}
+      {iptChartData.length >= 2 && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Evolutie IPT</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={iptChartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" className="text-xs" />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" />
+                  <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="IPT-reserve" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  <Line type="monotone" dataKey="Overlijdenskapitaal" stroke="hsl(var(--accent))" strokeWidth={2} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
