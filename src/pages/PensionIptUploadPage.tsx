@@ -236,6 +236,7 @@ export default function PensionIptUploadPage() {
                     <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
                     <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
                     <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
+                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
                   </div>
                   <div>
                     <Label className="text-xs">Notitie (optioneel)</Label>
