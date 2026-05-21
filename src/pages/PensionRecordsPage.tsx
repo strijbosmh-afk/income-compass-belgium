@@ -294,10 +294,37 @@ export default function PensionRecordsPage() {
         </CardContent>
       </Card>
 
+      {iptRecords.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst uit beleggingen</div>
+              <div className="text-2xl font-semibold font-mono mt-2">{fmt(iptStats.totalWinst)}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Gemiddeld rendement</div>
+              <div className="text-2xl font-semibold font-mono mt-2">{iptStats.avgRend !== null ? `${iptStats.avgRend.toFixed(2)}%` : '—'}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Beste / slechtste jaar</div>
+              <div className="text-sm font-mono mt-2">
+                <span className="text-emerald-600 font-semibold">{iptStats.bestYear ? `${iptStats.bestYear.year}: ${iptStats.bestYear.rendement!.toFixed(2)}%` : '—'}</span>
+                <span className="mx-2 text-muted-foreground">·</span>
+                <span className="text-red-600 font-semibold">{iptStats.worstYear ? `${iptStats.worstYear.year}: ${iptStats.worstYear.rendement!.toFixed(2)}%` : '—'}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card className="border-border/50">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-primary" /> IPT Snapshots ({iptRecords.length})
+            <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -307,11 +334,49 @@ export default function PensionRecordsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Datum</TableHead>
+                  <TableHead>Jaar</TableHead>
                   <TableHead className="text-right">Opgebouwde reserve</TableHead>
                   <TableHead className="text-right">Jaarpremie</TableHead>
+                  <TableHead className="text-right">Winst beleggingen</TableHead>
+                  <TableHead className="text-right">Rendement</TableHead>
                   <TableHead className="text-right">Overlijdenskapitaal</TableHead>
-                  <TableHead className="text-right">Gew. rendement</TableHead>
+                  <TableHead className="text-right">Gewaarb. rend.</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {iptYearly.slice().reverse().map((r) => (
+                  <TableRow key={r.year}>
+                    <TableCell className="font-medium">{r.year}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
+                    <TableCell className={`text-right font-mono font-semibold ${r.rendement === null ? 'text-muted-foreground' : r.rendement >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {r.rendement !== null ? `${r.rendement.toFixed(2)}%` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" /> IPT Snapshots / Bronbestanden ({iptRecords.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {iptRecords.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Datum</TableHead>
+                  <TableHead className="text-right">Reserve</TableHead>
+                  <TableHead className="text-right">Winst</TableHead>
                   <TableHead>Notitie</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -320,10 +385,8 @@ export default function PensionRecordsPage() {
                 {iptRecords.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
-                    <TableCell className="text-right font-mono">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.opgebouwde_reserve)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
