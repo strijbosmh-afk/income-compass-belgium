@@ -78,11 +78,17 @@ export default function PensionIptUploadPage() {
         const extracted: IptSnapshot = {
           snapshot_date: data.snapshot_date,
           year: data.year,
+          beginkapitaal: Number(data.beginkapitaal) || 0,
+          eindkapitaal: Number(data.eindkapitaal) || 0,
           opgebouwde_reserve: Number(data.opgebouwde_reserve) || 0,
           jaarpremie: Number(data.jaarpremie) || 0,
           overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
           gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
           winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
+          inkomende_bewegingen: Number(data.inkomende_bewegingen) || 0,
+          uitgaande_bewegingen: Number(data.uitgaande_bewegingen) || 0,
+          kosten_taksen: Number(data.kosten_taksen) || 0,
+          kosten_overlijden: Number(data.kosten_overlijden) || 0,
         };
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
       } catch (err: any) {
