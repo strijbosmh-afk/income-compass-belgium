@@ -1,0 +1,1 @@
+ALTER TABLE public.pension_ipt_records ADD COLUMN winst_uit_beleggingen numeric NOT NULL DEFAULT 0;
