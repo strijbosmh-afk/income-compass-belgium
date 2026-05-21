@@ -58,10 +58,109 @@ export default function PensionRecordsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pensioen Overzicht</h1>
-        <p className="text-muted-foreground mt-1">Jaarlijkse snapshots van je pensioenreserves.</p>
+      {/* Hero header with decorative gradient */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8">
+        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+        <div className="relative flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground mb-2">
+              <PiggyBank className="h-3.5 w-3.5" /> Pensioen
+            </div>
+            <h1 className="text-3xl font-semibold tracking-tight">Pensioen Overzicht</h1>
+            <p className="text-muted-foreground mt-1">Jaarlijkse snapshots van je pensioenreserves.</p>
+          </div>
+          {sorted.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card/60 backdrop-blur border border-border/50">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Calendar className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Laatste snapshot</div>
+                <div className="font-semibold">{new Date(sorted[sorted.length - 1].snapshot_date).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* KPI tiles with sparklines */}
+      {sorted.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {tiles.map((t, i) => {
+            const d = t.prev !== undefined ? t.value - (t.prev || 0) : 0;
+            const up = d >= 0;
+            return (
+              <Card key={t.label} className="border-border/50 relative overflow-hidden group hover:border-primary/40 transition-colors">
+                <div className={`absolute top-0 left-0 right-0 h-1 ${up ? 'bg-emerald-500/60' : 'bg-red-500/60'}`} />
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <t.icon className="h-4 w-4 text-primary" />
+                    </div>
+                    {t.prev !== undefined && t.prev > 0 && (
+                      <div className={`flex items-center gap-1 text-xs font-medium ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                        {up ? '+' : ''}{((d / t.prev) * 100).toFixed(1)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-3">{t.label}</div>
+                  <div className="text-xl font-semibold font-mono mt-1">{fmt(t.value)}</div>
+                  {t.spark.length >= 2 && (
+                    <div className="h-12 -mx-2 -mb-2 mt-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={t.spark}>
+                          <defs>
+                            <linearGradient id={`sg-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={2} fill={`url(#sg-${i})`} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Evolution mini-chart */}
+      {chartData.length >= 2 && (
+        <Card className="border-border/50 overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" /> Evolutie pensioenreserve
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="evo" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip
+                    formatter={(v: number) => fmt(v)}
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                  />
+                  <Area type="monotone" dataKey="v" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#evo)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       <Card className="border-border/50">
         <CardHeader>
