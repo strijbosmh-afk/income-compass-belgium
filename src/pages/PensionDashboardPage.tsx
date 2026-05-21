@@ -14,6 +14,16 @@ interface PensionRecord {
   pensioenreserve_vapz: number;
   vap_riziv_toelage: number;
 }
+interface IptRecord {
+  id: string;
+  snapshot_date: string;
+  year: number;
+  opgebouwde_reserve: number;
+  jaarpremie: number;
+  overlijdenskapitaal: number;
+  gewaarborgd_rendement: number;
+}
+
 
 const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
