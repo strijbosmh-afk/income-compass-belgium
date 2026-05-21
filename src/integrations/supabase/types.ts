@@ -194,6 +194,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pension_records: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          pensioenreserve_vapz: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          vap_riziv_toelage: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          pensioenreserve_vapz?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          vap_riziv_toelage?: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          pensioenreserve_vapz?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          vap_riziv_toelage?: number
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
