@@ -196,6 +196,30 @@ export default function PensionDashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* IPT chart */}
+      {iptChartData.length >= 2 && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Evolutie IPT</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={iptChartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" className="text-xs" />
+                  <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" />
+                  <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="IPT-reserve" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  <Line type="monotone" dataKey="Overlijdenskapitaal" stroke="hsl(var(--accent))" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
