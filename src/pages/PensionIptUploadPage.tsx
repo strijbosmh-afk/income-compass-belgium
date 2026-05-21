@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
