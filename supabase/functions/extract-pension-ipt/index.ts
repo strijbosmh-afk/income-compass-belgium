@@ -37,12 +37,13 @@ serve(async (req) => {
     if (!pdf) throw new Error("No PDF provided");
 
     const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-documenten (Individuele Pensioentoezegging, Dutch / Nederlands).
-Je krijgt een jaarlijks IPT-overzicht (PDF) en extraheert exact vier waarden plus de referentiedatum:
+Je krijgt een jaarlijks IPT-overzicht (PDF) en extraheert vijf waarden plus de referentiedatum:
 
 1. **Opgebouwde reserve op datum** — de totale opgebouwde IPT-reserve / pensioenkapitaal op de referentiedatum.
 2. **Jaarpremie** — de jaarlijkse premie / storting voor dit IPT-contract (in EUR).
 3. **Overlijdenskapitaal** — het kapitaal bij overlijden / overlijdenswaarborg op de referentiedatum.
 4. **Gewaarborgd rendement** — het gewaarborgde rendementspercentage van het contract (bv. 1,75 of 2,25).
+5. **Winst uit beleggingen** — de winst uit beleggingen / winstdeelname / beleggingsopbrengst toegekend voor dit boekjaar (in EUR). Soms ook genoemd "winstdeling", "rendement beleggingen", "toegekende winst". Als niet aanwezig → 0.
 
 REGELS:
 - Bedragen EXACT overnemen (Belgische notatie "1.234,56" → JSON-getal 1234.56). Niet afronden.
