@@ -19,8 +19,9 @@ const TOOL_SCHEMA = {
         jaarpremie: { type: "number", description: "Jaarpremie in EUR (annual premium paid for this IPT contract)" },
         overlijdenskapitaal: { type: "number", description: "Overlijdenskapitaal in EUR (death benefit capital)" },
         gewaarborgd_rendement: { type: "number", description: "Gewaarborgd rendement in percent (guaranteed return rate, e.g. 1.75)" },
+        winst_uit_beleggingen: { type: "number", description: "Winst uit beleggingen in EUR (investment profit / winstdeelname for this year). 0 if not shown." },
       },
-      required: ["snapshot_date", "year", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement"],
+      required: ["snapshot_date", "year", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen"],
     },
   },
 };
