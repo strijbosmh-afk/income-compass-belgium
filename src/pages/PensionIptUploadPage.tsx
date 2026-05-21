@@ -136,6 +136,7 @@ export default function PensionIptUploadPage() {
           jaarpremie: item.extracted!.jaarpremie,
           overlijdenskapitaal: item.extracted!.overlijdenskapitaal,
           gewaarborgd_rendement: item.extracted!.gewaarborgd_rendement,
+          winst_uit_beleggingen: item.extracted!.winst_uit_beleggingen,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
         });
