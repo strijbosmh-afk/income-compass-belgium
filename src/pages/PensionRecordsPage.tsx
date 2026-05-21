@@ -389,9 +389,18 @@ export default function PensionRecordsPage() {
 
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
-          </CardTitle>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
+            </CardTitle>
+            {iptRecords.some(r => r.source_pdf_url) && (
+              <Button size="sm" variant="outline" onClick={reanalyzeAllIpt} disabled={reanalyzing}>
+                {reanalyzing
+                  ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Heranalyseren {reanalyzeProgress.done}/{reanalyzeProgress.total}…</>
+                  : <>Heranalyseer alle IPT</>}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {iptRecords.length === 0 ? (
