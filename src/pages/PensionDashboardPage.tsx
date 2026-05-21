@@ -48,9 +48,29 @@ export default function PensionDashboardPage() {
     })();
   }, [user]);
 
-  const { latest, previous, chartData, latestIpt, previousIpt, iptChartData } = useMemo(() => {
+  const { latest, previous, chartData, latestIpt, previousIpt, iptYearly, iptStats } = useMemo(() => {
     const sorted = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const sortedIpt = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const byYear = new Map<number, IptRecord>();
+    for (const r of sortedIpt) byYear.set(r.year, r);
+    const years = [...byYear.keys()].sort((a, b) => a - b);
+    const iptYearly = years.map((y, idx) => {
+      const cur = byYear.get(y)!;
+      const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
+      const basis = prevYear?.opgebouwde_reserve || 0;
+      const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
+      return {
+        year: y,
+        label: String(y),
+        Reserve: cur.opgebouwde_reserve,
+        Winst: cur.winst_uit_beleggingen,
+        Overlijdenskapitaal: cur.overlijdenskapitaal,
+        Rendement: rendement,
+      };
+    });
+    const totalWinst = iptYearly.reduce((acc, y) => acc + (y.Winst || 0), 0);
+    const rendValues = iptYearly.map(y => y.Rendement).filter((v): v is number => v !== null);
+    const avgRend = rendValues.length ? rendValues.reduce((a, b) => a + b, 0) / rendValues.length : null;
     return {
       latest: sorted[sorted.length - 1] || null,
       previous: sorted[sorted.length - 2] || null,
@@ -63,11 +83,8 @@ export default function PensionDashboardPage() {
         VAPZ: r.pensioenreserve_vapz,
         'VAP RIZIV': r.vap_riziv_toelage,
       })),
-      iptChartData: sortedIpt.map(r => ({
-        date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }),
-        'IPT-reserve': r.opgebouwde_reserve,
-        Overlijdenskapitaal: r.overlijdenskapitaal,
-      })),
+      iptYearly,
+      iptStats: { totalWinst, avgRend },
     };
   }, [records, iptRecords]);
 
