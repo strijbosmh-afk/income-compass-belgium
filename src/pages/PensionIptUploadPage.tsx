@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ interface IptSnapshot {
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
+  winst_uit_beleggingen: number;
 }
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
