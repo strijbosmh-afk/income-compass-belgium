@@ -207,6 +207,7 @@ export type Database = {
           source_pdf_url: string | null
           updated_at: string
           user_id: string
+          winst_uit_beleggingen: number
           year: number
         }
         Insert: {
@@ -221,6 +222,7 @@ export type Database = {
           source_pdf_url?: string | null
           updated_at?: string
           user_id: string
+          winst_uit_beleggingen?: number
           year: number
         }
         Update: {
@@ -235,6 +237,7 @@ export type Database = {
           source_pdf_url?: string | null
           updated_at?: string
           user_id?: string
+          winst_uit_beleggingen?: number
           year?: number
         }
         Relationships: []

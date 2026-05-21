@@ -30,6 +30,7 @@ interface IptRecord {
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
+  winst_uit_beleggingen: number;
   source_pdf_url: string | null;
   note: string | null;
 }
@@ -84,7 +85,7 @@ export default function PensionRecordsPage() {
     const { data } = await supabase.storage.from('pension-pdfs').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
-  const { sorted, tiles, chartData, sortedIpt } = useMemo(() => {
+  const { sorted, tiles, chartData, sortedIpt, iptYearly, iptStats } = useMemo(() => {
     const s = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const si = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const latest = s[s.length - 1];
@@ -100,11 +101,38 @@ export default function PensionRecordsPage() {
     if (latestIpt) {
       baseTiles.push({ icon: Briefcase, label: 'IPT-reserve', value: latestIpt.opgebouwde_reserve, prev: prevIpt?.opgebouwde_reserve, spark: si.map(r => ({ v: r.opgebouwde_reserve })) });
     }
+    // Per-jaar IPT: pak laatste snapshot per jaar
+    const byYear = new Map<number, IptRecord>();
+    for (const r of si) byYear.set(r.year, r);
+    const years = [...byYear.keys()].sort((a, b) => a - b);
+    const iptYearly = years.map((y, idx) => {
+      const cur = byYear.get(y)!;
+      const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
+      const basis = prevYear?.opgebouwde_reserve || 0;
+      const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
+      return {
+        year: y,
+        snapshot_date: cur.snapshot_date,
+        opgebouwde_reserve: cur.opgebouwde_reserve,
+        jaarpremie: cur.jaarpremie,
+        overlijdenskapitaal: cur.overlijdenskapitaal,
+        winst_uit_beleggingen: cur.winst_uit_beleggingen,
+        gewaarborgd_rendement: cur.gewaarborgd_rendement,
+        rendement,
+      };
+    });
+    const totalWinst = iptYearly.reduce((acc, y) => acc + (y.winst_uit_beleggingen || 0), 0);
+    const rendValues = iptYearly.map(y => y.rendement).filter((v): v is number => v !== null);
+    const avgRend = rendValues.length ? rendValues.reduce((a, b) => a + b, 0) / rendValues.length : null;
+    const bestYear = iptYearly.filter(y => y.rendement !== null).sort((a, b) => (b.rendement! - a.rendement!))[0] || null;
+    const worstYear = iptYearly.filter(y => y.rendement !== null).sort((a, b) => (a.rendement! - b.rendement!))[0] || null;
     return {
       sorted: s,
       sortedIpt: si,
       tiles: baseTiles,
       chartData: s.map(r => ({ date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }), v: r.pensioenreserve })),
+      iptYearly,
+      iptStats: { totalWinst, avgRend, bestYear, worstYear },
     };
   }, [records, iptRecords]);
 
@@ -266,10 +294,37 @@ export default function PensionRecordsPage() {
         </CardContent>
       </Card>
 
+      {iptRecords.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst uit beleggingen</div>
+              <div className="text-2xl font-semibold font-mono mt-2">{fmt(iptStats.totalWinst)}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Gemiddeld rendement</div>
+              <div className="text-2xl font-semibold font-mono mt-2">{iptStats.avgRend !== null ? `${iptStats.avgRend.toFixed(2)}%` : '—'}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Beste / slechtste jaar</div>
+              <div className="text-sm font-mono mt-2">
+                <span className="text-emerald-600 font-semibold">{iptStats.bestYear ? `${iptStats.bestYear.year}: ${iptStats.bestYear.rendement!.toFixed(2)}%` : '—'}</span>
+                <span className="mx-2 text-muted-foreground">·</span>
+                <span className="text-red-600 font-semibold">{iptStats.worstYear ? `${iptStats.worstYear.year}: ${iptStats.worstYear.rendement!.toFixed(2)}%` : '—'}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card className="border-border/50">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-primary" /> IPT Snapshots ({iptRecords.length})
+            <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -279,11 +334,49 @@ export default function PensionRecordsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Datum</TableHead>
+                  <TableHead>Jaar</TableHead>
                   <TableHead className="text-right">Opgebouwde reserve</TableHead>
                   <TableHead className="text-right">Jaarpremie</TableHead>
+                  <TableHead className="text-right">Winst beleggingen</TableHead>
+                  <TableHead className="text-right">Rendement</TableHead>
                   <TableHead className="text-right">Overlijdenskapitaal</TableHead>
-                  <TableHead className="text-right">Gew. rendement</TableHead>
+                  <TableHead className="text-right">Gewaarb. rend.</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {iptYearly.slice().reverse().map((r) => (
+                  <TableRow key={r.year}>
+                    <TableCell className="font-medium">{r.year}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
+                    <TableCell className={`text-right font-mono font-semibold ${r.rendement === null ? 'text-muted-foreground' : r.rendement >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {r.rendement !== null ? `${r.rendement.toFixed(2)}%` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" /> IPT Snapshots / Bronbestanden ({iptRecords.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {iptRecords.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Datum</TableHead>
+                  <TableHead className="text-right">Reserve</TableHead>
+                  <TableHead className="text-right">Winst</TableHead>
                   <TableHead>Notitie</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -292,10 +385,8 @@ export default function PensionRecordsPage() {
                 {iptRecords.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
-                    <TableCell className="text-right font-mono">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.opgebouwde_reserve)}</TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">

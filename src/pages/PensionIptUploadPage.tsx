@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ interface IptSnapshot {
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
+  winst_uit_beleggingen: number;
 }
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
@@ -75,6 +76,7 @@ export default function PensionIptUploadPage() {
           jaarpremie: Number(data.jaarpremie) || 0,
           overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
           gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
+          winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
         };
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
       } catch (err: any) {
@@ -134,6 +136,7 @@ export default function PensionIptUploadPage() {
           jaarpremie: item.extracted!.jaarpremie,
           overlijdenskapitaal: item.extracted!.overlijdenskapitaal,
           gewaarborgd_rendement: item.extracted!.gewaarborgd_rendement,
+          winst_uit_beleggingen: item.extracted!.winst_uit_beleggingen,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
         });
@@ -233,6 +236,7 @@ export default function PensionIptUploadPage() {
                     <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
                     <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
                     <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
+                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
                   </div>
                   <div>
                     <Label className="text-xs">Notitie (optioneel)</Label>
