@@ -31,25 +31,30 @@ const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumF
 export default function PensionDashboardPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<PensionRecord[]>([]);
+  const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from('pension_records')
-        .select('*')
-        .order('snapshot_date', { ascending: true });
+      const [{ data }, { data: iptData }] = await Promise.all([
+        supabase.from('pension_records').select('*').order('snapshot_date', { ascending: true }),
+        supabase.from('pension_ipt_records').select('*').order('snapshot_date', { ascending: true }),
+      ]);
       setRecords((data as PensionRecord[]) || []);
+      setIptRecords((iptData as IptRecord[]) || []);
       setLoading(false);
     })();
   }, [user]);
 
-  const { latest, previous, chartData } = useMemo(() => {
+  const { latest, previous, chartData, latestIpt, previousIpt, iptChartData } = useMemo(() => {
     const sorted = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const sortedIpt = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     return {
       latest: sorted[sorted.length - 1] || null,
       previous: sorted[sorted.length - 2] || null,
+      latestIpt: sortedIpt[sortedIpt.length - 1] || null,
+      previousIpt: sortedIpt[sortedIpt.length - 2] || null,
       chartData: sorted.map(r => ({
         date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }),
         Pensioenreserve: r.pensioenreserve,
@@ -57,8 +62,13 @@ export default function PensionDashboardPage() {
         VAPZ: r.pensioenreserve_vapz,
         'VAP RIZIV': r.vap_riziv_toelage,
       })),
+      iptChartData: sortedIpt.map(r => ({
+        date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }),
+        'IPT-reserve': r.opgebouwde_reserve,
+        Overlijdenskapitaal: r.overlijdenskapitaal,
+      })),
     };
-  }, [records]);
+  }, [records, iptRecords]);
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
