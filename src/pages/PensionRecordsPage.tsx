@@ -310,56 +310,65 @@ export default function PensionRecordsPage() {
       )}
 
 
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base">Snapshots ({records.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : records.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nog geen pensioendata. Upload een PDF om te beginnen.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Datum</TableHead>
-                  <TableHead className="text-right">Pensioenreserve</TableHead>
-                  <TableHead className="text-right">Overlijdensdekking</TableHead>
-                  <TableHead className="text-right">VAPZ</TableHead>
-                  <TableHead className="text-right">VAP RIZIV</TableHead>
-                  <TableHead>Notitie</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{fmt(r.pensioenreserve)}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(r.overlijdensdekking)}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(r.pensioenreserve_vapz)}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(r.vap_riziv_toelage)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          {r.source_pdf_url && (
-                            <Button size="icon" variant="ghost" onClick={() => openPdf(r.source_pdf_url!)}>
-                              <FileText className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button size="icon" variant="ghost" onClick={() => handleDelete(r.id, r.source_pdf_url)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+      <Collapsible defaultOpen={false}>
+        <Card className="border-border/50">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors [&[data-state=open]_svg.chevron]:rotate-180">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Snapshots ({records.length})</span>
+                <ChevronDown className="chevron h-4 w-4 text-muted-foreground transition-transform" />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              ) : records.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Nog geen pensioendata. Upload een PDF om te beginnen.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Datum</TableHead>
+                      <TableHead className="text-right">Pensioenreserve</TableHead>
+                      <TableHead className="text-right">Overlijdensdekking</TableHead>
+                      <TableHead className="text-right">VAPZ</TableHead>
+                      <TableHead className="text-right">VAP RIZIV</TableHead>
+                      <TableHead>Notitie</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {records.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">{fmt(r.pensioenreserve)}</TableCell>
+                          <TableCell className="text-right font-mono">{fmt(r.overlijdensdekking)}</TableCell>
+                          <TableCell className="text-right font-mono">{fmt(r.pensioenreserve_vapz)}</TableCell>
+                          <TableCell className="text-right font-mono">{fmt(r.vap_riziv_toelage)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              {r.source_pdf_url && (
+                                <Button size="icon" variant="ghost" onClick={() => openPdf(r.source_pdf_url!)}>
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button size="icon" variant="ghost" onClick={() => handleDelete(r.id, r.source_pdf_url)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {iptRecords.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
