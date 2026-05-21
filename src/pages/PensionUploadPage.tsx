@@ -208,54 +208,68 @@ export default function PensionUploadPage() {
             </div>
           </div>
 
-          {items.map(item => (
-            <Card key={item.id} className="border-border/50">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <CardTitle className="text-sm flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="truncate">{item.file.name}</span>
-                    <StatusBadge status={item.status} error={item.error} />
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => removeItem(item.id)} disabled={item.status === 'saving'}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs">Referentiedatum</Label>
-                      <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Jaar</Label>
-                      <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FieldRow icon={PiggyBank} label="Pensioenreserve (cumulatief)" value={item.extracted.pensioenreserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve', v)} />
-                    <FieldRow icon={Shield} label="Overlijdensdekking" value={item.extracted.overlijdensdekking} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdensdekking', v)} />
-                    <FieldRow icon={Wallet} label="Pensioenreserve VAPZ" value={item.extracted.pensioenreserve_vapz} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve_vapz', v)} />
-                    <FieldRow icon={Stethoscope} label="VAP RIZIV toelage" value={item.extracted.vap_riziv_toelage} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'vap_riziv_toelage', v)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Notitie (optioneel)</Label>
-                    <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => updateNote(item.id, e.target.value)} placeholder="bv. AG Insurance jaaroverzicht" />
-                  </div>
-                  <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                    Pensioenreserve is een cumulatief saldo — bedragen worden niet opgeteld in het dashboard.
-                  </div>
-                </CardContent>
-              )}
-              {item.status === 'error' && (
-                <CardContent>
-                  <p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p>
-                </CardContent>
-              )}
-            </Card>
-          ))}
+          {items.map(item => {
+            const hasContent = (item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved')) || item.status === 'error';
+            return (
+              <Collapsible key={item.id} defaultOpen={true}>
+                <Card className="border-border/50">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors select-none">
+                      <div className="flex items-start justify-between gap-3">
+                        <CardTitle className="text-sm flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{item.file.name}</span>
+                          <StatusBadge status={item.status} error={item.error} />
+                        </CardTitle>
+                        <div className="flex items-center gap-1">
+                          {hasContent && (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                          )}
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeItem(item.id); }} disabled={item.status === 'saving'}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs">Referentiedatum</Label>
+                            <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Jaar</Label>
+                            <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <FieldRow icon={PiggyBank} label="Pensioenreserve (cumulatief)" value={item.extracted.pensioenreserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve', v)} />
+                          <FieldRow icon={Shield} label="Overlijdensdekking" value={item.extracted.overlijdensdekking} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdensdekking', v)} />
+                          <FieldRow icon={Wallet} label="Pensioenreserve VAPZ" value={item.extracted.pensioenreserve_vapz} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve_vapz', v)} />
+                          <FieldRow icon={Stethoscope} label="VAP RIZIV toelage" value={item.extracted.vap_riziv_toelage} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'vap_riziv_toelage', v)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Notitie (optioneel)</Label>
+                          <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => updateNote(item.id, e.target.value)} placeholder="bv. AG Insurance jaaroverzicht" />
+                        </div>
+                        <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
+                          Pensioenreserve is een cumulatief saldo — bedragen worden niet opgeteld in het dashboard.
+                        </div>
+                      </CardContent>
+                    )}
+                    {item.status === 'error' && (
+                      <CardContent>
+                        <p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p>
+                      </CardContent>
+                    )}
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            );
+          })}
         </div>
       )}
     </div>

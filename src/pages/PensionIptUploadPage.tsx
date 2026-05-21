@@ -224,58 +224,72 @@ export default function PensionIptUploadPage() {
             </div>
           </div>
 
-          {items.map(item => (
-            <Card key={item.id} className="border-border/50">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <CardTitle className="text-sm flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="truncate">{item.file.name}</span>
-                    <StatusBadge status={item.status} error={item.error} />
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => removeItem(item.id)} disabled={item.status === 'saving'}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-xs">Referentiedatum</Label>
-                      <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Jaar</Label>
-                      <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FieldRow icon={Landmark} label="Beginkapitaal (01/01)" value={item.extracted.beginkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'beginkapitaal', v)} />
-                    <FieldRow icon={PiggyBank} label="Eindkapitaal (01/01 volgend jaar)" value={item.extracted.eindkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'eindkapitaal', v)} />
-                    <FieldRow icon={PiggyBank} label="Opgebouwde reserve" value={item.extracted.opgebouwde_reserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'opgebouwde_reserve', v)} />
-                    <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
-                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
-                    <FieldRow icon={ArrowDownToLine} label="Inkomende bewegingen" value={item.extracted.inkomende_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'inkomende_bewegingen', v)} />
-                    <FieldRow icon={ArrowUpFromLine} label="Uitgaande bewegingen" value={item.extracted.uitgaande_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'uitgaande_bewegingen', v)} />
-                    <FieldRow icon={Receipt} label="Kosten en taksen" value={item.extracted.kosten_taksen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_taksen', v)} />
-                    <FieldRow icon={HeartPulse} label="Kosten dekking overlijden" value={item.extracted.kosten_overlijden} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_overlijden', v)} />
-                    <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
-                    <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Notitie (optioneel)</Label>
-                    <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => updateNote(item.id, e.target.value)} placeholder="bv. AG Insurance IPT 2024" />
-                  </div>
-                </CardContent>
-              )}
-              {item.status === 'error' && (
-                <CardContent>
-                  <p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p>
-                </CardContent>
-              )}
-            </Card>
-          ))}
+          {items.map(item => {
+            const hasContent = (item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved')) || item.status === 'error';
+            return (
+              <Collapsible key={item.id} defaultOpen={true}>
+                <Card className="border-border/50">
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors select-none">
+                      <div className="flex items-start justify-between gap-3">
+                        <CardTitle className="text-sm flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{item.file.name}</span>
+                          <StatusBadge status={item.status} error={item.error} />
+                        </CardTitle>
+                        <div className="flex items-center gap-1">
+                          {hasContent && (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                          )}
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeItem(item.id); }} disabled={item.status === 'saving'}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-xs">Referentiedatum</Label>
+                            <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Jaar</Label>
+                            <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <FieldRow icon={Landmark} label="Beginkapitaal (01/01)" value={item.extracted.beginkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'beginkapitaal', v)} />
+                          <FieldRow icon={PiggyBank} label="Eindkapitaal (01/01 volgend jaar)" value={item.extracted.eindkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'eindkapitaal', v)} />
+                          <FieldRow icon={PiggyBank} label="Opgebouwde reserve" value={item.extracted.opgebouwde_reserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'opgebouwde_reserve', v)} />
+                          <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
+                          <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
+                          <FieldRow icon={ArrowDownToLine} label="Inkomende bewegingen" value={item.extracted.inkomende_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'inkomende_bewegingen', v)} />
+                          <FieldRow icon={ArrowUpFromLine} label="Uitgaande bewegingen" value={item.extracted.uitgaande_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'uitgaande_bewegingen', v)} />
+                          <FieldRow icon={Receipt} label="Kosten en taksen" value={item.extracted.kosten_taksen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_taksen', v)} />
+                          <FieldRow icon={HeartPulse} label="Kosten dekking overlijden" value={item.extracted.kosten_overlijden} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_overlijden', v)} />
+                          <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
+                          <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Notitie (optioneel)</Label>
+                          <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => updateNote(item.id, e.target.value)} placeholder="bv. AG Insurance IPT 2024" />
+                        </div>
+                      </CardContent>
+                    )}
+                    {item.status === 'error' && (
+                      <CardContent>
+                        <p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p>
+                      </CardContent>
+                    )}
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            );
+          })}
         </div>
       )}
     </div>
