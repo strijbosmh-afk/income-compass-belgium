@@ -145,7 +145,6 @@ export default function PensionDashboardPage() {
                   <Line type="monotone" dataKey="Pensioenreserve" stroke="hsl(var(--primary))" strokeWidth={2} />
                   <Line type="monotone" dataKey="VAPZ" stroke="hsl(var(--secondary))" strokeWidth={2} />
                   <Line type="monotone" dataKey="VAP RIZIV" stroke="hsl(var(--accent))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="Totaal" stroke="hsl(var(--foreground))" strokeWidth={2.5} strokeDasharray="4 4" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
