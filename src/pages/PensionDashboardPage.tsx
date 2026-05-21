@@ -90,12 +90,15 @@ export default function PensionDashboardPage() {
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
 
-  const tiles = [
+  const tiles: Array<{ icon: any; label: string; value: number; prev?: number }> = [
     { icon: PiggyBank, label: 'Pensioenreserve', value: latest.pensioenreserve, prev: previous?.pensioenreserve },
     { icon: Shield, label: 'Overlijdensdekking', value: latest.overlijdensdekking, prev: previous?.overlijdensdekking },
     { icon: Wallet, label: 'VAPZ-reserve', value: latest.pensioenreserve_vapz, prev: previous?.pensioenreserve_vapz },
     { icon: Stethoscope, label: 'VAP RIZIV-toelage', value: latest.vap_riziv_toelage, prev: previous?.vap_riziv_toelage },
   ];
+  if (latestIpt) {
+    tiles.push({ icon: Briefcase, label: 'IPT-reserve', value: latestIpt.opgebouwde_reserve, prev: previousIpt?.opgebouwde_reserve });
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
