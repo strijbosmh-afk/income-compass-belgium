@@ -22,6 +22,7 @@ interface IptRecord {
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
+  winst_uit_beleggingen: number;
 }
 
 
