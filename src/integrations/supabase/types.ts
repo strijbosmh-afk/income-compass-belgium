@@ -194,6 +194,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pension_ipt_records: {
+        Row: {
+          created_at: string
+          gewaarborgd_rendement: number
+          id: string
+          jaarpremie: number
+          note: string | null
+          opgebouwde_reserve: number
+          overlijdenskapitaal: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          gewaarborgd_rendement?: number
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          opgebouwde_reserve?: number
+          overlijdenskapitaal?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          gewaarborgd_rendement?: number
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          opgebouwde_reserve?: number
+          overlijdenskapitaal?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       pension_records: {
         Row: {
           created_at: string
