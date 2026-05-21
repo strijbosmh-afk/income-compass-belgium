@@ -215,22 +215,74 @@ export default function PensionDashboardPage() {
         </Card>
       )}
 
-      {/* IPT chart */}
-      {iptChartData.length >= 2 && (
+      {/* IPT stats */}
+      {iptYearly.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> IPT-reserve</div>
+              <p className="text-2xl font-semibold mt-2">{fmt(latestIpt?.opgebouwde_reserve || 0)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst beleggingen</div>
+              <p className="text-2xl font-semibold mt-2 text-emerald-600">{fmt(iptStats.totalWinst)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50">
+            <CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Gemiddeld rendement</div>
+              <p className="text-2xl font-semibold mt-2">{iptStats.avgRend !== null ? `${iptStats.avgRend.toFixed(2)}%` : '—'}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* IPT yearly winst + rendement */}
+      {iptYearly.length >= 1 && (
         <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Evolutie IPT</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> IPT — winst & rendement per jaar</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={iptChartData}>
+                <BarChart data={iptYearly}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="date" className="text-xs" />
+                  <XAxis dataKey="label" className="text-xs" />
+                  <YAxis yAxisId="left" tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v.toFixed(1)}%`} className="text-xs" />
+                  <Tooltip
+                    formatter={(v: number, name: string) => name === 'Rendement' ? `${(v ?? 0).toFixed(2)}%` : fmtFull(v)}
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                  />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="Winst" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="Rendement" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={{ r: 4 }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* IPT reserve evolutie */}
+      {iptYearly.length >= 2 && (
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Evolutie IPT-reserve</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={iptYearly}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="label" className="text-xs" />
                   <YAxis tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" />
                   <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
                   <Legend />
-                  <Line type="monotone" dataKey="IPT-reserve" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  <Line type="monotone" dataKey="Reserve" stroke="hsl(var(--primary))" strokeWidth={2} />
                   <Line type="monotone" dataKey="Overlijdenskapitaal" stroke="hsl(var(--accent))" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
