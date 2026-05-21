@@ -16,6 +16,7 @@ import SimulationsPage from "./pages/SimulationsPage";
 import ControlePage from "./pages/ControlePage";
 import GoalsPage from "./pages/GoalsPage";
 import PensionUploadPage from "./pages/PensionUploadPage";
+import PensionIptUploadPage from "./pages/PensionIptUploadPage";
 import PensionRecordsPage from "./pages/PensionRecordsPage";
 import PensionDashboardPage from "./pages/PensionDashboardPage";
 import NotFound from "./pages/NotFound";
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
             <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
             <Route path="/pensioen/upload" element={<ProtectedRoute><PensionUploadPage /></ProtectedRoute>} />
+            <Route path="/pensioen/upload-ipt" element={<ProtectedRoute><PensionIptUploadPage /></ProtectedRoute>} />
             <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
             <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
