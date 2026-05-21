@@ -85,11 +85,11 @@ export function AppSidebar() {
 
         {/* INKOMSTEN sectie */}
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
+          <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
             <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
               <Wallet className="h-3 w-3 text-sidebar-foreground" />
             </span>
-            {!collapsed && <span>Inkomsten</span>}
+            {!collapsed && <span className="font-bold">Inkomsten</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{incomeMain.map(renderItem)}</SidebarMenu>
@@ -102,11 +102,11 @@ export function AppSidebar() {
 
         {/* PENSIOEN sectie */}
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
+          <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
             <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
               <PiggyBank className="h-3 w-3 text-sidebar-foreground" />
             </span>
-            {!collapsed && <span>Pensioen</span>}
+            {!collapsed && <span className="font-bold">Pensioen</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{pensionItems.map(renderItem)}</SidebarMenu>
