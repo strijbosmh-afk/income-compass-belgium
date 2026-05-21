@@ -265,6 +265,57 @@ export default function PensionRecordsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-primary" /> IPT Snapshots ({iptRecords.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {iptRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Nog geen IPT-data. Upload een IPT-PDF om te beginnen.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Datum</TableHead>
+                  <TableHead className="text-right">Opgebouwde reserve</TableHead>
+                  <TableHead className="text-right">Jaarpremie</TableHead>
+                  <TableHead className="text-right">Overlijdenskapitaal</TableHead>
+                  <TableHead className="text-right">Gew. rendement</TableHead>
+                  <TableHead>Notitie</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {iptRecords.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
+                    <TableCell className="text-right font-mono">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {r.source_pdf_url && (
+                          <Button size="icon" variant="ghost" onClick={() => openIptPdf(r.source_pdf_url!)}>
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button size="icon" variant="ghost" onClick={() => handleDeleteIpt(r.id, r.source_pdf_url)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
