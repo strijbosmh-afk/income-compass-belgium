@@ -46,7 +46,6 @@ export default function PensionDashboardPage() {
         Overlijdensdekking: r.overlijdensdekking,
         VAPZ: r.pensioenreserve_vapz,
         'VAP RIZIV': r.vap_riziv_toelage,
-        Totaal: r.pensioenreserve + r.pensioenreserve_vapz + r.vap_riziv_toelage,
       })),
     };
   }, [records]);
