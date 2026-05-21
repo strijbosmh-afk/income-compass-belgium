@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, FileText, Loader2 } from 'lucide-react';
+import { Trash2, FileText, Loader2, PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface PensionRecord {
   id: string;
