@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trash2, FileText, Loader2, PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Calendar, Briefcase } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Trash2, FileText, Loader2, PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Calendar, Briefcase, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
