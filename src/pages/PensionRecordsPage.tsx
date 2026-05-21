@@ -80,22 +80,18 @@ export default function PensionRecordsPage() {
                   <TableHead className="text-right">Overlijdensdekking</TableHead>
                   <TableHead className="text-right">VAPZ</TableHead>
                   <TableHead className="text-right">VAP RIZIV</TableHead>
-                  <TableHead className="text-right">Totaal reserve</TableHead>
                   <TableHead>Notitie</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {records.map((r) => {
-                  const totaal = r.pensioenreserve + r.pensioenreserve_vapz + r.vap_riziv_toelage;
-                  return (
+                {records.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(r.pensioenreserve)}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{fmt(r.pensioenreserve)}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(r.overlijdensdekking)}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(r.pensioenreserve_vapz)}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(r.vap_riziv_toelage)}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{fmt(totaal)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -110,8 +106,7 @@ export default function PensionRecordsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
           )}

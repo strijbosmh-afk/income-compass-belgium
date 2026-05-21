@@ -46,7 +46,6 @@ export default function PensionDashboardPage() {
         Overlijdensdekking: r.overlijdensdekking,
         VAPZ: r.pensioenreserve_vapz,
         'VAP RIZIV': r.vap_riziv_toelage,
-        Totaal: r.pensioenreserve + r.pensioenreserve_vapz + r.vap_riziv_toelage,
       })),
     };
   }, [records]);
@@ -66,8 +65,8 @@ export default function PensionDashboardPage() {
     );
   }
 
-  const totalLatest = latest.pensioenreserve + latest.pensioenreserve_vapz + latest.vap_riziv_toelage;
-  const totalPrev = previous ? previous.pensioenreserve + previous.pensioenreserve_vapz + previous.vap_riziv_toelage : 0;
+  const totalLatest = latest.pensioenreserve;
+  const totalPrev = previous ? previous.pensioenreserve : 0;
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
 
@@ -94,7 +93,6 @@ export default function PensionDashboardPage() {
             <div>
               <p className="text-sm text-muted-foreground">Totale opgebouwde pensioenreserve</p>
               <p className="text-4xl font-bold tracking-tight mt-1">{fmtFull(totalLatest)}</p>
-              <p className="text-xs text-muted-foreground mt-1">(Pensioenreserve + VAPZ + VAP RIZIV)</p>
             </div>
             {previous && (
               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${diff >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
@@ -147,7 +145,6 @@ export default function PensionDashboardPage() {
                   <Line type="monotone" dataKey="Pensioenreserve" stroke="hsl(var(--primary))" strokeWidth={2} />
                   <Line type="monotone" dataKey="VAPZ" stroke="hsl(var(--secondary))" strokeWidth={2} />
                   <Line type="monotone" dataKey="VAP RIZIV" stroke="hsl(var(--accent))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="Totaal" stroke="hsl(var(--foreground))" strokeWidth={2.5} strokeDasharray="4 4" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
