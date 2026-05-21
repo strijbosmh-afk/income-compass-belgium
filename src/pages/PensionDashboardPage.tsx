@@ -248,7 +248,7 @@ export default function PensionDashboardPage() {
           <CardContent>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={iptYearly}>
+                <ComposedChart data={iptYearly}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="label" className="text-xs" />
                   <YAxis yAxisId="left" tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`} className="text-xs" />
