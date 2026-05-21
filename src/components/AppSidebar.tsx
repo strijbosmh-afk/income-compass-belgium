@@ -33,7 +33,8 @@ const incomeTools = [
 ];
 
 const pensionItems = [
-  { title: 'PDF uploaden', url: '/pensioen/upload', icon: Upload },
+  { title: 'Upload overzicht', url: '/pensioen/upload', icon: Upload },
+  { title: 'Upload IPT', url: '/pensioen/upload-ipt', icon: Upload },
   { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
   { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
 ];
