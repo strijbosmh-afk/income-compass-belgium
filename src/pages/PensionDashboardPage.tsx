@@ -260,7 +260,7 @@ export default function PensionDashboardPage() {
                   <Legend />
                   <Bar yAxisId="left" dataKey="Winst" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                   <Line yAxisId="right" type="monotone" dataKey="Rendement" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={{ r: 4 }} />
-                </BarChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
