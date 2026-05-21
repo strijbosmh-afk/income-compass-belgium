@@ -76,6 +76,7 @@ export default function PensionIptUploadPage() {
           jaarpremie: Number(data.jaarpremie) || 0,
           overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
           gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
+          winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
         };
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
       } catch (err: any) {
