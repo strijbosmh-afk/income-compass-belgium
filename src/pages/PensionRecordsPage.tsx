@@ -106,8 +106,7 @@ export default function PensionRecordsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))}
               </TableBody>
             </Table>
           )}
