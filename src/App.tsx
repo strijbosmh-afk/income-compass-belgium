@@ -15,6 +15,9 @@ import ExportPage from "./pages/ExportPage";
 import SimulationsPage from "./pages/SimulationsPage";
 import ControlePage from "./pages/ControlePage";
 import GoalsPage from "./pages/GoalsPage";
+import PensionUploadPage from "./pages/PensionUploadPage";
+import PensionRecordsPage from "./pages/PensionRecordsPage";
+import PensionDashboardPage from "./pages/PensionDashboardPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
