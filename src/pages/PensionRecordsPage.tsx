@@ -460,50 +460,59 @@ export default function PensionRecordsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" /> IPT Snapshots / Bronbestanden ({iptRecords.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {iptRecords.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Datum</TableHead>
-                  <TableHead className="text-right">Reserve</TableHead>
-                  <TableHead className="text-right">Winst</TableHead>
-                  <TableHead>Notitie</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {iptRecords.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.opgebouwde_reserve)}</TableCell>
-                    <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {r.source_pdf_url && (
-                          <Button size="icon" variant="ghost" onClick={() => openIptPdf(r.source_pdf_url!)}>
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button size="icon" variant="ghost" onClick={() => handleDeleteIpt(r.id, r.source_pdf_url)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Collapsible defaultOpen={false}>
+        <Card className="border-border/50">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors [&[data-state=open]_svg.chevron]:rotate-180">
+              <CardTitle className="text-base flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" /> IPT Snapshots / Bronbestanden ({iptRecords.length})
+                </span>
+                <ChevronDown className="chevron h-4 w-4 text-muted-foreground transition-transform" />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              {iptRecords.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Datum</TableHead>
+                      <TableHead className="text-right">Reserve</TableHead>
+                      <TableHead className="text-right">Winst</TableHead>
+                      <TableHead>Notitie</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {iptRecords.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{new Date(r.snapshot_date).toLocaleDateString('nl-BE')}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt(r.opgebouwde_reserve)}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.note || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {r.source_pdf_url && (
+                              <Button size="icon" variant="ghost" onClick={() => openIptPdf(r.source_pdf_url!)}>
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteIpt(r.id, r.source_pdf_url)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }
