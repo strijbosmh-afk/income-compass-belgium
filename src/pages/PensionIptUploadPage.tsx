@@ -250,11 +250,17 @@ export default function PensionIptUploadPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FieldRow icon={Landmark} label="Beginkapitaal (01/01)" value={item.extracted.beginkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'beginkapitaal', v)} />
+                    <FieldRow icon={PiggyBank} label="Eindkapitaal (01/01 volgend jaar)" value={item.extracted.eindkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'eindkapitaal', v)} />
                     <FieldRow icon={PiggyBank} label="Opgebouwde reserve" value={item.extracted.opgebouwde_reserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'opgebouwde_reserve', v)} />
                     <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
+                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
+                    <FieldRow icon={ArrowDownToLine} label="Inkomende bewegingen" value={item.extracted.inkomende_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'inkomende_bewegingen', v)} />
+                    <FieldRow icon={ArrowUpFromLine} label="Uitgaande bewegingen" value={item.extracted.uitgaande_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'uitgaande_bewegingen', v)} />
+                    <FieldRow icon={Receipt} label="Kosten en taksen" value={item.extracted.kosten_taksen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_taksen', v)} />
+                    <FieldRow icon={HeartPulse} label="Kosten dekking overlijden" value={item.extracted.kosten_overlijden} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_overlijden', v)} />
                     <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
                     <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
-                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
                   </div>
                   <div>
                     <Label className="text-xs">Notitie (optioneel)</Label>
