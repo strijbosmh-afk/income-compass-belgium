@@ -85,7 +85,7 @@ export default function PensionRecordsPage() {
     const { data } = await supabase.storage.from('pension-pdfs').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
-  const { sorted, tiles, chartData, sortedIpt } = useMemo(() => {
+  const { sorted, tiles, chartData, sortedIpt, iptYearly, iptStats } = useMemo(() => {
     const s = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const si = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
     const latest = s[s.length - 1];
@@ -101,11 +101,38 @@ export default function PensionRecordsPage() {
     if (latestIpt) {
       baseTiles.push({ icon: Briefcase, label: 'IPT-reserve', value: latestIpt.opgebouwde_reserve, prev: prevIpt?.opgebouwde_reserve, spark: si.map(r => ({ v: r.opgebouwde_reserve })) });
     }
+    // Per-jaar IPT: pak laatste snapshot per jaar
+    const byYear = new Map<number, IptRecord>();
+    for (const r of si) byYear.set(r.year, r);
+    const years = [...byYear.keys()].sort((a, b) => a - b);
+    const iptYearly = years.map((y, idx) => {
+      const cur = byYear.get(y)!;
+      const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
+      const basis = prevYear?.opgebouwde_reserve || 0;
+      const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
+      return {
+        year: y,
+        snapshot_date: cur.snapshot_date,
+        opgebouwde_reserve: cur.opgebouwde_reserve,
+        jaarpremie: cur.jaarpremie,
+        overlijdenskapitaal: cur.overlijdenskapitaal,
+        winst_uit_beleggingen: cur.winst_uit_beleggingen,
+        gewaarborgd_rendement: cur.gewaarborgd_rendement,
+        rendement,
+      };
+    });
+    const totalWinst = iptYearly.reduce((acc, y) => acc + (y.winst_uit_beleggingen || 0), 0);
+    const rendValues = iptYearly.map(y => y.rendement).filter((v): v is number => v !== null);
+    const avgRend = rendValues.length ? rendValues.reduce((a, b) => a + b, 0) / rendValues.length : null;
+    const bestYear = iptYearly.filter(y => y.rendement !== null).sort((a, b) => (b.rendement! - a.rendement!))[0] || null;
+    const worstYear = iptYearly.filter(y => y.rendement !== null).sort((a, b) => (a.rendement! - b.rendement!))[0] || null;
     return {
       sorted: s,
       sortedIpt: si,
       tiles: baseTiles,
       chartData: s.map(r => ({ date: new Date(r.snapshot_date).toLocaleDateString('nl-BE', { year: 'numeric', month: 'short' }), v: r.pensioenreserve })),
+      iptYearly,
+      iptStats: { totalWinst, avgRend, bestYear, worstYear },
     };
   }, [records, iptRecords]);
 
