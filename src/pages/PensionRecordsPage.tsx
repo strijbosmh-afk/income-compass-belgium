@@ -22,9 +22,6 @@ interface PensionRecord {
 
 const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function PensionRecordsPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
 interface IptRecord {
   id: string;
   snapshot_date: string;
@@ -36,8 +33,6 @@ interface IptRecord {
   source_pdf_url: string | null;
   note: string | null;
 }
-
-const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PensionRecordsPage() {
   const { user } = useAuth();
