@@ -25,18 +25,38 @@ const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFract
 export default function PensionRecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+interface IptRecord {
+  id: string;
+  snapshot_date: string;
+  year: number;
+  opgebouwde_reserve: number;
+  jaarpremie: number;
+  overlijdenskapitaal: number;
+  gewaarborgd_rendement: number;
+  source_pdf_url: string | null;
+  note: string | null;
+}
+
+const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export default function PensionRecordsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [records, setRecords] = useState<PensionRecord[]>([]);
+  const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('pension_records')
-      .select('*')
-      .order('snapshot_date', { ascending: false });
+    const [{ data, error }, { data: iptData, error: iptErr }] = await Promise.all([
+      supabase.from('pension_records').select('*').order('snapshot_date', { ascending: false }),
+      supabase.from('pension_ipt_records').select('*').order('snapshot_date', { ascending: false }),
+    ]);
     if (error) toast({ title: 'Fout', description: error.message, variant: 'destructive' });
     else setRecords((data as PensionRecord[]) || []);
+    if (iptErr) toast({ title: 'Fout (IPT)', description: iptErr.message, variant: 'destructive' });
+    else setIptRecords((iptData as IptRecord[]) || []);
     setLoading(false);
   };
 
@@ -49,6 +69,20 @@ export default function PensionRecordsPage() {
     if (pdfPath) await supabase.storage.from('pension-pdfs').remove([pdfPath]);
     toast({ title: 'Verwijderd' });
     load();
+  };
+
+  const handleDeleteIpt = async (id: string, pdfPath: string | null) => {
+    if (!confirm('Deze IPT-snapshot definitief verwijderen?')) return;
+    const { error } = await supabase.from('pension_ipt_records').delete().eq('id', id);
+    if (error) { toast({ title: 'Fout', description: error.message, variant: 'destructive' }); return; }
+    if (pdfPath) await supabase.storage.from('pension-ipt-pdfs').remove([pdfPath]);
+    toast({ title: 'Verwijderd' });
+    load();
+  };
+
+  const openIptPdf = async (path: string) => {
+    const { data } = await supabase.storage.from('pension-ipt-pdfs').createSignedUrl(path, 60);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
 
   const openPdf = async (path: string) => {
