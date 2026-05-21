@@ -196,45 +196,63 @@ export type Database = {
       }
       pension_ipt_records: {
         Row: {
+          beginkapitaal: number
           created_at: string
+          eindkapitaal: number
           gewaarborgd_rendement: number
           id: string
+          inkomende_bewegingen: number
           jaarpremie: number
+          kosten_overlijden: number
+          kosten_taksen: number
           note: string | null
           opgebouwde_reserve: number
           overlijdenskapitaal: number
           snapshot_date: string
           source_pdf_url: string | null
+          uitgaande_bewegingen: number
           updated_at: string
           user_id: string
           winst_uit_beleggingen: number
           year: number
         }
         Insert: {
+          beginkapitaal?: number
           created_at?: string
+          eindkapitaal?: number
           gewaarborgd_rendement?: number
           id?: string
+          inkomende_bewegingen?: number
           jaarpremie?: number
+          kosten_overlijden?: number
+          kosten_taksen?: number
           note?: string | null
           opgebouwde_reserve?: number
           overlijdenskapitaal?: number
           snapshot_date: string
           source_pdf_url?: string | null
+          uitgaande_bewegingen?: number
           updated_at?: string
           user_id: string
           winst_uit_beleggingen?: number
           year: number
         }
         Update: {
+          beginkapitaal?: number
           created_at?: string
+          eindkapitaal?: number
           gewaarborgd_rendement?: number
           id?: string
+          inkomende_bewegingen?: number
           jaarpremie?: number
+          kosten_overlijden?: number
+          kosten_taksen?: number
           note?: string | null
           opgebouwde_reserve?: number
           overlijdenskapitaal?: number
           snapshot_date?: string
           source_pdf_url?: string | null
+          uitgaande_bewegingen?: number
           updated_at?: string
           user_id?: string
           winst_uit_beleggingen?: number
