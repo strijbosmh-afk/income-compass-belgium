@@ -18,11 +18,17 @@ interface IptRecord {
   id: string;
   snapshot_date: string;
   year: number;
+  beginkapitaal: number;
+  eindkapitaal: number;
   opgebouwde_reserve: number;
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
   winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
 }
 
 
