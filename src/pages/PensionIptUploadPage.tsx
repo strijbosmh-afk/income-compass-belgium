@@ -5,18 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp } from 'lucide-react';
+import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface IptSnapshot {
   snapshot_date: string;
   year: number;
+  beginkapitaal: number;
+  eindkapitaal: number;
   opgebouwde_reserve: number;
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
   winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
 }
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
