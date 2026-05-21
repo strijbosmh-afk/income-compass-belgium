@@ -5,18 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp } from 'lucide-react';
+import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface IptSnapshot {
   snapshot_date: string;
   year: number;
+  beginkapitaal: number;
+  eindkapitaal: number;
   opgebouwde_reserve: number;
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
   winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
 }
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
@@ -72,11 +78,17 @@ export default function PensionIptUploadPage() {
         const extracted: IptSnapshot = {
           snapshot_date: data.snapshot_date,
           year: data.year,
+          beginkapitaal: Number(data.beginkapitaal) || 0,
+          eindkapitaal: Number(data.eindkapitaal) || 0,
           opgebouwde_reserve: Number(data.opgebouwde_reserve) || 0,
           jaarpremie: Number(data.jaarpremie) || 0,
           overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
           gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
           winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
+          inkomende_bewegingen: Number(data.inkomende_bewegingen) || 0,
+          uitgaande_bewegingen: Number(data.uitgaande_bewegingen) || 0,
+          kosten_taksen: Number(data.kosten_taksen) || 0,
+          kosten_overlijden: Number(data.kosten_overlijden) || 0,
         };
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
       } catch (err: any) {
@@ -132,11 +144,17 @@ export default function PensionIptUploadPage() {
           user_id: user.id,
           snapshot_date: item.extracted!.snapshot_date,
           year: item.extracted!.year,
+          beginkapitaal: item.extracted!.beginkapitaal,
+          eindkapitaal: item.extracted!.eindkapitaal,
           opgebouwde_reserve: item.extracted!.opgebouwde_reserve,
           jaarpremie: item.extracted!.jaarpremie,
           overlijdenskapitaal: item.extracted!.overlijdenskapitaal,
           gewaarborgd_rendement: item.extracted!.gewaarborgd_rendement,
           winst_uit_beleggingen: item.extracted!.winst_uit_beleggingen,
+          inkomende_bewegingen: item.extracted!.inkomende_bewegingen,
+          uitgaande_bewegingen: item.extracted!.uitgaande_bewegingen,
+          kosten_taksen: item.extracted!.kosten_taksen,
+          kosten_overlijden: item.extracted!.kosten_overlijden,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
         });
@@ -232,11 +250,17 @@ export default function PensionIptUploadPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FieldRow icon={Landmark} label="Beginkapitaal (01/01)" value={item.extracted.beginkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'beginkapitaal', v)} />
+                    <FieldRow icon={PiggyBank} label="Eindkapitaal (01/01 volgend jaar)" value={item.extracted.eindkapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'eindkapitaal', v)} />
                     <FieldRow icon={PiggyBank} label="Opgebouwde reserve" value={item.extracted.opgebouwde_reserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'opgebouwde_reserve', v)} />
                     <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
+                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
+                    <FieldRow icon={ArrowDownToLine} label="Inkomende bewegingen" value={item.extracted.inkomende_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'inkomende_bewegingen', v)} />
+                    <FieldRow icon={ArrowUpFromLine} label="Uitgaande bewegingen" value={item.extracted.uitgaande_bewegingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'uitgaande_bewegingen', v)} />
+                    <FieldRow icon={Receipt} label="Kosten en taksen" value={item.extracted.kosten_taksen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_taksen', v)} />
+                    <FieldRow icon={HeartPulse} label="Kosten dekking overlijden" value={item.extracted.kosten_overlijden} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'kosten_overlijden', v)} />
                     <FieldRow icon={Shield} label="Overlijdenskapitaal" value={item.extracted.overlijdenskapitaal} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdenskapitaal', v)} />
                     <FieldRow icon={Percent} label="Gewaarborgd rendement (%)" value={item.extracted.gewaarborgd_rendement} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'gewaarborgd_rendement', v)} />
-                    <FieldRow icon={TrendingUp} label="Winst uit beleggingen" value={item.extracted.winst_uit_beleggingen} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'winst_uit_beleggingen', v)} />
                   </div>
                   <div>
                     <Label className="text-xs">Notitie (optioneel)</Label>

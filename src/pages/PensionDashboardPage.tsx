@@ -18,11 +18,17 @@ interface IptRecord {
   id: string;
   snapshot_date: string;
   year: number;
+  beginkapitaal: number;
+  eindkapitaal: number;
   opgebouwde_reserve: number;
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
   winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
 }
 
 
@@ -57,15 +63,16 @@ export default function PensionDashboardPage() {
     const iptYearly = years.map((y, idx) => {
       const cur = byYear.get(y)!;
       const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
-      const basis = prevYear?.opgebouwde_reserve || 0;
+      const basis = cur.beginkapitaal > 0 ? cur.beginkapitaal : (prevYear?.eindkapitaal || prevYear?.opgebouwde_reserve || 0);
       const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
       return {
         year: y,
         label: String(y),
-        Reserve: cur.opgebouwde_reserve,
+        Reserve: cur.eindkapitaal || cur.opgebouwde_reserve,
         Winst: cur.winst_uit_beleggingen,
         Overlijdenskapitaal: cur.overlijdenskapitaal,
         Rendement: rendement,
+        NettoStortingen: (cur.inkomende_bewegingen || 0) + (cur.uitgaande_bewegingen || 0),
       };
     });
     const totalWinst = iptYearly.reduce((acc, y) => acc + (y.Winst || 0), 0);

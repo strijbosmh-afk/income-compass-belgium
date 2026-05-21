@@ -13,15 +13,21 @@ const TOOL_SCHEMA = {
     parameters: {
       type: "object",
       properties: {
-        snapshot_date: { type: "string", description: "Reference date in YYYY-MM-DD format (the 'op datum' / valuation date)" },
-        year: { type: "integer", description: "Year of the snapshot date" },
-        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op datum in EUR (accumulated IPT reserve)" },
-        jaarpremie: { type: "number", description: "Jaarpremie in EUR (annual premium paid for this IPT contract)" },
-        overlijdenskapitaal: { type: "number", description: "Overlijdenskapitaal in EUR (death benefit capital)" },
-        gewaarborgd_rendement: { type: "number", description: "Gewaarborgd rendement in percent (guaranteed return rate, e.g. 1.75)" },
-        winst_uit_beleggingen: { type: "number", description: "Winst uit beleggingen in EUR (investment profit / winstdeelname for this year). 0 if not shown." },
+        snapshot_date: { type: "string", description: "Referentiedatum (einde overzichtsjaar) in YYYY-MM-DD. Bv. 'Jaaroverzicht 2024' → '2024-12-31'." },
+        year: { type: "integer", description: "Kalenderjaar van het overzicht (bv. 2024)." },
+        beginkapitaal: { type: "number", description: "Beginkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar>' in EUR." },
+        eindkapitaal: { type: "number", description: "Eindkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar+1>' in EUR." },
+        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op einddatum (meestal = eindkapitaal)." },
+        jaarpremie: { type: "number", description: "Jaarpremie / som van stortingen dit jaar in EUR. 0 indien niet zichtbaar." },
+        overlijdenskapitaal: { type: "number", description: "Overlijdenskapitaal in EUR op einddatum." },
+        gewaarborgd_rendement: { type: "number", description: "Gewaarborgd rendementspercentage (bv. 1.75). 0 indien niet zichtbaar." },
+        winst_uit_beleggingen: { type: "number", description: "Beleggingswinst in EUR. Herken als 'Prestatie van de eenheden' of 'Nettorendement van de fondsen'." },
+        inkomende_bewegingen: { type: "number", description: "Som van inkomende bewegingen in EUR (positief)." },
+        uitgaande_bewegingen: { type: "number", description: "Som van uitgaande bewegingen in EUR. NEGATIEF indien uitstroom (bv. -10615.41)." },
+        kosten_taksen: { type: "number", description: "Som van 'Kosten en taksen' / 'Taksen en kosten' in EUR (negatief indien zo getoond)." },
+        kosten_overlijden: { type: "number", description: "Kosten van de overlijdensdekking in EUR (negatief indien zo getoond)." },
       },
-      required: ["snapshot_date", "year", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen"],
+      required: ["snapshot_date", "year", "beginkapitaal", "eindkapitaal", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen", "inkomende_bewegingen", "uitgaande_bewegingen", "kosten_taksen", "kosten_overlijden"],
     },
   },
 };
@@ -36,22 +42,29 @@ serve(async (req) => {
     const { pdf, mimeType } = await req.json();
     if (!pdf) throw new Error("No PDF provided");
 
-    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-documenten (Individuele Pensioentoezegging, Dutch / Nederlands).
-Je krijgt een jaarlijks IPT-overzicht (PDF) en extraheert vijf waarden plus de referentiedatum:
+    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-jaaroverzichten (Individuele Pensioentoezegging, Nederlands).
 
-1. **Opgebouwde reserve op datum** — de totale opgebouwde IPT-reserve / pensioenkapitaal op de referentiedatum.
-2. **Jaarpremie** — de jaarlijkse premie / storting voor dit IPT-contract (in EUR).
-3. **Overlijdenskapitaal** — het kapitaal bij overlijden / overlijdenswaarborg op de referentiedatum.
-4. **Gewaarborgd rendement** — het gewaarborgde rendementspercentage van het contract (bv. 1,75 of 2,25).
-5. **Winst uit beleggingen** — de winst uit beleggingen / winstdeelname / beleggingsopbrengst toegekend voor dit boekjaar (in EUR). Soms ook genoemd "winstdeling", "rendement beleggingen", "toegekende winst". Als niet aanwezig → 0.
+Extraheer per jaar:
+1. year + snapshot_date — herken "Jaaroverzicht <jaar>"; snapshot_date = <jaar>-12-31.
+2. beginkapitaal — "Uw spaartegoed op 01/01/<jaar>" of "Uw kapitaal op 01/01/<jaar>".
+3. eindkapitaal — "Uw spaartegoed op 01/01/<jaar+1>" of "Uw kapitaal op 01/01/<jaar+1>".
+4. opgebouwde_reserve — totale opgebouwde IPT-reserve op einddatum (meestal = eindkapitaal).
+5. jaarpremie — jaarlijkse premie / som stortingen.
+6. overlijdenskapitaal — kapitaal bij overlijden op einddatum.
+7. gewaarborgd_rendement — gewaarborgd rendement in %.
+8. winst_uit_beleggingen — "Prestatie van de eenheden" of "Nettorendement van de fondsen" in EUR.
+9. inkomende_bewegingen — som inkomende bewegingen (positief).
+10. uitgaande_bewegingen — som uitgaande bewegingen (NEGATIEF indien uitstroom).
+11. kosten_taksen — "Kosten en taksen" / "Taksen en kosten".
+12. kosten_overlijden — kosten van de overlijdensdekking.
 
 REGELS:
-- Bedragen EXACT overnemen (Belgische notatie "1.234,56" → JSON-getal 1234.56). Niet afronden.
-- Percentages als getal (bv. "1,75 %" → 1.75).
-- Als een waarde niet zichtbaar is → 0.
-- snapshot_date = de "op datum" / "situatie op" / "waardering per" datum. Indien meerdere → de meest recente.
-- year = jaar uit snapshot_date.
-- Geef altijd antwoord via de tool call.`;
+- Belgische notatie ("+258 875,41 €", "1.234,56 €") → JSON-getal (258875.41 / 1234.56). NIET afronden.
+- Negatieve bedragen ("-10 615,41 €") → negatief opslaan.
+- Percentages als getal ("1,75 %" → 1.75).
+- Niet zichtbaar → 0.
+- "Uw spaartegoed" en "Uw kapitaal" = hetzelfde veld.
+- Antwoord ALTIJD via de tool call.`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

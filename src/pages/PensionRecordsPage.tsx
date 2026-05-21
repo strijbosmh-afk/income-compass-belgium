@@ -26,11 +26,17 @@ interface IptRecord {
   id: string;
   snapshot_date: string;
   year: number;
+  beginkapitaal: number;
+  eindkapitaal: number;
   opgebouwde_reserve: number;
   jaarpremie: number;
   overlijdenskapitaal: number;
   gewaarborgd_rendement: number;
   winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
   source_pdf_url: string | null;
   note: string | null;
 }
@@ -108,16 +114,24 @@ export default function PensionRecordsPage() {
     const iptYearly = years.map((y, idx) => {
       const cur = byYear.get(y)!;
       const prevYear = idx > 0 ? byYear.get(years[idx - 1]) : undefined;
-      const basis = prevYear?.opgebouwde_reserve || 0;
+      const basis = cur.beginkapitaal > 0 ? cur.beginkapitaal : (prevYear?.eindkapitaal || prevYear?.opgebouwde_reserve || 0);
       const rendement = basis > 0 ? (cur.winst_uit_beleggingen / basis) * 100 : null;
+      const nettoStortingen = (cur.inkomende_bewegingen || 0) + (cur.uitgaande_bewegingen || 0);
       return {
         year: y,
         snapshot_date: cur.snapshot_date,
+        beginkapitaal: cur.beginkapitaal,
+        eindkapitaal: cur.eindkapitaal || cur.opgebouwde_reserve,
         opgebouwde_reserve: cur.opgebouwde_reserve,
         jaarpremie: cur.jaarpremie,
         overlijdenskapitaal: cur.overlijdenskapitaal,
         winst_uit_beleggingen: cur.winst_uit_beleggingen,
         gewaarborgd_rendement: cur.gewaarborgd_rendement,
+        inkomende_bewegingen: cur.inkomende_bewegingen || 0,
+        uitgaande_bewegingen: cur.uitgaande_bewegingen || 0,
+        kosten_taksen: cur.kosten_taksen || 0,
+        kosten_overlijden: cur.kosten_overlijden || 0,
+        nettoStortingen,
         rendement,
       };
     });
@@ -331,34 +345,46 @@ export default function PensionRecordsPage() {
           {iptRecords.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Nog geen IPT-data. Upload een IPT-PDF om te beginnen.</p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Jaar</TableHead>
-                  <TableHead className="text-right">Opgebouwde reserve</TableHead>
-                  <TableHead className="text-right">Jaarpremie</TableHead>
-                  <TableHead className="text-right">Winst beleggingen</TableHead>
-                  <TableHead className="text-right">Rendement</TableHead>
-                  <TableHead className="text-right">Overlijdenskapitaal</TableHead>
-                  <TableHead className="text-right">Gewaarb. rend.</TableHead>
+                  <TableHead className="text-right">Beginkapitaal</TableHead>
+                  <TableHead className="text-right">Eindkapitaal</TableHead>
+                  <TableHead className="text-right">Beleggingswinst</TableHead>
+                  <TableHead className="text-right">Benaderd rend.</TableHead>
+                  <TableHead className="text-right">Inkomend</TableHead>
+                  <TableHead className="text-right">Uitgaand</TableHead>
+                  <TableHead className="text-right">Netto stortingen</TableHead>
+                  <TableHead className="text-right">Kosten/taksen</TableHead>
+                  <TableHead className="text-right">Kosten overlijden</TableHead>
+                  <TableHead className="text-right">Overl.kapitaal</TableHead>
+                  <TableHead className="text-right">Gew. rend.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {iptYearly.slice().reverse().map((r) => (
                   <TableRow key={r.year}>
                     <TableCell className="font-medium">{r.year}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{fmt(r.opgebouwde_reserve)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(r.jaarpremie)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.beginkapitaal)}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{fmt(r.eindkapitaal)}</TableCell>
                     <TableCell className="text-right font-mono text-emerald-600">{fmt(r.winst_uit_beleggingen)}</TableCell>
                     <TableCell className={`text-right font-mono font-semibold ${r.rendement === null ? 'text-muted-foreground' : r.rendement >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {r.rendement !== null ? `${r.rendement.toFixed(2)}%` : '—'}
                     </TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.inkomende_bewegingen)}</TableCell>
+                    <TableCell className="text-right font-mono text-red-600">{fmt(r.uitgaande_bewegingen)}</TableCell>
+                    <TableCell className="text-right font-mono">{fmt(r.nettoStortingen)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{fmt(r.kosten_taksen)}</TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">{fmt(r.kosten_overlijden)}</TableCell>
                     <TableCell className="text-right font-mono">{fmt(r.overlijdenskapitaal)}</TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground">{(r.gewaarborgd_rendement || 0).toFixed(2)}%</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
