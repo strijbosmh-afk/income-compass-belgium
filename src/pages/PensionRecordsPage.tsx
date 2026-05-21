@@ -47,6 +47,8 @@ export default function PensionRecordsPage() {
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeProgress, setReanalyzeProgress] = useState<{ done: number; total: number; current?: string }>({ done: 0, total: 0 });
 
   const load = async () => {
     if (!user) return;
@@ -86,6 +88,56 @@ export default function PensionRecordsPage() {
     const { data } = await supabase.storage.from('pension-ipt-pdfs').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');
   };
+
+  const reanalyzeAllIpt = async () => {
+    const targets = iptRecords.filter(r => r.source_pdf_url);
+    if (targets.length === 0) {
+      toast({ title: 'Geen PDFs', description: 'Geen IPT-records met opgeslagen PDF gevonden.', variant: 'destructive' });
+      return;
+    }
+    if (!confirm(`${targets.length} IPT-document(en) opnieuw analyseren en overschrijven?`)) return;
+    setReanalyzing(true);
+    setReanalyzeProgress({ done: 0, total: targets.length });
+    let ok = 0; let fail = 0;
+    for (const rec of targets) {
+      setReanalyzeProgress({ done: ok + fail, total: targets.length, current: rec.source_pdf_url || '' });
+      try {
+        const { data: blob, error: dlErr } = await supabase.storage.from('pension-ipt-pdfs').download(rec.source_pdf_url!);
+        if (dlErr || !blob) throw dlErr || new Error('Download mislukt');
+        const base64 = await blobToBase64(blob);
+        const { data, error } = await supabase.functions.invoke('extract-pension-ipt', {
+          body: { pdf: base64, mimeType: 'application/pdf' },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const { error: upErr } = await supabase.from('pension_ipt_records').update({
+          snapshot_date: data.snapshot_date || rec.snapshot_date,
+          year: data.year || rec.year,
+          beginkapitaal: Number(data.beginkapitaal) || 0,
+          eindkapitaal: Number(data.eindkapitaal) || 0,
+          opgebouwde_reserve: Number(data.opgebouwde_reserve) || 0,
+          jaarpremie: Number(data.jaarpremie) || 0,
+          overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
+          gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
+          winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
+          inkomende_bewegingen: Number(data.inkomende_bewegingen) || 0,
+          uitgaande_bewegingen: Number(data.uitgaande_bewegingen) || 0,
+          kosten_taksen: Number(data.kosten_taksen) || 0,
+          kosten_overlijden: Number(data.kosten_overlijden) || 0,
+        }).eq('id', rec.id);
+        if (upErr) throw upErr;
+        ok++;
+      } catch (err: any) {
+        console.error('Reanalyze failed for', rec.id, err);
+        fail++;
+      }
+    }
+    setReanalyzing(false);
+    setReanalyzeProgress({ done: ok + fail, total: targets.length });
+    toast({ title: 'Heranalyse klaar', description: `${ok} bijgewerkt, ${fail} mislukt.` });
+    await load();
+  };
+
 
   const openPdf = async (path: string) => {
     const { data } = await supabase.storage.from('pension-pdfs').createSignedUrl(path, 60);
@@ -337,9 +389,18 @@ export default function PensionRecordsPage() {
 
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
-          </CardTitle>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-primary" /> IPT per jaar ({iptYearly.length})
+            </CardTitle>
+            {iptRecords.some(r => r.source_pdf_url) && (
+              <Button size="sm" variant="outline" onClick={reanalyzeAllIpt} disabled={reanalyzing}>
+                {reanalyzing
+                  ? <><Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />Heranalyseren {reanalyzeProgress.done}/{reanalyzeProgress.total}…</>
+                  : <>Heranalyseer alle IPT</>}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {iptRecords.length === 0 ? (
@@ -435,4 +496,16 @@ export default function PensionRecordsPage() {
       </Card>
     </div>
   );
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
