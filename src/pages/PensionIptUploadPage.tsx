@@ -169,7 +169,10 @@ export default function PensionIptUploadPage() {
     }
     setSavingAll(false);
     toast({ title: 'Opgeslagen', description: `${savedCount} van ${ready.length} IPT-snapshots opgeslagen.` });
-    if (savedCount > 0) setTimeout(() => navigate('/pensioen/overzicht'), 800);
+    if (savedCount > 0) {
+      bumpDataVersion();
+      setTimeout(() => navigate('/pensioen/overzicht'), 800);
+    }
   };
 
   const anyBusy = items.some(i => i.status === 'uploading' || i.status === 'extracting' || i.status === 'saving');
