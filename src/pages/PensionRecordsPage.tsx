@@ -46,6 +46,7 @@ interface IptRecord {
 export default function PensionRecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const version = useDataVersion();
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +67,7 @@ export default function PensionRecordsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { load(); }, [user, version]);
 
   const handleDelete = async (id: string, pdfPath: string | null) => {
     if (!confirm('Deze snapshot definitief verwijderen?')) return;
