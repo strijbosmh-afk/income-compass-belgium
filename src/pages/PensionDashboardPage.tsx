@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Loader2, Briefcase } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ComposedChart } from 'recharts';
@@ -37,6 +38,7 @@ const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumF
 
 export default function PensionDashboardPage() {
   const { user } = useAuth();
+  const version = useDataVersion();
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function PensionDashboardPage() {
       setIptRecords((iptData as IptRecord[]) || []);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, version]);
 
   const { latest, previous, chartData, latestIpt, previousIpt, iptYearly, iptStats } = useMemo(() => {
     const sorted = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));

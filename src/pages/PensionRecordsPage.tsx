@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Trash2, FileText, Loader2, PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Calendar, Briefcase, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface PensionRecord {
@@ -45,6 +46,7 @@ interface IptRecord {
 export default function PensionRecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const version = useDataVersion();
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function PensionRecordsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [user]);
+  useEffect(() => { load(); }, [user, version]);
 
   const handleDelete = async (id: string, pdfPath: string | null) => {
     if (!confirm('Deze snapshot definitief verwijderen?')) return;

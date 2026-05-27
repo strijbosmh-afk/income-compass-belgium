@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { bumpDataVersion } from '@/hooks/useDataVersion';
 
 interface IptSnapshot {
   snapshot_date: string;
@@ -168,7 +169,10 @@ export default function PensionIptUploadPage() {
     }
     setSavingAll(false);
     toast({ title: 'Opgeslagen', description: `${savedCount} van ${ready.length} IPT-snapshots opgeslagen.` });
-    if (savedCount > 0) setTimeout(() => navigate('/pensioen/overzicht'), 800);
+    if (savedCount > 0) {
+      bumpDataVersion();
+      setTimeout(() => navigate('/pensioen/overzicht'), 800);
+    }
   };
 
   const anyBusy = items.some(i => i.status === 'uploading' || i.status === 'extracting' || i.status === 'saving');
