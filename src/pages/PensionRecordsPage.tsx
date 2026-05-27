@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Trash2, FileText, Loader2, PiggyBank, Shield, Wallet, Stethoscope, TrendingUp, TrendingDown, Calendar, Briefcase, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useDataVersion } from '@/hooks/useDataVersion';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 interface PensionRecord {
