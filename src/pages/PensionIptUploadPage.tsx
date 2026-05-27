@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Upload, Loader2, FileText, PiggyBank, Wallet, Shield, Percent, CheckCircle2, AlertCircle, Trash2, TrendingUp, ArrowDownToLine, ArrowUpFromLine, Receipt, HeartPulse, Landmark, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { bumpDataVersion } from '@/hooks/useDataVersion';
 
 interface IptSnapshot {
   snapshot_date: string;
