@@ -38,6 +38,7 @@ const fmtFull = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumF
 
 export default function PensionDashboardPage() {
   const { user } = useAuth();
+  const version = useDataVersion();
   const [records, setRecords] = useState<PensionRecord[]>([]);
   const [iptRecords, setIptRecords] = useState<IptRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +54,7 @@ export default function PensionDashboardPage() {
       setIptRecords((iptData as IptRecord[]) || []);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, version]);
 
   const { latest, previous, chartData, latestIpt, previousIpt, iptYearly, iptStats } = useMemo(() => {
     const sorted = [...records].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
