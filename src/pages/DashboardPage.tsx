@@ -199,7 +199,29 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overzicht van je inkomsten voor {filterLabel}.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => {
+              if (selectedMonth === 'all') {
+                setSelectedYear(String(parseInt(selectedYear) - 1));
+                setSelectedMonth('12');
+              } else {
+                const m = parseInt(selectedMonth);
+                if (m === 1) {
+                  setSelectedYear(String(parseInt(selectedYear) - 1));
+                  setSelectedMonth('12');
+                } else {
+                  setSelectedMonth(String(m - 1));
+                }
+              }
+            }}
+            aria-label="Vorige maand"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
             <SelectContent>
@@ -207,6 +229,28 @@ export default function DashboardPage() {
               {MONTH_NAMES.map((name, idx) => <SelectItem key={idx} value={String(idx + 1)}>{name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => {
+              if (selectedMonth === 'all') {
+                setSelectedYear(String(parseInt(selectedYear) + 1));
+                setSelectedMonth('1');
+              } else {
+                const m = parseInt(selectedMonth);
+                if (m === 12) {
+                  setSelectedYear(String(parseInt(selectedYear) + 1));
+                  setSelectedMonth('1');
+                } else {
+                  setSelectedMonth(String(m + 1));
+                }
+              }
+            }}
+            aria-label="Volgende maand"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
