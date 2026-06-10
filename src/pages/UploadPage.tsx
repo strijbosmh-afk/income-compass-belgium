@@ -63,7 +63,8 @@ export default function UploadPage() {
       reader.onload = (e) => setPreviewUrl(e.target?.result as string);
       reader.readAsDataURL(file);
 
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const safeName = file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
+      const filePath = `${user.id}/${Date.now()}_${safeName}`;
       const { error: uploadError } = await supabase.storage.from('screenshots').upload(filePath, file);
       if (uploadError) throw uploadError;
 
