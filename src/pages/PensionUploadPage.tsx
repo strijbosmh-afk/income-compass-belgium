@@ -60,7 +60,8 @@ export default function PensionUploadPage() {
     for (const item of newItems) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
-        const filePath = `${user.id}/${Date.now()}_${item.file.name}`;
+        const safeName = item.file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
+        const filePath = `${user.id}/${Date.now()}_${safeName}`;
         const { error: uploadError } = await supabase.storage.from('pension-pdfs').upload(filePath, item.file);
         if (uploadError) throw uploadError;
 
