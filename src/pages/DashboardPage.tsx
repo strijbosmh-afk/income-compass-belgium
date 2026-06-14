@@ -315,6 +315,43 @@ export default function DashboardPage() {
       {/* Maandcontrole: ontbrekende / lage maanden */}
       <MissingMonthsWidget year={parseInt(selectedYear)} />
 
+      {/* Kort maandoverzicht: 12 blokken per maand */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Maandoverzicht {selectedYear}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">
+            {monthlyData.map((m, idx) => {
+              const total = m.netto;
+              const isSelected = selectedMonth === String(idx + 1);
+              const isEmpty = total === 0;
+              return (
+                <button
+                  key={m.month}
+                  type="button"
+                  onClick={() => setSelectedMonth(isSelected ? 'all' : String(idx + 1))}
+                  className={`text-left rounded-md border px-2 py-2 transition-colors hover:bg-accent/40 ${
+                    isSelected ? 'border-primary bg-primary/5' : 'border-border/50'
+                  } ${isEmpty ? 'opacity-60' : ''}`}
+                  title={`${MONTH_NAMES[idx]} ${selectedYear}`}
+                >
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{m.month}</div>
+                  <div className="text-sm font-semibold tabular-nums truncate" title={fmt(total)}>
+                    €{total.toLocaleString('de-BE', { maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="mt-1 space-y-0.5 text-[10px] tabular-nums text-muted-foreground">
+                    <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                    <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                    <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabbladen */}
       <Tabs value={viewMode} onValueChange={setViewMode}>
         <TabsList>
