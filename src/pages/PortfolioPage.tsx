@@ -87,6 +87,9 @@ export default function PortfolioPage() {
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
   const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
+  const [eurHistory, setEurHistory] = useState<{ date: string; value: number }[]>([]);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
+  const [fxUpdated, setFxUpdated] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,7 +105,22 @@ export default function PortfolioPage() {
   useEffect(() => {
     if (!user) return;
     loadAssets();
+    loadFx();
   }, [user]);
+
+  async function loadFx() {
+    try {
+      const res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR');
+      const data = await res.json();
+      if (data?.rates) {
+        setFxRates({ EUR: 1, ...data.rates });
+        setFxUpdated(data.date || '');
+      }
+    } catch (_err) {
+      // keep default EUR=1
+    }
+  }
+
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -121,6 +139,17 @@ export default function PortfolioPage() {
     refreshMarketData();
   }, [assets, range, chartCurrency]);
 
+  const toEur = useMemo(() => {
+    return (value: number, currency: string) => {
+      if (!value) return 0;
+      const ccy = (currency || 'EUR').toUpperCase();
+      if (ccy === 'EUR') return value;
+      const rate = fxRates[ccy];
+      if (!rate || rate <= 0) return value;
+      return value / rate;
+    };
+  }, [fxRates]);
+
   const currencyGroups = useMemo(() => {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of assets) {
@@ -133,6 +162,16 @@ export default function PortfolioPage() {
     }
     return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
   }, [assets, quotes]);
+
+  const eurTotals = useMemo(() => {
+    let cost = 0;
+    let value = 0;
+    for (const group of currencyGroups) {
+      cost += toEur(group.cost, group.currency);
+      value += toEur(group.value, group.currency);
+    }
+    return { cost, value, gain: value - cost };
+  }, [currencyGroups, toEur]);
 
   useEffect(() => {
     if (currencyGroups.length > 0 && !currencyGroups.some((group) => group.currency === chartCurrency)) {
@@ -156,6 +195,12 @@ export default function PortfolioPage() {
     const target = history.filter((point) => point.date <= valuationDate).at(-1);
     return target?.value ?? 0;
   }, [history, valuationDate, currencyGroups, chartCurrency]);
+
+  const eurValueAtDate = useMemo(() => {
+    if (eurHistory.length === 0) return eurTotals.value;
+    const target = eurHistory.filter((point) => point.date <= valuationDate).at(-1);
+    return target?.value ?? eurTotals.value;
+  }, [eurHistory, valuationDate, eurTotals]);
 
   async function loadAssets() {
     if (!user) return;
@@ -228,6 +273,19 @@ export default function PortfolioPage() {
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
+
+    // Cumulative EUR history across ALL currencies (using latest FX rate)
+    const eurByDate = new Map<string, number>();
+    for (const asset of assets) {
+      const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      for (const point of symbolSeries) {
+        if (point.date < asset.purchase_date || point.close <= 0) continue;
+        const localValue = point.close * asset.quantity;
+        const eurValue = toEur(localValue, asset.currency);
+        eurByDate.set(point.date, (eurByDate.get(point.date) || 0) + eurValue);
+      }
+    }
+    setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
   }
 
   function selectSymbol(result: SymbolResult) {
@@ -335,6 +393,25 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="pt-5">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Cumulatieve portefeuillewaarde (EUR)</p>
+              <p className="text-3xl font-semibold mt-1">{money(eurTotals.value, 'EUR')}</p>
+              <p className={`text-sm mt-1 ${eurTotals.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(eurTotals.cost ? (eurTotals.gain / eurTotals.cost) * 100 : 0)})
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground md:text-right">
+              <div>Ingelegd: {money(eurTotals.cost, 'EUR')}</div>
+              <div>Waarde op {valuationDate}: {money(eurValueAtDate, 'EUR')}</div>
+              <div>Wisselkoersen ECB{fxUpdated ? ` · ${fxUpdated}` : ''}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-3">
         {currencyGroups.length === 0 ? (
           <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
@@ -343,12 +420,41 @@ export default function PortfolioPage() {
             key={group.currency}
             title={`Waarde ${group.currency}`}
             value={money(group.value, group.currency)}
-            sub={`Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
+            sub={`≈ ${money(toEur(group.value, group.currency), 'EUR')} · Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
           />
         ))}
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
+
+      <Card className="border-border/50">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
+          <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
+        </CardHeader>
+        <CardContent className="h-72">
+          {eurHistory.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische data beschikbaar.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={eurHistory}>
+                <defs>
+                  <linearGradient id="portfolioEur" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => compactMoney(Number(value))} />
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
         <Card className="border-border/50">
