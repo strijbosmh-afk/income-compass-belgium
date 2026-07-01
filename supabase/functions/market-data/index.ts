@@ -27,11 +27,7 @@ serve(async (req) => {
     if (action === "quotes") {
       const symbols = normalizeSymbols(body.symbols);
       const quotes = await Promise.all(symbols.map(async (symbol) => {
-        const [quote, profile] = await Promise.all([
-          finnhub(token, "/quote", { symbol }),
-          finnhub(token, "/stock/profile2", { symbol }).catch(() => ({})),
-        ]);
-        return { symbol, quote, profile };
+        return quoteWithFallback(token, symbol);
       }));
       return json({ quotes });
     }
@@ -77,6 +73,70 @@ async function finnhub(token: string, path: string, params: Record<string, strin
   }
 
   return data;
+}
+
+async function quoteWithFallback(token: string, symbol: string) {
+  const [quoteResult, profileResult] = await Promise.allSettled([
+    finnhub(token, "/quote", { symbol }),
+    finnhub(token, "/stock/profile2", { symbol }),
+  ]);
+
+  if (quoteResult.status === "fulfilled") {
+    return {
+      symbol,
+      quote: quoteResult.value,
+      profile: profileResult.status === "fulfilled" ? profileResult.value : {},
+    };
+  }
+
+  return yahooQuote(symbol);
+}
+
+async function yahooQuote(symbol: string) {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("range", "5d");
+  url.searchParams.set("interval", "1d");
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      await response.body?.cancel();
+      return { symbol, quote: {}, profile: {} };
+    }
+
+    const payload = await response.json();
+    const result = payload?.chart?.result?.[0];
+    const meta = result?.meta || {};
+    const closes = result?.indicators?.quote?.[0]?.close || [];
+    const validCloses = Array.isArray(closes)
+      ? closes.filter((close: unknown) => typeof close === "number" && Number.isFinite(close))
+      : [];
+    const current = Number(meta.regularMarketPrice ?? validCloses.at(-1) ?? 0);
+    const previous = Number(meta.previousClose ?? validCloses.at(-2) ?? current);
+
+    return {
+      symbol,
+      quote: {
+        c: Number.isFinite(current) ? current : 0,
+        pc: Number.isFinite(previous) ? previous : 0,
+        t: Number(meta.regularMarketTime || 0),
+      },
+      profile: {
+        currency: meta.currency,
+        exchange: meta.exchangeName || meta.fullExchangeName || meta.exchange,
+        name: meta.longName || meta.shortName || symbol,
+        ticker: symbol,
+      },
+    };
+  } catch (_error) {
+    return { symbol, quote: {}, profile: {} };
+  }
 }
 
 async function yahooCandles(symbol: string, from: number, to: number) {
