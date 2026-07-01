@@ -393,6 +393,25 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="pt-5">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Cumulatieve portefeuillewaarde (EUR)</p>
+              <p className="text-3xl font-semibold mt-1">{money(eurTotals.value, 'EUR')}</p>
+              <p className={`text-sm mt-1 ${eurTotals.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(eurTotals.cost ? (eurTotals.gain / eurTotals.cost) * 100 : 0)})
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground md:text-right">
+              <div>Ingelegd: {money(eurTotals.cost, 'EUR')}</div>
+              <div>Waarde op {valuationDate}: {money(eurValueAtDate, 'EUR')}</div>
+              <div>Wisselkoersen ECB{fxUpdated ? ` · ${fxUpdated}` : ''}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-3">
         {currencyGroups.length === 0 ? (
           <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
@@ -401,12 +420,41 @@ export default function PortfolioPage() {
             key={group.currency}
             title={`Waarde ${group.currency}`}
             value={money(group.value, group.currency)}
-            sub={`Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
+            sub={`≈ ${money(toEur(group.value, group.currency), 'EUR')} · Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
           />
         ))}
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
+
+      <Card className="border-border/50">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
+          <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
+        </CardHeader>
+        <CardContent className="h-72">
+          {eurHistory.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische data beschikbaar.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={eurHistory}>
+                <defs>
+                  <linearGradient id="portfolioEur" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => compactMoney(Number(value))} />
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
         <Card className="border-border/50">
