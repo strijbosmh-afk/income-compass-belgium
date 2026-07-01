@@ -305,6 +305,57 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          currency: string
+          exchange: string | null
+          id: string
+          mic: string | null
+          name: string
+          notes: string | null
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          currency?: string
+          exchange?: string | null
+          id?: string
+          mic?: string | null
+          name?: string
+          notes?: string | null
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          currency?: string
+          exchange?: string | null
+          id?: string
+          mic?: string | null
+          name?: string
+          notes?: string | null
+          purchase_date?: string
+          purchase_price?: number
+          quantity?: number
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
