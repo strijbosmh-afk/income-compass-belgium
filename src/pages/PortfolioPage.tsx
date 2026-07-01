@@ -13,7 +13,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { toast } from 'sonner';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
-type RangeKey = '1W' | '1M' | '6M' | 'YTD' | '1Y';
+type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
 
 type PortfolioAsset = {
   id: string;
@@ -80,7 +80,7 @@ const emptyForm: FormState = {
   notes: '',
 };
 
-const rangeLabels: RangeKey[] = ['1W', '1M', '6M', 'YTD', '1Y'];
+const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -250,25 +250,31 @@ export default function PortfolioPage() {
   }
 
   async function loadHistory(symbols: string[]) {
-    const { from, to } = getRange(range);
+    const { from, to, interval } = getRange(range);
+    const intraday = interval !== '1d';
     const series = await Promise.all(symbols.map(async (symbol) => {
       const { data } = await supabase.functions.invoke('market-data', {
-        body: { action: 'candles', symbol, from, to },
+        body: { action: 'candles', symbol, from, to, interval },
       });
       if (!data || data.s !== 'ok') return { symbol, points: [] as { date: string; close: number }[] };
       const points = (data.t || []).map((ts: number, idx: number) => ({
-        date: new Date(ts * 1000).toISOString().slice(0, 10),
+        date: intraday
+          ? new Date(ts * 1000).toISOString().slice(0, 16)
+          : new Date(ts * 1000).toISOString().slice(0, 10),
         close: Number(data.c?.[idx] || 0),
       }));
       return { symbol, points };
     }));
+
+    const purchaseGate = (assetDate: string, pointKey: string) =>
+      intraday ? pointKey.slice(0, 10) >= assetDate : pointKey >= assetDate;
 
     const byDate = new Map<string, number>();
     const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
     for (const asset of chartAssets) {
       const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
       for (const point of symbolSeries) {
-        if (point.date < asset.purchase_date || point.close <= 0) continue;
+        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
         byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity);
       }
     }
@@ -279,7 +285,7 @@ export default function PortfolioPage() {
     for (const asset of assets) {
       const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
       for (const point of symbolSeries) {
-        if (point.date < asset.purchase_date || point.close <= 0) continue;
+        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
         const localValue = point.close * asset.quantity;
         const eurValue = toEur(localValue, asset.currency);
         eurByDate.set(point.date, (eurByDate.get(point.date) || 0) + eurValue);
@@ -640,17 +646,23 @@ function inferAssetType(type: string | undefined): AssetType {
   return 'stock';
 }
 
-function getRange(range: RangeKey) {
+function getRange(range: RangeKey): { from: number; to: number; interval: string } {
   const to = Math.floor(Date.now() / 1000);
   const now = new Date();
   const fromDate = new Date(now);
+  let interval = '1d';
+  if (range === '1D') {
+    fromDate.setDate(now.getDate() - 1);
+    interval = '5m';
+    return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
+  }
   if (range === '1W') fromDate.setDate(now.getDate() - 7);
   if (range === '1M') fromDate.setMonth(now.getMonth() - 1);
   if (range === '6M') fromDate.setMonth(now.getMonth() - 6);
   if (range === '1Y') fromDate.setFullYear(now.getFullYear() - 1);
   if (range === 'YTD') fromDate.setMonth(0, 1);
   fromDate.setHours(0, 0, 0, 0);
-  return { from: Math.floor(fromDate.getTime() / 1000), to };
+  return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
 }
 
 function money(value: number, currency: string) {
