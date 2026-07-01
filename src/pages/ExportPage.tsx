@@ -183,7 +183,7 @@ export default function ExportPage() {
     summaryRows.push([]);
     summaryRows.push(['TOTAAL', totBruto, totAandeel, totBouwfonds, totMif, totNetto, totQty]);
 
-    await writeXlsxFile([toSheetRows(wsData), toSheetRows([summaryHeaders, ...summaryRows])], {
+    await (writeXlsxFile as any)([toSheetRows(wsData), toSheetRows([summaryHeaders, ...summaryRows])], {
       sheets: ['Detail', 'Maandoverzicht'],
       fileName: `inkomsten_${selectedYear}_${monthFrom}-${monthTo}.xlsx`,
     });
