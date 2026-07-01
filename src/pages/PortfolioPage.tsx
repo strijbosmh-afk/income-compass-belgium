@@ -80,7 +80,7 @@ const emptyForm: FormState = {
   notes: '',
 };
 
-const rangeLabels: RangeKey[] = ['1W', '1M', '6M', 'YTD', '1Y'];
+const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
 
 export default function PortfolioPage() {
   const { user } = useAuth();
