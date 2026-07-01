@@ -646,17 +646,23 @@ function inferAssetType(type: string | undefined): AssetType {
   return 'stock';
 }
 
-function getRange(range: RangeKey) {
+function getRange(range: RangeKey): { from: number; to: number; interval: string } {
   const to = Math.floor(Date.now() / 1000);
   const now = new Date();
   const fromDate = new Date(now);
+  let interval = '1d';
+  if (range === '1D') {
+    fromDate.setDate(now.getDate() - 1);
+    interval = '5m';
+    return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
+  }
   if (range === '1W') fromDate.setDate(now.getDate() - 7);
   if (range === '1M') fromDate.setMonth(now.getMonth() - 1);
   if (range === '6M') fromDate.setMonth(now.getMonth() - 6);
   if (range === '1Y') fromDate.setFullYear(now.getFullYear() - 1);
   if (range === 'YTD') fromDate.setMonth(0, 1);
   fromDate.setHours(0, 0, 0, 0);
-  return { from: Math.floor(fromDate.getTime() / 1000), to };
+  return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
 }
 
 function money(value: number, currency: string) {
