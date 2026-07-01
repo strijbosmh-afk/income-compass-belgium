@@ -8,8 +8,9 @@ MedIncome is een Vite + React applicatie voor het opvolgen van inkomsten, nomenc
 - shadcn/Radix UI componenten met Tailwind CSS
 - Supabase Auth, Postgres, Storage en Edge Functions
 - Recharts voor dashboards
-- jsPDF en xlsx voor export
+- jsPDF en write-excel-file voor export
 - Vitest en Playwright voor tests
+- Finnhub voor ticker search, quotes en historische koersdata
 
 ## Vereisten
 
@@ -57,17 +58,21 @@ Belangrijke runtime onderdelen:
 - Storage bucket `screenshots` voor geuploade inkomsten-screenshots
 - Edge Function `extract-income` voor OCR/extractie van inkomsten
 - Edge Functions `extract-pension` en `extract-pension-ipt` voor pensioen/IPT-documenten
+- Edge Function `market-data` voor aandelen/ETF ticker search, actuele quotes en historische candles
 - Secret `LOVABLE_API_KEY` op Supabase voor AI Gateway calls
 - Secret `AI_ALLOWED_USER_IDS` of `AI_ALLOWED_EMAILS` om AI-extractie te beperken tot toegelaten gebruikers
+- Secret `FINNHUB_API_KEY` voor marktdata
 
 Deploy de functies met de Supabase CLI nadat de secrets zijn ingesteld:
 
 ```bash
 supabase secrets set LOVABLE_API_KEY="..."
 supabase secrets set AI_ALLOWED_USER_IDS="00000000-0000-0000-0000-000000000000"
+supabase secrets set FINNHUB_API_KEY="..."
 supabase functions deploy extract-income
 supabase functions deploy extract-pension
 supabase functions deploy extract-pension-ipt
+supabase functions deploy market-data
 ```
 
 De extractiefuncties vereisen een geldige Supabase JWT en een match met de AI-allowlist. De frontend roept deze functies aan via de ingelogde Supabase client.
