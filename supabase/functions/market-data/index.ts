@@ -40,7 +40,8 @@ serve(async (req) => {
       if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
         throw new HttpError("Invalid candle range", 400);
       }
-      const data = await yahooCandles(symbol, Math.floor(from), Math.floor(to));
+      const interval = String(body.interval || "1d");
+      const data = await yahooCandles(symbol, Math.floor(from), Math.floor(to), interval);
       return json(data);
     }
 
