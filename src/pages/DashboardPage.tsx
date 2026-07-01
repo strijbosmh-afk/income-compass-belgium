@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<IncomeEntry[]>([]);
   const [nomenclatureCodes, setNomenclatureCodes] = useState<NomenclatureCode[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -56,15 +57,20 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     Promise.all([
-      supabase.from('income_records').select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description').eq('user_id', user.id),
+      supabase.from('income_records')
+        .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
+        .eq('user_id', user.id)
+        .eq('year', parseInt(selectedYear)),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
-    ]).then(([recRes, nomRes]) => {
+      supabase.from('income_records').select('year').eq('user_id', user.id),
+    ]).then(([recRes, nomRes, yearsRes]) => {
       // Associatie-records worden bij weergave gehalveerd: dr. Schrevens-pool wordt 50/50 verdeeld.
       setRecords((recRes.data || []).map((r: any) => applyShare(r)));
       setNomenclatureCodes(nomRes.data || []);
+      setAvailableYears([...new Set((yearsRes.data || []).map((r) => r.year))].sort((a, b) => b - a));
       setLoading(false);
     });
-  }, [user, dataVersion]);
+  }, [user, dataVersion, selectedYear]);
 
   const codeToCategory = useMemo(() => {
     const map: Record<string, string> = {};
@@ -78,7 +84,7 @@ export default function DashboardPage() {
     return map;
   }, [nomenclatureCodes]);
 
-  const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
+  const years = useMemo(() => [...new Set([...availableYears, parseInt(selectedYear)])].filter(Boolean).sort((a, b) => b - a), [availableYears, selectedYear]);
   
   // Year-filtered (for charts that need full year)
   const yearFiltered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
