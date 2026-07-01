@@ -33,10 +33,7 @@ const incomeTools = [
 ];
 
 const pensionItems = [
-  { title: 'Upload VAPZ', url: '/pensioen/upload', icon: Upload },
-  { title: 'Upload IPT', url: '/pensioen/upload-ipt', icon: Upload },
-  { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
-  { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
+  { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
 ];
 
 const portfolioItems = [
@@ -50,9 +47,13 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const issueCount = useControleIssues();
 
+  const isItemActive = (url: string) => (
+    url === '/pensioen' ? location.pathname.startsWith('/pensioen') : location.pathname === url
+  );
+
   const renderItem = (item: { title: string; url: string; icon: any }) => (
     <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+      <SidebarMenuButton asChild isActive={isItemActive(item.url)}>
         <NavLink to={item.url} end className="text-sidebar-foreground hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
           <item.icon className="h-4 w-4" />
           {!collapsed && <span className="flex-1">{item.title}</span>}

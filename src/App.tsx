@@ -20,6 +20,7 @@ const ExportPage = lazy(() => import("./pages/ExportPage"));
 const SimulationsPage = lazy(() => import("./pages/SimulationsPage"));
 const ControlePage = lazy(() => import("./pages/ControlePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
+const PensionOverviewPage = lazy(() => import("./pages/PensionOverviewPage"));
 const PensionUploadPage = lazy(() => import("./pages/PensionUploadPage"));
 const PensionIptUploadPage = lazy(() => import("./pages/PensionIptUploadPage"));
 const PensionRecordsPage = lazy(() => import("./pages/PensionRecordsPage"));
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
               <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
               <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+              <Route path="/pensioen" element={<ProtectedRoute><PensionOverviewPage /></ProtectedRoute>} />
               <Route path="/pensioen/upload" element={<ProtectedRoute><PensionUploadPage /></ProtectedRoute>} />
               <Route path="/pensioen/upload-ipt" element={<ProtectedRoute><PensionIptUploadPage /></ProtectedRoute>} />
               <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
