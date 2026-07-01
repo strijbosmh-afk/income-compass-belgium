@@ -273,6 +273,19 @@ export default function PortfolioPage() {
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
+
+    // Cumulative EUR history across ALL currencies (using latest FX rate)
+    const eurByDate = new Map<string, number>();
+    for (const asset of assets) {
+      const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      for (const point of symbolSeries) {
+        if (point.date < asset.purchase_date || point.close <= 0) continue;
+        const localValue = point.close * asset.quantity;
+        const eurValue = toEur(localValue, asset.currency);
+        eurByDate.set(point.date, (eurByDate.get(point.date) || 0) + eurValue);
+      }
+    }
+    setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
   }
 
   function selectSymbol(result: SymbolResult) {
