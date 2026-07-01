@@ -87,6 +87,9 @@ export default function PortfolioPage() {
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
   const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
+  const [eurHistory, setEurHistory] = useState<{ date: string; value: number }[]>([]);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
+  const [fxUpdated, setFxUpdated] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
