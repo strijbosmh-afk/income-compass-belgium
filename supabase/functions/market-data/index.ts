@@ -44,14 +44,10 @@ serve(async (req) => {
       if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
         throw new HttpError("Invalid candle range", 400);
       }
-      const data = await finnhub(token, "/stock/candle", {
-        symbol,
-        resolution: "D",
-        from: String(Math.floor(from)),
-        to: String(Math.floor(to)),
-      });
+      const data = await yahooCandles(symbol, Math.floor(from), Math.floor(to));
       return json(data);
     }
+
 
     throw new HttpError("Unsupported market data action", 400);
   } catch (error: unknown) {
