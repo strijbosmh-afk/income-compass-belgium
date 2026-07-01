@@ -13,7 +13,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { toast } from 'sonner';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
-type RangeKey = '1W' | '1M' | '6M' | 'YTD' | '1Y';
+type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
 
 type PortfolioAsset = {
   id: string;
