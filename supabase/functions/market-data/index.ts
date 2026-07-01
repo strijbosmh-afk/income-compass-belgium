@@ -79,6 +79,60 @@ async function finnhub(token: string, path: string, params: Record<string, strin
   return data;
 }
 
+async function yahooCandles(symbol: string, from: number, to: number) {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("period1", String(from));
+  url.searchParams.set("period2", String(to));
+  url.searchParams.set("interval", "1d");
+  url.searchParams.set("events", "history");
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+  } catch (_error) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  if (!response.ok) {
+    await response.body?.cancel();
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  const result = payload?.chart?.result?.[0];
+  const timestamps: number[] | undefined = result?.timestamp;
+  const closes: (number | null)[] | undefined = result?.indicators?.quote?.[0]?.close;
+
+  if (!Array.isArray(timestamps) || !Array.isArray(closes) || timestamps.length === 0) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  const t: number[] = [];
+  const c: number[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const close = closes[i];
+    if (typeof close === "number" && Number.isFinite(close)) {
+      t.push(timestamps[i]);
+      c.push(close);
+    }
+  }
+
+  if (t.length === 0) return { s: "no_data", t: [], c: [] };
+  return { s: "ok", t, c };
+}
+
+
 function normalizeSymbols(value: unknown) {
   if (!Array.isArray(value)) throw new HttpError("Symbols must be an array", 400);
   const symbols = [...new Set(value.map((item) => String(item || "").trim().toUpperCase()).filter(Boolean))];
