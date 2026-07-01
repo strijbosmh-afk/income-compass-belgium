@@ -139,6 +139,17 @@ export default function PortfolioPage() {
     refreshMarketData();
   }, [assets, range, chartCurrency]);
 
+  const toEur = useMemo(() => {
+    return (value: number, currency: string) => {
+      if (!value) return 0;
+      const ccy = (currency || 'EUR').toUpperCase();
+      if (ccy === 'EUR') return value;
+      const rate = fxRates[ccy];
+      if (!rate || rate <= 0) return value;
+      return value / rate;
+    };
+  }, [fxRates]);
+
   const currencyGroups = useMemo(() => {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of assets) {
@@ -151,6 +162,16 @@ export default function PortfolioPage() {
     }
     return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
   }, [assets, quotes]);
+
+  const eurTotals = useMemo(() => {
+    let cost = 0;
+    let value = 0;
+    for (const group of currencyGroups) {
+      cost += toEur(group.cost, group.currency);
+      value += toEur(group.value, group.currency);
+    }
+    return { cost, value, gain: value - cost };
+  }, [currencyGroups, toEur]);
 
   useEffect(() => {
     if (currencyGroups.length > 0 && !currencyGroups.some((group) => group.currency === chartCurrency)) {
@@ -174,6 +195,12 @@ export default function PortfolioPage() {
     const target = history.filter((point) => point.date <= valuationDate).at(-1);
     return target?.value ?? 0;
   }, [history, valuationDate, currencyGroups, chartCurrency]);
+
+  const eurValueAtDate = useMemo(() => {
+    if (eurHistory.length === 0) return eurTotals.value;
+    const target = eurHistory.filter((point) => point.date <= valuationDate).at(-1);
+    return target?.value ?? eurTotals.value;
+  }, [eurHistory, valuationDate, eurTotals]);
 
   async function loadAssets() {
     if (!user) return;
