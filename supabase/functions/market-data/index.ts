@@ -140,11 +140,13 @@ async function yahooQuote(symbol: string) {
   }
 }
 
-async function yahooCandles(symbol: string, from: number, to: number) {
+async function yahooCandles(symbol: string, from: number, to: number, interval = "1d") {
+  const allowed = new Set(["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]);
+  const safeInterval = allowed.has(interval) ? interval : "1d";
   const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
   url.searchParams.set("period1", String(from));
   url.searchParams.set("period2", String(to));
-  url.searchParams.set("interval", "1d");
+  url.searchParams.set("interval", safeInterval);
   url.searchParams.set("events", "history");
 
   let response: Response;
