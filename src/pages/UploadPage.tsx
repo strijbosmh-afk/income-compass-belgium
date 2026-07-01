@@ -8,6 +8,7 @@ import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
 import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
+import { IMAGE_UPLOAD_RULES, validateFileForUpload } from '@/lib/fileValidation';
 
 export interface ExtractedRecord {
   record_date: string;
@@ -50,8 +51,9 @@ export default function UploadPage() {
       toast({ title: 'Kies een maand', description: 'Selecteer de maand van deze inkomsten.', variant: 'destructive' });
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Ongeldig bestand', description: 'Upload een afbeelding.', variant: 'destructive' });
+    const fileError = validateFileForUpload(file, IMAGE_UPLOAD_RULES);
+    if (fileError) {
+      toast({ title: 'Ongeldig bestand', description: fileError, variant: 'destructive' });
       return;
     }
 
@@ -63,9 +65,11 @@ export default function UploadPage() {
       reader.onload = (e) => setPreviewUrl(e.target?.result as string);
       reader.readAsDataURL(file);
 
-      const safeName = file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
+      const safeName = file.name.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_');
       const filePath = `${user.id}/${Date.now()}_${safeName}`;
-      const { error: uploadError } = await supabase.storage.from('screenshots').upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from('screenshots').upload(filePath, file, {
+        contentType: file.type,
+      });
       if (uploadError) throw uploadError;
 
       const base64 = await fileToBase64(file);
@@ -341,7 +345,7 @@ export default function UploadPage() {
                   <p className="font-medium text-foreground">Sleep je screenshot hierheen</p>
                   <p className="text-sm text-muted-foreground mt-1">of klik om te bladeren</p>
                 </div>
-                <input type="file" accept="image/*" onChange={handleFileInput} className="absolute inset-0 opacity-0 cursor-pointer" />
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileInput} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
             )}
           </div>

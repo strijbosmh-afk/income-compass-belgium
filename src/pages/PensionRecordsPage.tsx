@@ -57,8 +57,8 @@ export default function PensionRecordsPage() {
     if (!user) return;
     setLoading(true);
     const [{ data, error }, { data: iptData, error: iptErr }] = await Promise.all([
-      supabase.from('pension_records').select('*').order('snapshot_date', { ascending: false }),
-      supabase.from('pension_ipt_records').select('*').order('snapshot_date', { ascending: false }),
+      supabase.from('pension_records').select('*').eq('user_id', user.id).order('snapshot_date', { ascending: false }),
+      supabase.from('pension_ipt_records').select('*').eq('user_id', user.id).order('snapshot_date', { ascending: false }),
     ]);
     if (error) toast({ title: 'Fout', description: error.message, variant: 'destructive' });
     else setRecords((data as PensionRecord[]) || []);

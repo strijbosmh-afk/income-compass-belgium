@@ -43,6 +43,7 @@ export default function StatisticsPage() {
   const { user } = useAuth();
   const [records, setRecords] = useState<IncomeEntry[]>([]);
   const [nomenclature, setNomenclature] = useState<{ code: string; description: string; netto_amount: number }[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [compareYear, setCompareYear] = useState<string>('');
@@ -55,20 +56,24 @@ export default function StatisticsPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+    const requestedYears = [...new Set([parseInt(selectedYear), compareYear ? parseInt(compareYear) : null].filter((year): year is number => Number.isFinite(year)))];
     Promise.all([
       supabase.from('income_records')
         .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description, quantity')
-        .eq('user_id', user.id),
+        .eq('user_id', user.id)
+        .in('year', requestedYears),
       supabase.from('nomenclature_codes')
         .select('code, description, netto_amount')
         .eq('user_id', user.id),
-    ]).then(([r1, r2]) => {
+      supabase.from('income_records').select('year').eq('user_id', user.id),
+    ]).then(([r1, r2, yearsRes]) => {
       // Associatie wordt gehalveerd voor weergave (50% eigen aandeel uit dr. Schrevens-pool).
       setRecords(((r1.data as any[]) || []).map((r) => applyShare(r)));
       setNomenclature((r2.data as any) || []);
+      setAvailableYears([...new Set((yearsRes.data || []).map((r) => r.year))].sort((a, b) => b - a));
       setLoading(false);
     });
-  }, [user, dataVersion]);
+  }, [user, dataVersion, selectedYear, compareYear]);
 
   const codeToInfo = useMemo(() => {
     const m: Record<string, { description: string; netto: number }> = {};
@@ -76,7 +81,7 @@ export default function StatisticsPage() {
     return m;
   }, [nomenclature]);
 
-  const years = useMemo(() => [...new Set(records.map(r => r.year))].sort((a, b) => b - a), [records]);
+  const years = useMemo(() => [...new Set([...availableYears, parseInt(selectedYear)])].filter(Boolean).sort((a, b) => b - a), [availableYears, selectedYear]);
   const yearFiltered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
 
   const monthlyData = useMemo(() =>
