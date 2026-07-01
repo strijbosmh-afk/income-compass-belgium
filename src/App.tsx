@@ -24,6 +24,7 @@ const PensionUploadPage = lazy(() => import("./pages/PensionUploadPage"));
 const PensionIptUploadPage = lazy(() => import("./pages/PensionIptUploadPage"));
 const PensionRecordsPage = lazy(() => import("./pages/PensionRecordsPage"));
 const PensionDashboardPage = lazy(() => import("./pages/PensionDashboardPage"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function RouteFallback() {
@@ -67,6 +68,7 @@ const App = () => (
               <Route path="/pensioen/upload-ipt" element={<ProtectedRoute><PensionIptUploadPage /></ProtectedRoute>} />
               <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
               <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
+              <Route path="/aandelen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

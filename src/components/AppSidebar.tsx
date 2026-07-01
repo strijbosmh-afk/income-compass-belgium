@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, LineChart } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,10 +33,14 @@ const incomeTools = [
 ];
 
 const pensionItems = [
-  { title: 'Upload overzicht', url: '/pensioen/upload', icon: Upload },
+  { title: 'Upload VAPZ', url: '/pensioen/upload', icon: Upload },
   { title: 'Upload IPT', url: '/pensioen/upload-ipt', icon: Upload },
   { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
   { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
+];
+
+const portfolioItems = [
+  { title: 'Portfolio', url: '/aandelen', icon: LineChart },
 ];
 
 export function AppSidebar() {
@@ -84,13 +88,13 @@ export function AppSidebar() {
           </SidebarGroupLabel>
         </SidebarGroup>
 
-        {/* INKOMSTEN sectie */}
+        {/* INKOMEN sectie */}
         <SidebarGroup>
           <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
             <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
               <Wallet className="h-3 w-3 text-sidebar-foreground" />
             </span>
-            {!collapsed && <span className="font-bold">Inkomsten</span>}
+            {!collapsed && <span className="font-bold">Inkomen</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{incomeMain.map(renderItem)}</SidebarMenu>
@@ -111,6 +115,21 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{pensionItems.map(renderItem)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <Separator className="my-1 bg-sidebar-border" />
+
+        {/* AANDELEN sectie */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
+            <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
+              <LineChart className="h-3 w-3 text-sidebar-foreground" />
+            </span>
+            {!collapsed && <span className="font-bold">Aandelen</span>}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>{portfolioItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
