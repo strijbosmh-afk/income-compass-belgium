@@ -105,7 +105,22 @@ export default function PortfolioPage() {
   useEffect(() => {
     if (!user) return;
     loadAssets();
+    loadFx();
   }, [user]);
+
+  async function loadFx() {
+    try {
+      const res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR');
+      const data = await res.json();
+      if (data?.rates) {
+        setFxRates({ EUR: 1, ...data.rates });
+        setFxUpdated(data.date || '');
+      }
+    } catch (_err) {
+      // keep default EUR=1
+    }
+  }
+
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
