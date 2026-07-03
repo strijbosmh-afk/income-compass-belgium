@@ -2,3 +2,12 @@ project_id = "ftsgbacnewhpzasrjmrs"
 
 [functions.extract-income]
 verify_jwt = false
+
+[functions.extract-pension]
+verify_jwt = false
+
+[functions.extract-pension-ipt]
+verify_jwt = false
+
+[functions.market-data]
+verify_jwt = true

@@ -162,7 +162,7 @@ export default function PensionUploadPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pensioen PDF Uploaden</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Pensioen uploaden</h1>
         <p className="text-muted-foreground mt-1">Upload één of meerdere jaarlijkse pensioenoverzichten (PDF) — reserves worden automatisch geëxtraheerd.</p>
       </div>
 
@@ -198,11 +198,11 @@ export default function PensionUploadPage() {
 
       {items.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Verwerking ({items.length} bestanden)</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" disabled={anyBusy || savingAll} onClick={() => setItems([])}>Lijst wissen</Button>
-              <Button disabled={readyCount === 0 || savingAll || anyBusy} onClick={saveAll}>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto" disabled={anyBusy || savingAll} onClick={() => setItems([])}>Lijst wissen</Button>
+              <Button className="w-full sm:w-auto" disabled={readyCount === 0 || savingAll || anyBusy} onClick={saveAll}>
                 {savingAll && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Alles opslaan ({readyCount})
               </Button>

@@ -19,8 +19,10 @@ import PensionUploadPage from "./pages/PensionUploadPage";
 import PensionIptUploadPage from "./pages/PensionIptUploadPage";
 import PensionRecordsPage from "./pages/PensionRecordsPage";
 import PensionDashboardPage from "./pages/PensionDashboardPage";
+import PortfolioPage from "./pages/PortfolioPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+import { NativeLock } from "@/components/NativeLock";
 
 const queryClient = new QueryClient();
 
@@ -28,7 +30,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!user) return <Navigate to="/login" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return <NativeLock><AppLayout>{children}</AppLayout></NativeLock>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
@@ -47,7 +49,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-            <Route path="/" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
@@ -60,6 +63,7 @@ const App = () => (
             <Route path="/pensioen/upload-ipt" element={<ProtectedRoute><PensionIptUploadPage /></ProtectedRoute>} />
             <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
             <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
+            <Route path="/aandelen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

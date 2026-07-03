@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { GoalsWidget } from '@/components/GoalsWidget';
 import { MissingMonthsWidget } from '@/components/MissingMonthsWidget';
+import { MonthlyReport } from '@/components/MonthlyReport';
 import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeEntry = {
@@ -194,12 +195,12 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Overzicht van je inkomsten voor {filterLabel}.</p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center overflow-x-auto pb-1 md:pb-0">
           <Button
             variant="outline"
             size="icon"
@@ -223,7 +224,7 @@ export default function DashboardPage() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
+            <SelectTrigger className="w-36 shrink-0"><SelectValue placeholder="Maand" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle maanden</SelectItem>
               {MONTH_NAMES.map((name, idx) => <SelectItem key={idx} value={String(idx + 1)}>{name}</SelectItem>)}
@@ -252,7 +253,7 @@ export default function DashboardPage() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28 shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               {years.length === 0 && <SelectItem value={selectedYear}>{selectedYear}</SelectItem>}
@@ -314,6 +315,9 @@ export default function DashboardPage() {
 
       {/* Maandcontrole: ontbrekende / lage maanden */}
       <MissingMonthsWidget year={parseInt(selectedYear)} />
+
+      {/* Maandafsluiting */}
+      <MonthlyReport />
 
       {/* Kort maandoverzicht: 12 blokken per maand */}
       <Card className="border-border/50">

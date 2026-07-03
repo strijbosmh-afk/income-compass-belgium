@@ -3,11 +3,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react';
+import { Upload, Loader2, Image, Activity, Building2, Users, Camera as CameraIcon, Images, Check, Inbox, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
-import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
+import { type IncomeType } from '@/lib/incomeTypes';
+import { Capacitor } from '@capacitor/core';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { useUploadReviewInbox, type UploadReviewStatus } from '@/hooks/useUploadReviewInbox';
 
 export interface ExtractedRecord {
   record_date: string;
@@ -36,9 +40,11 @@ export default function UploadPage() {
   const [extractedData, setExtractedData] = useState<ExtractedRecord[] | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [incomeType, setIncomeType] = useState<IncomeType | ''>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const inbox = useUploadReviewInbox(user?.id);
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
@@ -88,9 +94,20 @@ export default function UploadPage() {
           // netto blijft EXACT zoals geëxtraheerd uit de screenshot — niet herberekenen.
         }));
         setExtractedData(records);
+        const preview = await fileToDataUrl(file);
+        setPreviewUrl(preview);
+        const draftId = inbox.addBatch({
+          records,
+          previewUrl: null,
+          month,
+          year,
+          incomeType,
+          title: `${MONTH_NAMES[month - 1]} ${year} · ${incomeTypeLabelShort(incomeType)} · ${records.length} regels`,
+        });
+        setActiveReviewId(draftId);
         const skip9 = data.skippedAccount9 > 0 ? ` (${data.skippedAccount9} regel(s) met rek. 9 overgeslagen)` : '';
         const skip0 = data.skippedAccount0 > 0 ? ` (${data.skippedAccount0} regel(s) met rek. 0 overgeslagen)` : '';
-        toast({ title: 'Data geëxtraheerd', description: `${records.length} record(s) gevonden${skip9}${skip0}.` });
+        toast({ title: 'Toegevoegd aan review inbox', description: `${records.length} record(s) gevonden${skip9}${skip0}. Controleer vóór opslaan.` });
       } else if (data?.skippedAccount9 > 0 || data?.skippedAccount0 > 0) {
         toast({ title: 'Alles gefilterd', description: `Alle regels weggefilterd op rekeningnummer — niets om op te slaan.`, variant: 'destructive' });
       } else {
@@ -101,7 +118,7 @@ export default function UploadPage() {
     } finally {
       setUploading(false);
     }
-  }, [user, toast, incomeType, selectedMonth, selectedYear, unitNettoByCode]);
+  }, [user, toast, incomeType, selectedMonth, selectedYear, unitNettoByCode, inbox]);
 
   // Haal nomenclatuur netto-bedragen op zodat de extractie quantity correct kan afleiden.
   useEffect(() => {
@@ -132,6 +149,30 @@ export default function UploadPage() {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
+    e.target.value = '';
+  };
+
+  const openNativePicker = async (source: CameraSource) => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const photo = await Camera.getPhoto({
+        source,
+        resultType: CameraResultType.Base64,
+        quality: 92,
+        correctOrientation: true,
+        allowEditing: false,
+      });
+      if (!photo.base64String) throw new Error('De afbeelding kon niet worden gelezen.');
+      const mimeType = `image/${photo.format === 'jpg' ? 'jpeg' : photo.format}`;
+      const bytes = Uint8Array.from(atob(photo.base64String), (character) => character.charCodeAt(0));
+      const file = new File([bytes], `income-${Date.now()}.${photo.format}`, { type: mimeType });
+      await processFile(file);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message && !message.toLowerCase().includes('cancel')) {
+        toast({ title: 'Afbeelding openen mislukt', description: message, variant: 'destructive' });
+      }
+    }
   };
 
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
@@ -166,6 +207,7 @@ export default function UploadPage() {
           variant: 'destructive',
           duration: 12000,
         });
+        if (activeReviewId) inbox.updateStatus(activeReviewId, 'blocked');
         return;
       }
 
@@ -198,6 +240,7 @@ export default function UploadPage() {
           variant: 'destructive',
           duration: 12000,
         });
+        if (activeReviewId) inbox.updateStatus(activeReviewId, 'blocked');
         return;
       }
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
@@ -217,30 +260,103 @@ export default function UploadPage() {
         title: 'Opgeslagen!',
         description: `${records.length} record(s) opgeslagen.`,
       });
+      if (activeReviewId) inbox.updateStatus(activeReviewId, 'saved');
       setExtractedData(null);
       setPreviewUrl(null);
+      setActiveReviewId(null);
     } catch (err: any) {
+      if (activeReviewId) inbox.updateStatus(activeReviewId, 'blocked');
       toast({ title: 'Opslaan mislukt', description: err.message, variant: 'destructive' });
     }
   };
 
+  const openReviewBatch = (id: string) => {
+    const item = inbox.items.find(batch => batch.id === id);
+    if (!item) return;
+    setActiveReviewId(item.id);
+    setExtractedData(item.records);
+    setPreviewUrl(item.previewUrl);
+    if (item.status !== 'saved') inbox.updateStatus(item.id, 'ready');
+  };
+
+  const closeCurrentReview = () => {
+    if (activeReviewId) inbox.updateStatus(activeReviewId, 'needs_review');
+    setActiveReviewId(null);
+    setExtractedData(null);
+    setPreviewUrl(null);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Screenshot Uploaden</h1>
-        <p className="text-muted-foreground mt-1">Upload een screenshot van je inkomstenoverzicht om data te extraheren en op te slaan.</p>
+    <div className="max-w-4xl mx-auto space-y-4 md:space-y-6 animate-fade-in">
+      <div className="ios-page-title">
+        <div>
+          <p className="ios-eyebrow">Nieuwe inkomsten</p>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Uploaden</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Fotografeer of kies je inkomstenoverzicht. MedIncome haalt de regels er automatisch uit.</p>
+        </div>
+        <div className="ios-step-progress" aria-label="Voortgang">
+          {[Boolean(incomeType), Boolean(selectedMonth), Boolean(extractedData)].map((done, index) => (
+            <span key={index} className={done ? 'ios-step-complete' : ''}>{done ? <Check className="h-3 w-3" /> : index + 1}</span>
+          ))}
+        </div>
       </div>
 
+      {inbox.items.length > 0 && (
+        <Card className="ios-card">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Inbox className="h-4 w-4 text-primary" />
+                Review inbox
+              </CardTitle>
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                {inbox.counts.needsReview > 0 && <Badge variant="outline">{inbox.counts.needsReview} te controleren</Badge>}
+                {inbox.counts.blocked > 0 && <Badge className="bg-destructive/10 text-destructive border-destructive/20">{inbox.counts.blocked} geblokkeerd</Badge>}
+                {inbox.counts.saved > 0 && <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">{inbox.counts.saved} opgeslagen</Badge>}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {inbox.items.map(item => (
+              <div key={item.id} className={`rounded-xl border p-3 ${activeReviewId === item.id ? 'border-primary/40 bg-primary/5' : 'border-border/50 bg-muted/20'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(item.createdAt).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <ReviewStatusBadge status={item.status} />
+                </div>
+                <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                  <Button size="sm" variant={item.status === 'saved' ? 'outline' : 'default'} onClick={() => openReviewBatch(item.id)}>
+                    {item.status === 'saved' ? 'Bekijken' : 'Controleren'}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => inbox.removeBatch(item.id)} title="Verwijderen">
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {inbox.counts.saved > 0 && (
+              <Button size="sm" variant="ghost" className="w-full" onClick={inbox.clearSaved}>
+                Opgeslagen items opruimen
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Type inkomen selectie */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base">Type Inkomen</CardTitle>
+      <Card className="ios-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base"><span className="ios-step-number">1</span> Type inkomen</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
             <button
               onClick={() => setIncomeType('ambulatory')}
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`ios-choice-card ${
                 incomeType === 'ambulatory'
                   ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -249,12 +365,12 @@ export default function UploadPage() {
               <Activity className={`h-5 w-5 ${incomeType === 'ambulatory' ? 'text-secondary' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'ambulatory' ? 'text-foreground' : 'text-muted-foreground'}`}>Ambulant</p>
-                <p className="text-xs text-muted-foreground">Poliklinische raadplegingen</p>
+                <p className="hidden md:block text-xs text-muted-foreground">Poliklinische raadplegingen</p>
               </div>
             </button>
             <button
               onClick={() => setIncomeType('hospitalized')}
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`ios-choice-card ${
                 incomeType === 'hospitalized'
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -263,12 +379,12 @@ export default function UploadPage() {
               <Building2 className={`h-5 w-5 ${incomeType === 'hospitalized' ? 'text-primary' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'hospitalized' ? 'text-foreground' : 'text-muted-foreground'}`}>Gehospitaliseerd</p>
-                <p className="text-xs text-muted-foreground">Klinische zorg</p>
+                <p className="hidden md:block text-xs text-muted-foreground">Klinische zorg</p>
               </div>
             </button>
             <button
               onClick={() => setIncomeType('associatie')}
-              className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+              className={`ios-choice-card ${
                 incomeType === 'associatie'
                   ? 'border-accent bg-accent/5 ring-1 ring-accent/20'
                   : 'border-border hover:border-muted-foreground/30'
@@ -277,7 +393,7 @@ export default function UploadPage() {
               <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
-                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — volledig poolbedrag</p>
+                <p className="hidden md:block text-xs text-muted-foreground">Volledig poolbedrag</p>
               </div>
             </button>
           </div>
@@ -290,14 +406,14 @@ export default function UploadPage() {
       </Card>
 
       {/* Maand en jaar selectie */}
-      <Card className={`border-border/50 ${!incomeType ? 'opacity-50 pointer-events-none' : ''}`}>
-        <CardHeader>
-          <CardTitle className="text-base">Periode</CardTitle>
+      <Card className={`ios-card ${!incomeType ? 'opacity-50 pointer-events-none' : ''}`}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base"><span className="ios-step-number">2</span> Periode</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-[1fr_110px] gap-3">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Kies maand" /></SelectTrigger>
+              <SelectTrigger className="w-full h-12 rounded-xl"><SelectValue placeholder="Kies maand" /></SelectTrigger>
               <SelectContent>
                 {MONTH_NAMES.map((name, idx) => (
                   <SelectItem key={idx} value={String(idx + 1)}>{name}</SelectItem>
@@ -305,7 +421,7 @@ export default function UploadPage() {
               </SelectContent>
             </Select>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-28"><SelectValue placeholder="Jaar" /></SelectTrigger>
+              <SelectTrigger className="w-full h-12 rounded-xl"><SelectValue placeholder="Jaar" /></SelectTrigger>
               <SelectContent>
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
@@ -317,13 +433,45 @@ export default function UploadPage() {
       </Card>
 
       {/* Upload zone */}
-      <Card className={`border-border/50 ${!incomeType || !selectedMonth ? 'opacity-50 pointer-events-none' : ''}`}>
-        <CardContent className="pt-6">
+      <Card className={`ios-card ${!incomeType || !selectedMonth ? 'opacity-50 pointer-events-none' : ''}`}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base"><span className="ios-step-number">3</span> Voeg afbeelding toe</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <Button
+              type="button"
+              className="ios-capture-button [&_svg]:!size-6"
+              onClick={() => void openNativePicker(CameraSource.Camera)}
+              asChild={!Capacitor.isNativePlatform()}
+              disabled={uploading}
+            >
+              {Capacitor.isNativePlatform() ? (
+                <><CameraIcon className="h-6 w-6" /><span>Maak foto</span></>
+              ) : (
+                <label><CameraIcon className="h-6 w-6" /><span>Maak foto</span><input type="file" accept="image/*" capture="environment" onChange={handleFileInput} className="sr-only" /></label>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="ios-capture-button [&_svg]:!size-6"
+              onClick={() => void openNativePicker(CameraSource.Photos)}
+              asChild={!Capacitor.isNativePlatform()}
+              disabled={uploading}
+            >
+              {Capacitor.isNativePlatform() ? (
+                <><Images className="h-6 w-6" /><span>Kies foto</span></>
+              ) : (
+                <label><Images className="h-6 w-6" /><span>Kies foto</span><input type="file" accept="image/*" onChange={handleFileInput} className="sr-only" /></label>
+              )}
+            </Button>
+          </div>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
+            className={`hidden md:block relative border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
               dragActive ? 'border-secondary bg-secondary/5' : 'border-border hover:border-muted-foreground/30'
             }`}
           >
@@ -363,10 +511,23 @@ export default function UploadPage() {
       )}
 
       {extractedData && (
-        <ExtractedDataReview records={extractedData} unitNettoByCode={unitNettoByCode} onSave={handleSaveRecords} onCancel={() => { setExtractedData(null); setPreviewUrl(null); }} />
+        <ExtractedDataReview records={extractedData} unitNettoByCode={unitNettoByCode} onSave={handleSaveRecords} onCancel={closeCurrentReview} />
       )}
     </div>
   );
+}
+
+function ReviewStatusBadge({ status }: { status: UploadReviewStatus }) {
+  if (status === 'saved') return <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">Opgeslagen</Badge>;
+  if (status === 'blocked') return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Geblokkeerd</Badge>;
+  if (status === 'ready') return <Badge className="bg-primary/10 text-primary border-primary/20">Open</Badge>;
+  return <Badge variant="outline">Te controleren</Badge>;
+}
+
+function incomeTypeLabelShort(type: IncomeType) {
+  if (type === 'ambulatory') return 'Ambulant';
+  if (type === 'hospitalized') return 'Gehospitaliseerd';
+  return 'Associatie';
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -376,6 +537,15 @@ function fileToBase64(file: File): Promise<string> {
       const result = reader.result as string;
       resolve(result.split(',')[1]);
     };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });

@@ -246,7 +246,7 @@ export default function RecordsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Inkomstenoverzicht</h1>
           <p className="text-muted-foreground mt-1">Bekijk en beheer je inkomsten.</p>
@@ -257,16 +257,16 @@ export default function RecordsPage() {
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
         <Select value={filterYear} onValueChange={setFilterYear}>
-          <SelectTrigger className="w-32"><SelectValue placeholder="Jaar" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-32"><SelectValue placeholder="Jaar" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle jaren</SelectItem>
             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterMonth} onValueChange={setFilterMonth}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Maand" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle maanden</SelectItem>
             {['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'].map((m, i) => (
@@ -275,7 +275,7 @@ export default function RecordsPage() {
           </SelectContent>
         </Select>
         <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Type" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Alle types</SelectItem>
             <SelectItem value="ambulatory">Ambulant</SelectItem>
@@ -283,7 +283,7 @@ export default function RecordsPage() {
             <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="ml-auto gap-2" onClick={runCompare}>
+        <Button variant="outline" size="sm" className="gap-2 sm:ml-auto" onClick={runCompare}>
           <Scale className="h-4 w-4" /> Vergelijk met dashboard
         </Button>
       </div>

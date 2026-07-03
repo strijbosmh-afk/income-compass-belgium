@@ -102,7 +102,7 @@ export default function PensionDashboardPage() {
   if (!latest) {
     return (
       <div className="max-w-4xl mx-auto animate-fade-in">
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">Pensioen Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-2">Pensioendashboard</h1>
         <Card className="border-border/50">
           <CardContent className="py-12 text-center text-muted-foreground">
             Nog geen pensioendata. Upload je eerste jaarlijkse PDF om dit dashboard te vullen.
@@ -130,7 +130,7 @@ export default function PensionDashboardPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pensioen Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Pensioendashboard</h1>
         <p className="text-muted-foreground mt-1">
           Laatste snapshot: {new Date(latest.snapshot_date).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
