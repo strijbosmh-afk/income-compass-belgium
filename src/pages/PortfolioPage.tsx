@@ -452,10 +452,7 @@ export default function PortfolioPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number, max: number) => {
-                  const pad = Math.max(Math.abs(max - min) * 0.08, max * 0.005);
-                  return [min - pad, max + pad];
-                }, 'auto']} tickFormatter={(value) => compactMoney(Number(value))} />
+                <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
 
                 <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
                 <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
@@ -490,10 +487,7 @@ export default function PortfolioPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number, max: number) => {
-                    const pad = Math.max(Math.abs(max - min) * 0.08, max * 0.005);
-                    return [min - pad, max + pad];
-                  }, 'auto']} tickFormatter={(value) => compactMoney(Number(value))} />
+                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
                   <Tooltip formatter={(value) => money(Number(value), chartCurrency)} />
                   <Area type="monotone" dataKey="value" stroke="hsl(174, 50%, 40%)" fill="url(#portfolioValue)" strokeWidth={2} />
                 </AreaChart>
