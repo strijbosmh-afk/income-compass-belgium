@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Minus, Maximize2, Download, FileText, MousePointerClick, GripVertical } from 'lucide-react';
 import { GoalTrendChart } from '@/components/GoalTrendChart';
@@ -285,6 +285,9 @@ export default function GoalsPage() {
                   </span>
                   <StatusBadge status={fullscreen.status} />
                 </DialogTitle>
+                <DialogDescription>
+                  Detailweergave van de voortgang, projectie en cumulatieve evolutie voor dit doel.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0 mt-2">
@@ -389,6 +392,9 @@ export default function GoalsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editing ? 'Doel bewerken' : 'Nieuw doel'}</DialogTitle>
+            <DialogDescription>
+              Stel de periode, inkomstenstroom, maatstaf en het doelbedrag in.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">

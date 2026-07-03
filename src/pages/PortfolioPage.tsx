@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Pencil, Plus, RefreshCw, Search, Trash2, TrendingUp, Wallet } from 'lucide-react';
+import { Activity, BarChart3, Building2, Clock3, ExternalLink, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 
@@ -39,6 +39,11 @@ type SymbolResult = {
 
 type MarketQuote = {
   c?: number;
+  d?: number;
+  dp?: number;
+  h?: number;
+  l?: number;
+  o?: number;
   pc?: number;
   t?: number;
 };
@@ -47,10 +52,25 @@ type QuoteEntry = {
   symbol: string;
   quote: MarketQuote;
   profile?: {
+    country?: string;
     currency?: string;
     exchange?: string;
+    finnhubIndustry?: string;
+    averageVolume?: number;
+    beta?: number;
+    dividendYield?: number;
+    fiftyTwoWeekHigh?: number;
+    fiftyTwoWeekLow?: number;
+    logo?: string;
+    marketCapitalization?: number;
+    marketCap?: number;
     name?: string;
+    regularMarketVolume?: number;
+    shareOutstanding?: number;
+    shortName?: string;
     ticker?: string;
+    weburl?: string;
+    pe?: number;
   };
 };
 
@@ -180,15 +200,58 @@ export default function PortfolioPage() {
   }, [currencyGroups, chartCurrency]);
 
   const portfolioRows = useMemo(() => assets.map((asset) => {
-    const quote = quotes[asset.symbol]?.quote;
+    const quoteEntry = quotes[asset.symbol];
+    const quote = quoteEntry?.quote;
+    const profile = quoteEntry?.profile || {};
     const currentPrice = Number(quote?.c || 0);
     const previousClose = Number(quote?.pc || 0);
     const cost = asset.quantity * asset.purchase_price;
     const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : 0;
     const gain = currentValue - cost;
-    const dayChange = currentPrice > 0 && previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
-    return { asset, currentPrice, cost, currentValue, gain, dayChange };
-  }), [assets, quotes]);
+    const dayChangeAmount = Number(quote?.d ?? (currentPrice - previousClose));
+    const dayChange = Number(quote?.dp ?? (currentPrice > 0 && previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0));
+    const quoteCurrency = (profile.currency || asset.currency || 'EUR').toUpperCase();
+    const dayLow = Number(quote?.l || 0);
+    const dayHigh = Number(quote?.h || 0);
+    const open = Number(quote?.o || 0);
+    const weekLow = Number(profile.fiftyTwoWeekLow || 0);
+    const weekHigh = Number(profile.fiftyTwoWeekHigh || 0);
+    const marketCap = Number(profile.marketCap || (profile.marketCapitalization ? profile.marketCapitalization * 1_000_000 : 0));
+    const volume = Number(profile.regularMarketVolume || 0);
+    const averageVolume = Number(profile.averageVolume || 0);
+    const allocation = eurTotals.value > 0 && currentValue > 0 ? (toEur(currentValue, quoteCurrency) / eurTotals.value) * 100 : 0;
+    const dividendYield = Number(profile.dividendYield || 0);
+    const gainPct = cost > 0 && currentValue > 0 ? (gain / cost) * 100 : 0;
+    const updatedAt = quote?.t ? new Date(Number(quote.t) * 1000).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    return {
+      allocation,
+      asset,
+      averageVolume,
+      beta: Number(profile.beta || 0),
+      currentPrice,
+      cost,
+      currentValue,
+      dayChange,
+      dayChangeAmount,
+      dayHigh,
+      dayLow,
+      dividendYield,
+      exchange: profile.exchange || asset.exchange || '',
+      gainPct,
+      industry: profile.finnhubIndustry || '',
+      marketCap,
+      name: profile.name || profile.shortName || asset.name,
+      open,
+      pe: Number(profile.pe || 0),
+      previousClose,
+      quoteCurrency,
+      updatedAt,
+      volume,
+      website: profile.weburl || '',
+      weekHigh,
+      weekLow,
+    };
+  }), [assets, quotes, eurTotals.value, toEur]);
 
   const valueAtDate = useMemo(() => {
     if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
@@ -577,27 +640,75 @@ export default function PortfolioPage() {
                   <TableHead className="text-right">Koers</TableHead>
                   <TableHead className="text-right">Waarde</TableHead>
                   <TableHead className="text-right">Resultaat</TableHead>
-                  <TableHead className="text-right">Dag</TableHead>
+                  <TableHead className="text-right">Marktinfo</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {portfolioRows.length === 0 ? (
                   <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-10">Nog geen posities toegevoegd.</TableCell></TableRow>
-                ) : portfolioRows.map(({ asset, currentPrice, cost, currentValue, gain, dayChange }) => (
-                  <TableRow key={asset.id}>
-                    <TableCell className="font-medium">{asset.symbol}</TableCell>
-                    <TableCell>{asset.name}</TableCell>
-                    <TableCell className="uppercase text-xs text-muted-foreground">{asset.asset_type}</TableCell>
-                    <TableCell className="text-right">{asset.quantity.toLocaleString('nl-BE')}</TableCell>
-                    <TableCell className="text-right">{money(cost, asset.currency)}</TableCell>
-                    <TableCell className="text-right">{currentPrice ? money(currentPrice, asset.currency) : '-'}</TableCell>
-                    <TableCell className="text-right">{currentValue ? money(currentValue, asset.currency) : '-'}</TableCell>
-                    <TableCell className={`text-right ${gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currentValue ? money(gain, asset.currency) : '-'}</TableCell>
-                    <TableCell className={`text-right ${dayChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currentPrice ? pct(dayChange) : '-'}</TableCell>
+                ) : portfolioRows.map((row) => (
+                  <TableRow key={row.asset.id} className="align-top">
+                    <TableCell className="min-w-40">
+                      <div className="font-semibold">{row.asset.symbol}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{row.exchange || row.asset.mic || 'Beurs onbekend'} · {row.quoteCurrency}</div>
+                    </TableCell>
+                    <TableCell className="min-w-80">
+                      <div className="font-medium">{row.name}</div>
+                      <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        <InfoLine icon={<Building2 className="h-3.5 w-3.5" />} value={row.industry || row.asset.asset_type.toUpperCase()} />
+                        <InfoLine icon={<Clock3 className="h-3.5 w-3.5" />} value={row.updatedAt ? `Update ${row.updatedAt}` : 'Geen update'} />
+                      </div>
+                      {row.website && (
+                        <a
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          href={row.website}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Website <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </TableCell>
+                    <TableCell className="uppercase text-xs text-muted-foreground">{row.asset.asset_type}</TableCell>
+                    <TableCell className="text-right">{row.asset.quantity.toLocaleString('nl-BE')}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => editAsset(asset)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteAsset(asset.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <div>{money(row.cost, row.asset.currency)}</div>
+                      <div className="text-xs text-muted-foreground">{money(row.asset.purchase_price, row.asset.currency)} / stuk</div>
+                    </TableCell>
+                    <TableCell className="min-w-52 text-right">
+                      <div className="font-semibold">{row.currentPrice ? money(row.currentPrice, row.quoteCurrency) : '-'}</div>
+                      <div className={`text-xs ${row.dayChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                        {row.currentPrice ? `${money(row.dayChangeAmount, row.quoteCurrency)} (${pct(row.dayChange)}) vandaag` : 'Geen koers'}
+                      </div>
+                      <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                        <span>Open {row.open ? money(row.open, row.quoteCurrency) : '-'}</span>
+                        <span>Vorige slot {row.previousClose ? money(row.previousClose, row.quoteCurrency) : '-'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div>{row.currentValue ? money(row.currentValue, row.quoteCurrency) : '-'}</div>
+                      <div className="text-xs text-muted-foreground">{row.allocation ? `${row.allocation.toFixed(1)}% allocatie` : '-'}</div>
+                    </TableCell>
+                    <TableCell className={`text-right ${row.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      <div>{row.currentValue ? money(row.gain, row.quoteCurrency) : '-'}</div>
+                      <div className="text-xs">{row.currentValue ? pct(row.gainPct) : '-'}</div>
+                    </TableCell>
+                    <TableCell className="min-w-72 text-right">
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <InfoLine align="right" icon={<Activity className="h-3.5 w-3.5" />} value={`Dag ${rangeText(row.dayLow, row.dayHigh, row.quoteCurrency)}`} />
+                        <InfoLine align="right" icon={<BarChart3 className="h-3.5 w-3.5" />} value={`52w ${rangeText(row.weekLow, row.weekHigh, row.quoteCurrency)}`} />
+                        <div>Volume {row.volume ? compactNumber(row.volume) : '-'}</div>
+                        <div>Gem. volume {row.averageVolume ? compactNumber(row.averageVolume) : '-'}</div>
+                        <div>Market cap {row.marketCap ? `${compactMoney(row.marketCap)} ${row.quoteCurrency}` : '-'}</div>
+                        <div>P/E {row.pe ? row.pe.toFixed(2) : '-'}</div>
+                        <div>Dividend {row.dividendYield ? `${row.dividendYield.toFixed(2)}%` : '-'}</div>
+                        <div>Beta {row.beta ? row.beta.toFixed(2) : '-'}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => editAsset(row.asset)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteAsset(row.asset.id)}><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -607,6 +718,15 @@ export default function PortfolioPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function InfoLine({ icon, value, align = 'left' }: { icon: JSX.Element; value: string; align?: 'left' | 'right' }) {
+  return (
+    <span className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+      {icon}
+      {value}
+    </span>
   );
 }
 
@@ -674,6 +794,15 @@ function compactMoney(value: number) {
   return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
 }
 
+function compactNumber(value: number) {
+  return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
+}
+
 function pct(value: number) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+}
+
+function rangeText(low: number, high: number, currency: string) {
+  if (!low || !high) return '-';
+  return `${money(low, currency)} - ${money(high, currency)}`;
 }

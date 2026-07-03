@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Loader2, Pencil, Tag, X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -280,7 +280,10 @@ export default function NomenclaturePage() {
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Code Bewerken</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Code Bewerken</DialogTitle>
+            <DialogDescription>Pas de code, omschrijving, categorie en het netto bedrag aan.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>RIZIV Code</Label>
@@ -317,7 +320,10 @@ export default function NomenclaturePage() {
 
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Categorieën Beheren</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Categorieën Beheren</DialogTitle>
+            <DialogDescription>Bekijk standaardcategorieën en voeg eigen categorieën toe.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block">Standaard categorieën</Label>

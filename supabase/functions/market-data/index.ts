@@ -77,16 +77,27 @@ async function finnhub(token: string, path: string, params: Record<string, strin
 }
 
 async function quoteWithFallback(token: string, symbol: string) {
-  const [quoteResult, profileResult] = await Promise.allSettled([
+  const [quoteResult, profileResult, metricResult] = await Promise.allSettled([
     finnhub(token, "/quote", { symbol }),
     finnhub(token, "/stock/profile2", { symbol }),
+    finnhub(token, "/stock/metric", { symbol, metric: "all" }),
   ]);
 
   if (quoteResult.status === "fulfilled") {
+    const profile = profileResult.status === "fulfilled" ? profileResult.value : {};
+    const metric = metricResult.status === "fulfilled" ? metricResult.value?.metric || {} : {};
     return {
       symbol,
       quote: quoteResult.value,
-      profile: profileResult.status === "fulfilled" ? profileResult.value : {},
+      profile: {
+        ...profile,
+        averageVolume: Number(metric["10DayAverageTradingVolume"] || metric["3MonthAverageTradingVolume"] || 0),
+        beta: Number(metric.beta || 0),
+        dividendYield: Number(metric.dividendYieldIndicatedAnnual || metric.currentDividendYieldTTM || 0),
+        fiftyTwoWeekHigh: Number(metric["52WeekHigh"] || 0),
+        fiftyTwoWeekLow: Number(metric["52WeekLow"] || 0),
+        pe: Number(metric.peBasicExclExtraTTM || metric.peNormalizedAnnual || metric.peTTM || 0),
+      },
     };
   }
 
@@ -111,9 +122,16 @@ async function yahooQuote(symbol: string) {
       return { symbol, quote: {}, profile: {} };
     }
 
-    const payload = await response.json();
+    const [payload, summary] = await Promise.all([
+      response.json(),
+      yahooSummary(symbol),
+    ]);
     const result = payload?.chart?.result?.[0];
     const meta = result?.meta || {};
+    const price = summary?.price || {};
+    const summaryDetail = summary?.summaryDetail || {};
+    const defaultKeyStatistics = summary?.defaultKeyStatistics || {};
+    const summaryProfile = summary?.summaryProfile || {};
     const closes = result?.indicators?.quote?.[0]?.close || [];
     const validCloses = Array.isArray(closes)
       ? closes.filter((close: unknown) => typeof close === "number" && Number.isFinite(close))
@@ -126,18 +144,65 @@ async function yahooQuote(symbol: string) {
       quote: {
         c: Number.isFinite(current) ? current : 0,
         pc: Number.isFinite(previous) ? previous : 0,
+        d: Number.isFinite(current - previous) ? current - previous : 0,
+        dp: previous > 0 && Number.isFinite(current) ? ((current - previous) / previous) * 100 : 0,
+        h: Number(meta.regularMarketDayHigh || 0),
+        l: Number(meta.regularMarketDayLow || 0),
+        o: Number(meta.regularMarketOpen || 0),
         t: Number(meta.regularMarketTime || 0),
       },
       profile: {
         currency: meta.currency,
         exchange: meta.exchangeName || meta.fullExchangeName || meta.exchange,
-        name: meta.longName || meta.shortName || symbol,
+        averageVolume: rawNumber(summaryDetail.averageVolume) || rawNumber(summaryDetail.averageDailyVolume10Day),
+        beta: rawNumber(defaultKeyStatistics.beta),
+        dividendYield: rawNumber(summaryDetail.dividendYield) * 100,
+        fiftyTwoWeekHigh: Number(meta.fiftyTwoWeekHigh || rawNumber(summaryDetail.fiftyTwoWeekHigh) || 0),
+        fiftyTwoWeekLow: Number(meta.fiftyTwoWeekLow || rawNumber(summaryDetail.fiftyTwoWeekLow) || 0),
+        finnhubIndustry: summaryProfile.industry || summaryProfile.sector,
+        marketCap: Number(meta.marketCap || rawNumber(price.marketCap) || 0),
+        name: meta.longName || meta.shortName || price.longName || price.shortName || symbol,
+        pe: rawNumber(summaryDetail.trailingPE),
+        regularMarketVolume: Number(meta.regularMarketVolume || rawNumber(price.regularMarketVolume) || 0),
+        shortName: meta.shortName || price.shortName,
         ticker: symbol,
+        weburl: summaryProfile.website,
       },
     };
   } catch (_error) {
     return { symbol, quote: {}, profile: {} };
   }
+}
+
+async function yahooSummary(symbol: string) {
+  const url = new URL(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("modules", "summaryProfile,defaultKeyStatistics,summaryDetail,price");
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return {};
+    }
+    const payload = await response.json();
+    return payload?.quoteSummary?.result?.[0] || {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function rawNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value && typeof value === "object" && "raw" in value) {
+    const raw = (value as { raw?: unknown }).raw;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  }
+  return 0;
 }
 
 async function yahooCandles(symbol: string, from: number, to: number, interval = "1d") {
@@ -200,7 +265,7 @@ function normalizeSymbols(value: unknown) {
   if (!Array.isArray(value)) throw new HttpError("Symbols must be an array", 400);
   const symbols = [...new Set(value.map((item) => String(item || "").trim().toUpperCase()).filter(Boolean))];
   if (symbols.length === 0) throw new HttpError("At least one symbol is required", 400);
-  if (symbols.length > 20) throw new HttpError("Request at most 20 symbols at once", 400);
+  if (symbols.length > 50) throw new HttpError("Request at most 50 symbols at once", 400);
   return symbols;
 }
 
