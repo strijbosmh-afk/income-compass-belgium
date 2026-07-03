@@ -490,7 +490,10 @@ export default function PortfolioPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min * 0.995, (max: number) => max * 1.005]} tickFormatter={(value) => compactMoney(Number(value))} />
+                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number, max: number) => {
+                    const pad = Math.max(Math.abs(max - min) * 0.08, max * 0.005);
+                    return [min - pad, max + pad];
+                  }, 'auto']} tickFormatter={(value) => compactMoney(Number(value))} />
                   <Tooltip formatter={(value) => money(Number(value), chartCurrency)} />
                   <Area type="monotone" dataKey="value" stroke="hsl(174, 50%, 40%)" fill="url(#portfolioValue)" strokeWidth={2} />
                 </AreaChart>
