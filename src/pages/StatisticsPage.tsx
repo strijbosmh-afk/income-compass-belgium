@@ -242,13 +242,13 @@ export default function StatisticsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Statistieken</h1>
           <p className="text-muted-foreground mt-1">Analyses, trends en jaarvergelijking.</p>
         </div>
         <Select value={selectedYear} onValueChange={setSelectedYear}>
-          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-28"><SelectValue /></SelectTrigger>
           <SelectContent>
             {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             {years.length === 0 && <SelectItem value={selectedYear}>{selectedYear}</SelectItem>}
@@ -668,4 +668,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-

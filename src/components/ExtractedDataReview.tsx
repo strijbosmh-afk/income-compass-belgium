@@ -201,17 +201,17 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
 
   return (
     <Card className="border-border/50">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="text-lg">Geëxtraheerde Data Controleren</CardTitle>
           <p className="text-xs text-muted-foreground mt-1">
             Bedragen komen 1‑op‑1 uit de screenshot. Vergelijk netto/bruto met het origineel vóór opslaan.
           </p>
         </div>
-        <div className="text-right space-y-0.5">
+        <div className="space-y-0.5 sm:text-right">
           <p className="text-xs text-muted-foreground">{records.length} record(s) — Bruto {fmt(totals.bruto)} · Netto {fmt(totals.netto)}</p>
           {totalIssues > 0 && (
-            <p className="text-xs text-destructive flex items-center gap-1 justify-end">
+            <p className="text-xs text-destructive flex items-center gap-1 sm:justify-end">
               <AlertTriangle className="h-3 w-3" /> {totalIssues} regel(s) met netto‑verschil
             </p>
           )}
@@ -443,9 +443,10 @@ export function ExtractedDataReview({ records: initialRecords, unitNettoByCode =
             </div>
           </div>
         )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
+        <div className="grid grid-cols-2 gap-2 pt-2 sm:flex sm:justify-end">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={onCancel}><X className="h-4 w-4 mr-1" />Verwijderen</Button>
           <Button
+            className="w-full sm:w-auto"
             onClick={() => onSave(records)}
             disabled={records.length === 0 || totalIssues > 0 || duplicateIdx.size > 0}
             title={duplicateIdx.size > 0 ? 'Verwijder eerst de gemarkeerde dubbele rijen' : (totalIssues > 0 ? 'Corrigeer eerst de afwijkende regels' : undefined)}

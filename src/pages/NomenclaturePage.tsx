@@ -171,17 +171,17 @@ export default function NomenclaturePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Nomenclatuurbeheer</h1>
           <p className="text-muted-foreground mt-1">Beheer je RIZIV nomenclatuurcodes en categorieën.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV} disabled={codes.length === 0}>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={exportCSV} disabled={codes.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCategoryDialogOpen(true)}>
             <Tag className="h-4 w-4 mr-2" />
             Categorieën Beheren
           </Button>
