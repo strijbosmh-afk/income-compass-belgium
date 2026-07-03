@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, Stethoscope, CheckCircle2, AlertCircle, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { PDF_UPLOAD_RULES, validateBatchForUpload } from '@/lib/fileValidation';
 
 interface PensionSnapshot {
   snapshot_date: string;
@@ -43,11 +44,12 @@ export default function PensionUploadPage() {
 
   const processFiles = useCallback(async (files: File[]) => {
     if (!user) return;
-    const pdfs = files.filter(f => f.type === 'application/pdf');
-    if (pdfs.length === 0) {
-      toast({ title: 'Ongeldige bestanden', description: 'Enkel PDF-bestanden worden geaccepteerd.', variant: 'destructive' });
+    const fileError = validateBatchForUpload(files, PDF_UPLOAD_RULES);
+    if (fileError) {
+      toast({ title: 'Ongeldige bestanden', description: fileError, variant: 'destructive' });
       return;
     }
+    const pdfs = files;
     const newItems: BatchItem[] = pdfs.map(f => ({
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${f.name}`,
       file: f,
@@ -60,9 +62,11 @@ export default function PensionUploadPage() {
     for (const item of newItems) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
-        const safeName = item.file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
+        const safeName = item.file.name.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_');
         const filePath = `${user.id}/${Date.now()}_${safeName}`;
-        const { error: uploadError } = await supabase.storage.from('pension-pdfs').upload(filePath, item.file);
+        const { error: uploadError } = await supabase.storage.from('pension-pdfs').upload(filePath, item.file, {
+          contentType: item.file.type,
+        });
         if (uploadError) throw uploadError;
 
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath } : i));

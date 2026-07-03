@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { PDF_MIME_TYPES, errorResponse, requireAiCaller, validateBase64Payload } from "../_shared/security.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,11 +37,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    requireAiCaller(req);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { pdf, mimeType } = await req.json();
-    if (!pdf) throw new Error("No PDF provided");
+    validateBase64Payload("PDF", pdf, mimeType, PDF_MIME_TYPES, 12 * 1024 * 1024);
 
     const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-jaaroverzichten (Individuele Pensioentoezegging, Nederlands).
 
@@ -80,7 +83,7 @@ REGELS:
             role: "user",
             content: [
               { type: "text", text: "Extraheer de IPT-waarden en de referentiedatum uit deze PDF." },
-              { type: "image_url", image_url: { url: `data:${mimeType || "application/pdf"};base64,${pdf}` } },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${pdf}` } },
             ],
           },
         ],
@@ -117,10 +120,8 @@ REGELS:
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("extract-pension-ipt error:", err);
-    return new Response(JSON.stringify({ error: err.message || "Onbekende fout" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(err, corsHeaders);
   }
 });

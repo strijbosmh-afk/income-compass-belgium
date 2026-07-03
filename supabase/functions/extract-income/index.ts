@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { IMAGE_MIME_TYPES, errorResponse, requireAiCaller, validateBase64Payload } from "../_shared/security.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,11 +47,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    requireAiCaller(req);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { image, mimeType, unitNettoByCode, incomeType: selectedIncomeType } = await req.json();
-    if (!image) throw new Error("No image provided");
+    validateBase64Payload("image", image, mimeType, IMAGE_MIME_TYPES, 8 * 1024 * 1024);
     const knownUnitNetto: Record<string, number> =
       unitNettoByCode && typeof unitNettoByCode === 'object' ? unitNettoByCode : {};
     // selectedIncomeType: door de gebruiker gekozen stroom in de UI. Bepaalt hoe het
@@ -147,7 +150,7 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
               role: "user",
               content: [
                 { type: "text", text: userText },
-                { type: "image_url", image_url: { url: `data:${mimeType || "image/png"};base64,${image}` } },
+                { type: "image_url", image_url: { url: `data:${mimeType};base64,${image}` } },
               ],
             },
           ],
@@ -360,10 +363,8 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
     return new Response(JSON.stringify({ records, skippedAccount9, skippedAccount0 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("extract-income error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(e, corsHeaders);
   }
 });

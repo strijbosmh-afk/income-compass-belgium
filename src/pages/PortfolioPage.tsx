@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,28 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Activity,
-  BarChart3,
-  Building2,
-  CalendarDays,
-  DollarSign,
-  ExternalLink,
-  Loader2,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-} from 'lucide-react';
+import { Loader2, Pencil, Plus, RefreshCw, Search, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
-type RangeKey = '1W' | '1M' | '6M' | 'YTD' | '1Y';
+type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
 
 type PortfolioAsset = {
   id: string;
@@ -56,30 +39,18 @@ type SymbolResult = {
 
 type MarketQuote = {
   c?: number;
-  d?: number;
-  dp?: number;
-  h?: number;
-  l?: number;
-  o?: number;
   pc?: number;
   t?: number;
 };
 
-type MarketMetric = Record<string, number | string | null | undefined>;
-
 type QuoteEntry = {
   symbol: string;
   quote: MarketQuote;
-  metric?: MarketMetric;
   profile?: {
     currency?: string;
     exchange?: string;
-    finnhubIndustry?: string;
-    logo?: string;
-    marketCapitalization?: number;
     name?: string;
     ticker?: string;
-    weburl?: string;
   };
 };
 
@@ -96,24 +67,6 @@ type FormState = {
   notes: string;
 };
 
-type PortfolioRow = {
-  asset: PortfolioAsset;
-  quote?: QuoteEntry;
-  currentPrice: number;
-  previousClose: number;
-  cost: number;
-  currentValue: number;
-  gain: number;
-  gainPct: number;
-  dayChange: number;
-  dayChangePct: number;
-  allocation: number;
-  costEur: number;
-  currentValueEur: number;
-  gainEur: number;
-  fxRateToEur: number;
-};
-
 const emptyForm: FormState = {
   symbol: '',
   name: '',
@@ -127,14 +80,16 @@ const emptyForm: FormState = {
   notes: '',
 };
 
-const rangeLabels: RangeKey[] = ['1W', '1M', '6M', 'YTD', '1Y'];
+const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
 
 export default function PortfolioPage() {
   const { user } = useAuth();
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
-  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
   const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
+  const [eurHistory, setEurHistory] = useState<{ date: string; value: number }[]>([]);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
+  const [fxUpdated, setFxUpdated] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -149,12 +104,27 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     if (!user) return;
-    void loadAssets();
+    loadAssets();
+    loadFx();
   }, [user]);
+
+  async function loadFx() {
+    try {
+      const res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR');
+      const data = await res.json();
+      if (data?.rates) {
+        setFxRates({ EUR: 1, ...data.rates });
+        setFxUpdated(data.date || '');
+      }
+    } catch (_err) {
+      // keep default EUR=1
+    }
+  }
+
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
-      if (query.trim().length >= 2) void searchSymbols(query);
+      if (query.trim().length >= 2) searchSymbols(query);
       else setResults([]);
     }, 350);
     return () => window.clearTimeout(handle);
@@ -166,8 +136,19 @@ export default function PortfolioPage() {
       setHistory([]);
       return;
     }
-    void refreshMarketData();
+    refreshMarketData();
   }, [assets, range, chartCurrency]);
+
+  const toEur = useMemo(() => {
+    return (value: number, currency: string) => {
+      if (!value) return 0;
+      const ccy = (currency || 'EUR').toUpperCase();
+      if (ccy === 'EUR') return value;
+      const rate = fxRates[ccy];
+      if (!rate || rate <= 0) return value;
+      return value / rate;
+    };
+  }, [fxRates]);
 
   const currencyGroups = useMemo(() => {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
@@ -175,7 +156,7 @@ export default function PortfolioPage() {
       const quote = quotes[asset.symbol]?.quote;
       const current = Number(quote?.c || 0);
       const cost = asset.quantity * asset.purchase_price;
-      const value = current > 0 ? asset.quantity * current : cost;
+      const value = current > 0 ? asset.quantity * current : 0;
       const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
       groups.set(asset.currency, { cost: prev.cost + cost, value: prev.value + value, gain: prev.gain + value - cost });
     }
@@ -183,75 +164,43 @@ export default function PortfolioPage() {
   }, [assets, quotes]);
 
   const eurTotals = useMemo(() => {
-    return assets.reduce((totals, asset) => {
-      const quote = quotes[asset.symbol]?.quote;
-      const current = Number(quote?.c || 0);
-      const cost = asset.quantity * asset.purchase_price;
-      const value = current > 0 ? asset.quantity * current : cost;
-      const rate = fxRateToEur(asset.currency, fxRates);
-      return {
-        cost: totals.cost + cost * rate,
-        value: totals.value + value * rate,
-      };
-    }, { cost: 0, value: 0 });
-  }, [assets, quotes, fxRates]);
-
-  const eurGain = eurTotals.value - eurTotals.cost;
-  const eurGainPct = eurTotals.cost > 0 ? (eurGain / eurTotals.cost) * 100 : 0;
+    let cost = 0;
+    let value = 0;
+    for (const group of currencyGroups) {
+      cost += toEur(group.cost, group.currency);
+      value += toEur(group.value, group.currency);
+    }
+    return { cost, value, gain: value - cost };
+  }, [currencyGroups, toEur]);
 
   useEffect(() => {
-    if (currencyGroups.length > 0 && chartCurrency !== 'EUR' && !currencyGroups.some((group) => group.currency === chartCurrency)) {
+    if (currencyGroups.length > 0 && !currencyGroups.some((group) => group.currency === chartCurrency)) {
       setChartCurrency(currencyGroups[0].currency);
     }
   }, [currencyGroups, chartCurrency]);
 
-  const chartCurrencyOptions = useMemo(() => {
-    return ['EUR', ...currencyGroups.map((group) => group.currency).filter((currency) => currency !== 'EUR')];
-  }, [currencyGroups]);
-
-  const portfolioRows = useMemo<PortfolioRow[]>(() => assets.map((asset) => {
-    const quote = quotes[asset.symbol];
-    const currentPrice = Number(quote?.quote?.c || 0);
-    const previousClose = Number(quote?.quote?.pc || 0);
+  const portfolioRows = useMemo(() => assets.map((asset) => {
+    const quote = quotes[asset.symbol]?.quote;
+    const currentPrice = Number(quote?.c || 0);
+    const previousClose = Number(quote?.pc || 0);
     const cost = asset.quantity * asset.purchase_price;
-    const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : cost;
+    const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : 0;
     const gain = currentValue - cost;
-    const dayChange = currentPrice > 0 && previousClose > 0 ? currentPrice - previousClose : 0;
-    const dayChangePct = currentPrice > 0 && previousClose > 0 ? (dayChange / previousClose) * 100 : 0;
-    const rate = fxRateToEur(asset.currency, fxRates);
-    const currentValueEur = currentValue * rate;
-    const costEur = cost * rate;
-    const gainEur = currentValueEur - costEur;
-    return {
-      asset,
-      quote,
-      currentPrice,
-      previousClose,
-      cost,
-      currentValue,
-      gain,
-      gainPct: cost > 0 ? (gain / cost) * 100 : 0,
-      dayChange,
-      dayChangePct,
-      allocation: eurTotals.value > 0 ? (currentValueEur / eurTotals.value) * 100 : 0,
-      costEur,
-      currentValueEur,
-      gainEur,
-      fxRateToEur: rate,
-    };
-  }), [assets, quotes, eurTotals.value, fxRates]);
+    const dayChange = currentPrice > 0 && previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0;
+    return { asset, currentPrice, cost, currentValue, gain, dayChange };
+  }), [assets, quotes]);
 
   const valueAtDate = useMemo(() => {
-    if (history.length === 0) return chartCurrency === 'EUR' ? eurTotals.value : currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
+    if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
     const target = history.filter((point) => point.date <= valuationDate).at(-1);
     return target?.value ?? 0;
-  }, [history, valuationDate, currencyGroups, chartCurrency, eurTotals.value]);
+  }, [history, valuationDate, currencyGroups, chartCurrency]);
 
-  const latestUpdatedAt = useMemo(() => {
-    const timestamps = Object.values(quotes).map((entry) => entry.quote.t).filter(Boolean) as number[];
-    if (timestamps.length === 0) return null;
-    return new Date(Math.max(...timestamps) * 1000);
-  }, [quotes]);
+  const eurValueAtDate = useMemo(() => {
+    if (eurHistory.length === 0) return eurTotals.value;
+    const target = eurHistory.filter((point) => point.date <= valuationDate).at(-1);
+    return target?.value ?? eurTotals.value;
+  }, [eurHistory, valuationDate, eurTotals]);
 
   async function loadAssets() {
     if (!user) return;
@@ -296,51 +245,53 @@ export default function PortfolioPage() {
       nextQuotes[entry.symbol] = entry;
     });
     setQuotes(nextQuotes);
-
-    const nextFxRates = await loadFxRates([...new Set(assets.map((asset) => asset.currency))]);
-    setFxRates(nextFxRates);
-    await loadHistory(symbols, nextFxRates);
+    await loadHistory(symbols);
     setMarketLoading(false);
   }
 
-  async function loadFxRates(currencies: string[]) {
-    const normalized = [...new Set(currencies.map((currency) => currency.toUpperCase()))];
-    if (normalized.length === 0 || normalized.every((currency) => currency === 'EUR')) return { EUR: 1 };
-    const { data, error } = await supabase.functions.invoke('market-data', {
-      body: { action: 'fx-rates', currencies: normalized },
-    });
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || 'Wisselkoersen ophalen mislukt');
-      return { EUR: 1 };
-    }
-    return { EUR: 1, ...(data.rates || {}) } as Record<string, number>;
-  }
-
-  async function loadHistory(symbols: string[], rates = fxRates) {
-    const { from, to } = getRange(range);
+  async function loadHistory(symbols: string[]) {
+    const { from, to, interval } = getRange(range);
+    const intraday = interval !== '1d';
     const series = await Promise.all(symbols.map(async (symbol) => {
       const { data } = await supabase.functions.invoke('market-data', {
-        body: { action: 'candles', symbol, from, to },
+        body: { action: 'candles', symbol, from, to, interval },
       });
       if (!data || data.s !== 'ok') return { symbol, points: [] as { date: string; close: number }[] };
       const points = (data.t || []).map((ts: number, idx: number) => ({
-        date: new Date(ts * 1000).toISOString().slice(0, 10),
+        date: intraday
+          ? new Date(ts * 1000).toISOString().slice(0, 16)
+          : new Date(ts * 1000).toISOString().slice(0, 10),
         close: Number(data.c?.[idx] || 0),
       }));
       return { symbol, points };
     }));
 
+    const purchaseGate = (assetDate: string, pointKey: string) =>
+      intraday ? pointKey.slice(0, 10) >= assetDate : pointKey >= assetDate;
+
     const byDate = new Map<string, number>();
-    const chartAssets = chartCurrency === 'EUR' ? assets : assets.filter((asset) => asset.currency === chartCurrency);
+    const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
     for (const asset of chartAssets) {
       const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
-      const rate = chartCurrency === 'EUR' ? fxRateToEur(asset.currency, rates) : 1;
       for (const point of symbolSeries) {
-        if (point.date < asset.purchase_date || point.close <= 0) continue;
-        byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity * rate);
+        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
+        byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity);
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
+
+    // Cumulative EUR history across ALL currencies (using latest FX rate)
+    const eurByDate = new Map<string, number>();
+    for (const asset of assets) {
+      const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      for (const point of symbolSeries) {
+        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
+        const localValue = point.close * asset.quantity;
+        const eurValue = toEur(localValue, asset.currency);
+        eurByDate.set(point.date, (eurByDate.get(point.date) || 0) + eurValue);
+      }
+    }
+    setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
   }
 
   function selectSymbol(result: SymbolResult) {
@@ -379,10 +330,10 @@ export default function PortfolioPage() {
       notes: form.notes.trim() || null,
     };
 
-    const queryBuilder = editingId
+    const query = editingId
       ? (supabase as any).from('portfolio_assets').update(payload).eq('id', editingId)
       : (supabase as any).from('portfolio_assets').insert(payload);
-    const { error } = await queryBuilder;
+    const { error } = await query;
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -392,7 +343,7 @@ export default function PortfolioPage() {
     setForm(emptyForm);
     setQuery('');
     setEditingId(null);
-    void loadAssets();
+    loadAssets();
   }
 
   function editAsset(asset: PortfolioAsset) {
@@ -418,76 +369,103 @@ export default function PortfolioPage() {
     if (error) toast.error(error.message);
     else {
       toast.success('Positie verwijderd');
-      void loadAssets();
+      loadAssets();
     }
   }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 md:space-y-6 animate-fade-in">
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-border/50 bg-gradient-to-br from-primary/15 via-card to-secondary/10 p-5 shadow-sm md:p-8">
-        <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-secondary/10 blur-3xl" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-secondary">
-              <BarChart3 className="h-3.5 w-3.5" /> Beursportfolio
-            </div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Beursportfolio</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
-              Volg je posities met koers, dagrange, rendement, allocatie en fundamentele context per aandeel of ETF.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {chartCurrencyOptions.length > 1 && (
-              <Select value={chartCurrency} onValueChange={setChartCurrency}>
-                <SelectTrigger className="min-h-12 rounded-2xl bg-card/70 sm:w-28"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {chartCurrencyOptions.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Input type="date" value={valuationDate} onChange={(e) => setValuationDate(e.target.value)} className="min-h-12 rounded-2xl bg-card/70 sm:w-40" />
-            <Button variant="outline" onClick={refreshMarketData} disabled={marketLoading || assets.length === 0} className="min-h-12 rounded-2xl bg-card/70">
-              {marketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Ververs
-            </Button>
-          </div>
+    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Aandelen</h1>
+          <p className="text-muted-foreground mt-1">Beheer aandelen, ETF's en andere beursgenoteerde posities.</p>
+        </div>
+        <div className="flex gap-2">
+          {currencyGroups.length > 1 && (
+            <Select value={chartCurrency} onValueChange={setChartCurrency}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {currencyGroups.map((group) => <SelectItem key={group.currency} value={group.currency}>{group.currency}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <Input type="date" value={valuationDate} onChange={(e) => setValuationDate(e.target.value)} className="w-40" />
+          <Button variant="outline" onClick={refreshMarketData} disabled={marketLoading || assets.length === 0}>
+            {marketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Ververs
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <MetricCard
-          title="Totaalwaarde EUR"
-          value={money(eurTotals.value, 'EUR')}
-          sub={`Resultaat ${money(eurGain, 'EUR')} (${pct(eurGainPct)}) · laatste FX-koersen`}
-          icon={eurGain >= 0 ? TrendingUp : TrendingDown}
-          tone={eurGain >= 0 ? 'positive' : 'negative'}
-        />
+      <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardContent className="pt-5">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted-foreground">Cumulatieve portefeuillewaarde (EUR)</p>
+              <p className="text-3xl font-semibold mt-1">{money(eurTotals.value, 'EUR')}</p>
+              <p className={`text-sm mt-1 ${eurTotals.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(eurTotals.cost ? (eurTotals.gain / eurTotals.cost) * 100 : 0)})
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground md:text-right">
+              <div>Ingelegd: {money(eurTotals.cost, 'EUR')}</div>
+              <div>Waarde op {valuationDate}: {money(eurValueAtDate, 'EUR')}</div>
+              <div>Wisselkoersen ECB{fxUpdated ? ` · ${fxUpdated}` : ''}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-3">
         {currencyGroups.length === 0 ? (
-          <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" icon={Wallet} />
+          <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
         ) : currencyGroups.map((group) => (
           <MetricCard
             key={group.currency}
             title={`Waarde ${group.currency}`}
             value={money(group.value, group.currency)}
-            sub={`Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
-            icon={group.gain >= 0 ? TrendingUp : TrendingDown}
-            tone={group.gain >= 0 ? 'positive' : 'negative'}
+            sub={`≈ ${money(toEur(group.value, group.currency), 'EUR')} · Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
           />
         ))}
-        <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} icon={CalendarDays} />
-        <MetricCard
-          title="Koersstatus"
-          value={marketLoading ? 'Bijwerken...' : `${assets.length} posities`}
-          sub={latestUpdatedAt ? `Laatste marktupdate ${latestUpdatedAt.toLocaleString('nl-BE')}` : `${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`}
-          icon={Activity}
-        />
+        <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
+        <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
 
+      <Card className="border-border/50">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
+          <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
+        </CardHeader>
+        <CardContent className="h-72">
+          {eurHistory.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische data beschikbaar.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={eurHistory}>
+                <defs>
+                  <linearGradient id="portfolioEur" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
+
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+
       <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
-        <Card className="ios-card border-border/50">
-          <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Portefeuillewaarde</CardTitle>
             <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
               <TabsList>
@@ -497,9 +475,7 @@ export default function PortfolioPage() {
           </CardHeader>
           <CardContent className="h-80">
             {history.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-center text-sm text-muted-foreground">
-                Geen historische koersdata beschikbaar. Voeg posities toe of ververs de koersen.
-              </div>
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische koersdata beschikbaar.</div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={history}>
@@ -511,7 +487,7 @@ export default function PortfolioPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => compactMoney(Number(value))} />
+                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
                   <Tooltip formatter={(value) => money(Number(value), chartCurrency)} />
                   <Area type="monotone" dataKey="value" stroke="hsl(174, 50%, 40%)" fill="url(#portfolioValue)" strokeWidth={2} />
                 </AreaChart>
@@ -520,7 +496,7 @@ export default function PortfolioPage() {
           </CardContent>
         </Card>
 
-        <Card className="ios-card border-border/50">
+        <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> {editingId ? 'Positie bewerken' : 'Positie toevoegen'}</CardTitle>
           </CardHeader>
@@ -584,163 +560,52 @@ export default function PortfolioPage() {
         </Card>
       </div>
 
-      <Card className="ios-card border-border/50">
+      <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Gevolgde posities</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Portfolio</CardTitle>
         </CardHeader>
         <CardContent>
-          {portfolioRows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-              <Wallet className="mx-auto h-9 w-9 text-muted-foreground" />
-              <h2 className="mt-3 text-lg font-semibold">Nog geen posities</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Voeg een aandeel of ETF toe om koersdetails en allocatie te volgen.</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-4 lg:grid-cols-2">
-                {portfolioRows.map((row) => <PositionCard key={row.asset.id} row={row} onEdit={editAsset} onDelete={deleteAsset} />)}
-              </div>
-
-              <div className="mt-6 hidden overflow-x-auto xl:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticker</TableHead>
-                      <TableHead>Naam</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Allocatie</TableHead>
-                      <TableHead className="text-right">Aantal</TableHead>
-                      <TableHead className="text-right">Aankoop</TableHead>
-                      <TableHead className="text-right">Koers</TableHead>
-                      <TableHead className="text-right">Dag</TableHead>
-                      <TableHead className="text-right">Waarde</TableHead>
-                      <TableHead className="text-right">Resultaat</TableHead>
-                      <TableHead className="text-right">Waarde EUR</TableHead>
-                      <TableHead className="text-right">Resultaat EUR</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {portfolioRows.map((row) => (
-                      <TableRow key={row.asset.id}>
-                        <TableCell className="font-medium">{row.asset.symbol}</TableCell>
-                        <TableCell>{row.asset.name}</TableCell>
-                        <TableCell className="uppercase text-xs text-muted-foreground">{row.asset.asset_type}</TableCell>
-                        <TableCell className="text-right">{row.allocation.toFixed(1)}%</TableCell>
-                        <TableCell className="text-right">{row.asset.quantity.toLocaleString('nl-BE')}</TableCell>
-                        <TableCell className="text-right">{money(row.cost, row.asset.currency)}</TableCell>
-                        <TableCell className="text-right">{row.currentPrice ? money(row.currentPrice, row.asset.currency) : '-'}</TableCell>
-                        <TableCell className={`text-right ${row.dayChangePct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{row.currentPrice ? pct(row.dayChangePct) : '-'}</TableCell>
-                        <TableCell className="text-right">{money(row.currentValue, row.asset.currency)}</TableCell>
-                        <TableCell className={`text-right ${row.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{money(row.gain, row.asset.currency)} · {pct(row.gainPct)}</TableCell>
-                        <TableCell className="text-right">{money(row.currentValueEur, 'EUR')}</TableCell>
-                        <TableCell className={`text-right ${row.gainEur >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{money(row.gainEur, 'EUR')}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => editAsset(row.asset)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteAsset(row.asset.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticker</TableHead>
+                  <TableHead>Naam</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Aantal</TableHead>
+                  <TableHead className="text-right">Aankoop</TableHead>
+                  <TableHead className="text-right">Koers</TableHead>
+                  <TableHead className="text-right">Waarde</TableHead>
+                  <TableHead className="text-right">Resultaat</TableHead>
+                  <TableHead className="text-right">Dag</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {portfolioRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-10">Nog geen posities toegevoegd.</TableCell></TableRow>
+                ) : portfolioRows.map(({ asset, currentPrice, cost, currentValue, gain, dayChange }) => (
+                  <TableRow key={asset.id}>
+                    <TableCell className="font-medium">{asset.symbol}</TableCell>
+                    <TableCell>{asset.name}</TableCell>
+                    <TableCell className="uppercase text-xs text-muted-foreground">{asset.asset_type}</TableCell>
+                    <TableCell className="text-right">{asset.quantity.toLocaleString('nl-BE')}</TableCell>
+                    <TableCell className="text-right">{money(cost, asset.currency)}</TableCell>
+                    <TableCell className="text-right">{currentPrice ? money(currentPrice, asset.currency) : '-'}</TableCell>
+                    <TableCell className="text-right">{currentValue ? money(currentValue, asset.currency) : '-'}</TableCell>
+                    <TableCell className={`text-right ${gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currentValue ? money(gain, asset.currency) : '-'}</TableCell>
+                    <TableCell className={`text-right ${dayChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{currentPrice ? pct(dayChange) : '-'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => editAsset(asset)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteAsset(asset.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function PositionCard({ row, onEdit, onDelete }: { row: PortfolioRow; onEdit: (asset: PortfolioAsset) => void; onDelete: (id: string) => void }) {
-  const { asset, quote, currentPrice, currentValue, cost, gain, gainPct, dayChange, dayChangePct, allocation, currentValueEur, gainEur, fxRateToEur } = row;
-  const metric = quote?.metric || {};
-  const profile = quote?.profile;
-  const currency = asset.currency;
-  const high52 = metricNumber(metric, '52WeekHigh');
-  const low52 = metricNumber(metric, '52WeekLow');
-  const pe = firstMetric(metric, ['peBasicExclExtraTTM', 'peNormalizedAnnual', 'peTTM']);
-  const dividendYield = firstMetric(metric, ['dividendYieldIndicatedAnnual', 'currentDividendYieldTTM']);
-  const beta = metricNumber(metric, 'beta');
-  const avgVolume = firstMetric(metric, ['10DayAverageTradingVolume', '3MonthAverageTradingVolume']);
-  const marketCap = Number(profile?.marketCapitalization || metricNumber(metric, 'marketCapitalization') || 0);
-  const positive = gain >= 0;
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold tracking-tight">{asset.symbol}</h3>
-            <Badge variant="outline" className="uppercase">{asset.asset_type}</Badge>
-            {profile?.exchange && <Badge variant="secondary">{profile.exchange}</Badge>}
-          </div>
-          <p className="mt-1 truncate text-sm text-muted-foreground">{profile?.name || asset.name}</p>
-          {profile?.finnhubIndustry && <p className="mt-1 text-xs text-muted-foreground">{profile.finnhubIndustry}</p>}
-        </div>
-        <div className="flex shrink-0 gap-1">
-          {profile?.weburl && (
-            <Button variant="ghost" size="icon" onClick={() => window.open(profile.weburl, '_blank')}>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" onClick={() => onEdit(asset)}><Pencil className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => onDelete(asset.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
-        <div>
-          <div className="text-xs text-muted-foreground">Laatste koers</div>
-          <div className="mt-1 text-2xl font-semibold font-mono">{currentPrice ? money(currentPrice, currency) : 'Geen koers'}</div>
-        </div>
-        <div className={`text-right text-sm font-semibold ${dayChangePct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-          {currentPrice ? `${money(dayChange, currency)} · ${pct(dayChangePct)}` : '-'}
-          <div className="text-xs font-normal text-muted-foreground">vandaag</div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-        <InfoTile label="Waarde" value={money(currentValue, currency)} strong />
-        <InfoTile label="Resultaat" value={`${money(gain, currency)} · ${pct(gainPct)}`} tone={positive ? 'positive' : 'negative'} />
-        <InfoTile label="Allocatie" value={`${allocation.toFixed(1)}%`} />
-        <InfoTile label="Aantal" value={asset.quantity.toLocaleString('nl-BE')} />
-      </div>
-
-      {asset.currency !== 'EUR' && (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <InfoTile label="Waarde in EUR" value={money(currentValueEur, 'EUR')} strong />
-          <InfoTile label="Resultaat in EUR" value={money(gainEur, 'EUR')} tone={gainEur >= 0 ? 'positive' : 'negative'} />
-          <InfoTile label={`FX ${asset.currency}/EUR`} value={fxRateToEur ? fxRateToEur.toFixed(4) : '-'} />
-          <InfoTile label="EUR-allocatie" value={`${allocation.toFixed(1)}%`} />
-        </div>
-      )}
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
-        <InfoTile label="Aankoopwaarde" value={money(cost, currency)} />
-        <InfoTile label="Open / vorige slot" value={`${priceOrDash(quote?.quote.o, currency)} / ${priceOrDash(quote?.quote.pc, currency)}`} />
-        <InfoTile label="Dagrange" value={`${priceOrDash(quote?.quote.l, currency)} - ${priceOrDash(quote?.quote.h, currency)}`} />
-        <InfoTile label="52 weken" value={high52 && low52 ? `${priceOrDash(low52, currency)} - ${priceOrDash(high52, currency)}` : '-'} />
-        <InfoTile label="P/E" value={pe ? pe.toFixed(2) : '-'} />
-        <InfoTile label="Dividendrendement" value={dividendYield ? `${dividendYield.toFixed(2)}%` : '-'} />
-        <InfoTile label="Market cap" value={marketCap ? compactMarketCap(marketCap, profile?.currency || currency) : '-'} icon={Building2} />
-        <InfoTile label="Beta" value={beta ? beta.toFixed(2) : '-'} icon={Activity} />
-        <InfoTile label="Gem. volume" value={avgVolume ? compactNumber(avgVolume) : '-'} icon={DollarSign} />
-      </div>
-
-      {asset.notes && <p className="mt-3 rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">{asset.notes}</p>}
-    </div>
-  );
-}
-
-function InfoTile({ label, value, tone, strong, icon: Icon }: { label: string; value: string; tone?: 'positive' | 'negative'; strong?: boolean; icon?: typeof Activity }) {
-  return (
-    <div className="rounded-xl bg-muted/45 p-3">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
-      </div>
-      <div className={`mt-1 break-words font-mono ${strong ? 'font-semibold' : 'font-medium'} ${tone === 'positive' ? 'text-emerald-600' : tone === 'negative' ? 'text-destructive' : ''}`}>{value}</div>
     </div>
   );
 }
@@ -754,18 +619,13 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
   );
 }
 
-function MetricCard({ title, value, sub, icon: Icon, tone }: { title: string; value: string; sub: string; icon: typeof Wallet; tone?: 'positive' | 'negative' }) {
+function MetricCard({ title, value, sub }: { title: string; value: string; sub: string }) {
   return (
-    <Card className="ios-card border-border/50">
+    <Card className="border-border/50">
       <CardContent className="pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-semibold mt-1 font-mono">{value}</p>
-            <p className={`text-xs mt-1 ${tone === 'positive' ? 'text-emerald-600' : tone === 'negative' ? 'text-destructive' : 'text-muted-foreground'}`}>{sub}</p>
-          </div>
-          <div className="rounded-xl bg-primary/10 p-2 text-primary"><Icon className="h-4 w-4" /></div>
-        </div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-semibold mt-1">{value}</p>
+        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
       </CardContent>
     </Card>
   );
@@ -787,59 +647,31 @@ function inferAssetType(type: string | undefined): AssetType {
   return 'stock';
 }
 
-function getRange(range: RangeKey) {
+function getRange(range: RangeKey): { from: number; to: number; interval: string } {
   const to = Math.floor(Date.now() / 1000);
   const now = new Date();
   const fromDate = new Date(now);
+  let interval = '1d';
+  if (range === '1D') {
+    fromDate.setDate(now.getDate() - 1);
+    interval = '5m';
+    return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
+  }
   if (range === '1W') fromDate.setDate(now.getDate() - 7);
   if (range === '1M') fromDate.setMonth(now.getMonth() - 1);
   if (range === '6M') fromDate.setMonth(now.getMonth() - 6);
   if (range === '1Y') fromDate.setFullYear(now.getFullYear() - 1);
   if (range === 'YTD') fromDate.setMonth(0, 1);
   fromDate.setHours(0, 0, 0, 0);
-  return { from: Math.floor(fromDate.getTime() / 1000), to };
-}
-
-function metricNumber(metric: MarketMetric, key: string) {
-  const value = Number(metric[key]);
-  return Number.isFinite(value) && value !== 0 ? value : null;
-}
-
-function firstMetric(metric: MarketMetric, keys: string[]) {
-  for (const key of keys) {
-    const value = metricNumber(metric, key);
-    if (value !== null) return value;
-  }
-  return null;
+  return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
 }
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: 2 }).format(value || 0);
 }
 
-function priceOrDash(value: number | undefined | null, currency: string) {
-  const number = Number(value || 0);
-  return number > 0 ? money(number, currency) : '-';
-}
-
 function compactMoney(value: number) {
   return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
-}
-
-function compactNumber(value: number) {
-  return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
-}
-
-function compactMarketCap(value: number, currency: string) {
-  const normalized = value < 1_000_000 ? value * 1_000_000 : value;
-  return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: currency || 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(normalized);
-}
-
-function fxRateToEur(currency: string, rates: Record<string, number>) {
-  const normalized = currency.toUpperCase();
-  if (normalized === 'EUR') return 1;
-  const rate = Number(rates[normalized] || 0);
-  return Number.isFinite(rate) && rate > 0 ? rate : 1;
 }
 
 function pct(value: number) {

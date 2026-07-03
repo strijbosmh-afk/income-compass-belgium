@@ -39,10 +39,7 @@ const incomeSecondary = [
 const incomeAll = [...incomePrimary, ...incomeSecondary];
 
 const pensionItems = [
-  { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
-  { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
-  { title: 'Pensioen uploaden', url: '/pensioen/upload', icon: Upload },
-  { title: 'IPT uploaden', url: '/pensioen/upload-ipt', icon: Upload },
+  { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
 ];
 
 const wealthItems = [
@@ -57,9 +54,13 @@ export function AppSidebar() {
   const issueCount = useControleIssues();
   const secondaryActive = incomeSecondary.some((item) => location.pathname === item.url);
 
+  const isItemActive = (url: string) => (
+    url === '/pensioen' ? location.pathname.startsWith('/pensioen') : location.pathname === url
+  );
+
   const renderItem = (item: { title: string; url: string; icon: any }) => (
     <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+      <SidebarMenuButton asChild isActive={isItemActive(item.url)}>
         <NavLink
           to={item.url}
           end

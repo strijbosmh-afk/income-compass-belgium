@@ -27,25 +27,9 @@ serve(async (req) => {
     if (action === "quotes") {
       const symbols = normalizeSymbols(body.symbols);
       const quotes = await Promise.all(symbols.map(async (symbol) => {
-        const [quote, profile, metric] = await Promise.all([
-          finnhub(token, "/quote", { symbol }),
-          finnhub(token, "/stock/profile2", { symbol }).catch(() => ({})),
-          finnhub(token, "/stock/metric", { symbol, metric: "all" }).catch(() => ({})),
-        ]);
-        return { symbol, quote, profile, metric: metric.metric || {} };
+        return quoteWithFallback(token, symbol);
       }));
       return json({ quotes });
-    }
-
-    if (action === "fx-rates") {
-      const currencies = normalizeCurrencies(body.currencies);
-      const rates: Record<string, number> = { EUR: 1 };
-      await Promise.all(currencies.filter((currency) => currency !== "EUR").map(async (currency) => {
-        const data = await finnhub(token, "/forex/rates", { base: currency });
-        const eurRate = Number(data.quote?.EUR || 0);
-        if (Number.isFinite(eurRate) && eurRate > 0) rates[currency] = eurRate;
-      }));
-      return json({ base: "EUR", rates });
     }
 
     if (action === "candles") {
@@ -56,14 +40,11 @@ serve(async (req) => {
       if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
         throw new HttpError("Invalid candle range", 400);
       }
-      const data = await finnhub(token, "/stock/candle", {
-        symbol,
-        resolution: "D",
-        from: String(Math.floor(from)),
-        to: String(Math.floor(to)),
-      });
+      const interval = String(body.interval || "1d");
+      const data = await yahooCandles(symbol, Math.floor(from), Math.floor(to), interval);
       return json(data);
     }
+
 
     throw new HttpError("Unsupported market data action", 400);
   } catch (error: unknown) {
@@ -81,7 +62,7 @@ async function finnhub(token: string, path: string, params: Record<string, strin
 
   const response = await fetch(url);
   const text = await response.text();
-  let data: unknown;
+  let data: any;
   try {
     data = JSON.parse(text);
   } catch (_error) {
@@ -89,12 +70,131 @@ async function finnhub(token: string, path: string, params: Record<string, strin
   }
 
   if (!response.ok) {
-    const message = typeof data === "object" && data && "error" in data ? String(data.error) : `Market data provider error: ${response.status}`;
-    throw new HttpError(message, response.status);
+    throw new HttpError(data.error || `Market data provider error: ${response.status}`, response.status);
   }
 
-  return data as Record<string, any>;
+  return data;
 }
+
+async function quoteWithFallback(token: string, symbol: string) {
+  const [quoteResult, profileResult] = await Promise.allSettled([
+    finnhub(token, "/quote", { symbol }),
+    finnhub(token, "/stock/profile2", { symbol }),
+  ]);
+
+  if (quoteResult.status === "fulfilled") {
+    return {
+      symbol,
+      quote: quoteResult.value,
+      profile: profileResult.status === "fulfilled" ? profileResult.value : {},
+    };
+  }
+
+  return yahooQuote(symbol);
+}
+
+async function yahooQuote(symbol: string) {
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("range", "5d");
+  url.searchParams.set("interval", "1d");
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      await response.body?.cancel();
+      return { symbol, quote: {}, profile: {} };
+    }
+
+    const payload = await response.json();
+    const result = payload?.chart?.result?.[0];
+    const meta = result?.meta || {};
+    const closes = result?.indicators?.quote?.[0]?.close || [];
+    const validCloses = Array.isArray(closes)
+      ? closes.filter((close: unknown) => typeof close === "number" && Number.isFinite(close))
+      : [];
+    const current = Number(meta.regularMarketPrice ?? validCloses.at(-1) ?? 0);
+    const previous = Number(meta.previousClose ?? validCloses.at(-2) ?? current);
+
+    return {
+      symbol,
+      quote: {
+        c: Number.isFinite(current) ? current : 0,
+        pc: Number.isFinite(previous) ? previous : 0,
+        t: Number(meta.regularMarketTime || 0),
+      },
+      profile: {
+        currency: meta.currency,
+        exchange: meta.exchangeName || meta.fullExchangeName || meta.exchange,
+        name: meta.longName || meta.shortName || symbol,
+        ticker: symbol,
+      },
+    };
+  } catch (_error) {
+    return { symbol, quote: {}, profile: {} };
+  }
+}
+
+async function yahooCandles(symbol: string, from: number, to: number, interval = "1d") {
+  const allowed = new Set(["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]);
+  const safeInterval = allowed.has(interval) ? interval : "1d";
+  const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
+  url.searchParams.set("period1", String(from));
+  url.searchParams.set("period2", String(to));
+  url.searchParams.set("interval", safeInterval);
+  url.searchParams.set("events", "history");
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+  } catch (_error) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  if (!response.ok) {
+    await response.body?.cancel();
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  let payload: any;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  const result = payload?.chart?.result?.[0];
+  const timestamps: number[] | undefined = result?.timestamp;
+  const closes: (number | null)[] | undefined = result?.indicators?.quote?.[0]?.close;
+
+  if (!Array.isArray(timestamps) || !Array.isArray(closes) || timestamps.length === 0) {
+    return { s: "no_data", t: [], c: [] };
+  }
+
+  const t: number[] = [];
+  const c: number[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const close = closes[i];
+    if (typeof close === "number" && Number.isFinite(close)) {
+      t.push(timestamps[i]);
+      c.push(close);
+    }
+  }
+
+  if (t.length === 0) return { s: "no_data", t: [], c: [] };
+  return { s: "ok", t, c };
+}
+
 
 function normalizeSymbols(value: unknown) {
   if (!Array.isArray(value)) throw new HttpError("Symbols must be an array", 400);
@@ -102,14 +202,6 @@ function normalizeSymbols(value: unknown) {
   if (symbols.length === 0) throw new HttpError("At least one symbol is required", 400);
   if (symbols.length > 20) throw new HttpError("Request at most 20 symbols at once", 400);
   return symbols;
-}
-
-function normalizeCurrencies(value: unknown) {
-  if (!Array.isArray(value)) throw new HttpError("Currencies must be an array", 400);
-  const currencies = [...new Set(value.map((item) => String(item || "").trim().toUpperCase()).filter(Boolean))];
-  if (currencies.length === 0) throw new HttpError("At least one currency is required", 400);
-  if (currencies.length > 12) throw new HttpError("Request at most 12 currencies at once", 400);
-  return currencies;
 }
 
 function json(body: unknown, status = 200) {

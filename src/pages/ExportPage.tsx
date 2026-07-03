@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import writeXlsxFile from 'write-excel-file/browser';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { MonthlyReport } from '@/components/MonthlyReport';
@@ -57,6 +57,10 @@ const ALL_COLUMNS = [
 ] as const;
 
 const fmt = (val: number) => val.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function toSheetRows(rows: (string | number)[][]) {
+  return rows.map((row) => row.map((value) => ({ value })));
+}
 
 export default function ExportPage() {
   const { user } = useAuth();
@@ -141,7 +145,7 @@ export default function ExportPage() {
   const periodLabel = `${MONTH_NAMES[parseInt(monthFrom) - 1]} – ${MONTH_NAMES[parseInt(monthTo) - 1]} ${selectedYear}`;
   const cols = ALL_COLUMNS.filter(c => selectedColumns.includes(c.key));
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filtered.length === 0) { toast.error('Geen data om te exporteren'); return; }
 
     const headers = cols.map(c => c.label);
@@ -157,15 +161,6 @@ export default function ExportPage() {
     });
 
     const wsData = [headers, ...rows, [], totalsRow];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    // Set column widths
-    ws['!cols'] = cols.map(c => ({
-      wch: Math.max(c.label.length + 2, c.key.includes('amount') || c.key === 'netto' ? 14 : 12)
-    }));
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Detail');
 
     // Monthly summary sheet
     const mFrom = parseInt(monthFrom);
@@ -188,11 +183,10 @@ export default function ExportPage() {
     summaryRows.push([]);
     summaryRows.push(['TOTAAL', totBruto, totAandeel, totBouwfonds, totMif, totNetto, totQty]);
 
-    const wsSummary = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
-    wsSummary['!cols'] = summaryHeaders.map(h => ({ wch: Math.max(h.length + 2, 14) }));
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Maandoverzicht');
-
-    XLSX.writeFile(wb, `inkomsten_${selectedYear}_${monthFrom}-${monthTo}.xlsx`);
+    await (writeXlsxFile as any)([toSheetRows(wsData), toSheetRows([summaryHeaders, ...summaryRows])], {
+      sheets: ['Detail', 'Maandoverzicht'],
+      fileName: `inkomsten_${selectedYear}_${monthFrom}-${monthTo}.xlsx`,
+    });
     toast.success('Excel bestand gedownload');
   };
 
