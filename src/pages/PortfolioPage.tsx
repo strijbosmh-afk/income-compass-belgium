@@ -108,6 +108,10 @@ type PortfolioRow = {
   dayChange: number;
   dayChangePct: number;
   allocation: number;
+  costEur: number;
+  currentValueEur: number;
+  gainEur: number;
+  fxRateToEur: number;
 };
 
 const emptyForm: FormState = {
@@ -129,6 +133,7 @@ export default function PortfolioPage() {
   const { user } = useAuth();
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
   const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
@@ -177,11 +182,32 @@ export default function PortfolioPage() {
     return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
   }, [assets, quotes]);
 
+  const eurTotals = useMemo(() => {
+    return assets.reduce((totals, asset) => {
+      const quote = quotes[asset.symbol]?.quote;
+      const current = Number(quote?.c || 0);
+      const cost = asset.quantity * asset.purchase_price;
+      const value = current > 0 ? asset.quantity * current : cost;
+      const rate = fxRateToEur(asset.currency, fxRates);
+      return {
+        cost: totals.cost + cost * rate,
+        value: totals.value + value * rate,
+      };
+    }, { cost: 0, value: 0 });
+  }, [assets, quotes, fxRates]);
+
+  const eurGain = eurTotals.value - eurTotals.cost;
+  const eurGainPct = eurTotals.cost > 0 ? (eurGain / eurTotals.cost) * 100 : 0;
+
   useEffect(() => {
-    if (currencyGroups.length > 0 && !currencyGroups.some((group) => group.currency === chartCurrency)) {
+    if (currencyGroups.length > 0 && chartCurrency !== 'EUR' && !currencyGroups.some((group) => group.currency === chartCurrency)) {
       setChartCurrency(currencyGroups[0].currency);
     }
   }, [currencyGroups, chartCurrency]);
+
+  const chartCurrencyOptions = useMemo(() => {
+    return ['EUR', ...currencyGroups.map((group) => group.currency).filter((currency) => currency !== 'EUR')];
+  }, [currencyGroups]);
 
   const portfolioRows = useMemo<PortfolioRow[]>(() => assets.map((asset) => {
     const quote = quotes[asset.symbol];
@@ -192,7 +218,10 @@ export default function PortfolioPage() {
     const gain = currentValue - cost;
     const dayChange = currentPrice > 0 && previousClose > 0 ? currentPrice - previousClose : 0;
     const dayChangePct = currentPrice > 0 && previousClose > 0 ? (dayChange / previousClose) * 100 : 0;
-    const groupValue = currencyGroups.find((group) => group.currency === asset.currency)?.value || 0;
+    const rate = fxRateToEur(asset.currency, fxRates);
+    const currentValueEur = currentValue * rate;
+    const costEur = cost * rate;
+    const gainEur = currentValueEur - costEur;
     return {
       asset,
       quote,
@@ -204,15 +233,19 @@ export default function PortfolioPage() {
       gainPct: cost > 0 ? (gain / cost) * 100 : 0,
       dayChange,
       dayChangePct,
-      allocation: groupValue > 0 ? (currentValue / groupValue) * 100 : 0,
+      allocation: eurTotals.value > 0 ? (currentValueEur / eurTotals.value) * 100 : 0,
+      costEur,
+      currentValueEur,
+      gainEur,
+      fxRateToEur: rate,
     };
-  }), [assets, quotes, currencyGroups]);
+  }), [assets, quotes, eurTotals.value, fxRates]);
 
   const valueAtDate = useMemo(() => {
-    if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
+    if (history.length === 0) return chartCurrency === 'EUR' ? eurTotals.value : currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
     const target = history.filter((point) => point.date <= valuationDate).at(-1);
     return target?.value ?? 0;
-  }, [history, valuationDate, currencyGroups, chartCurrency]);
+  }, [history, valuationDate, currencyGroups, chartCurrency, eurTotals.value]);
 
   const latestUpdatedAt = useMemo(() => {
     const timestamps = Object.values(quotes).map((entry) => entry.quote.t).filter(Boolean) as number[];
@@ -263,11 +296,27 @@ export default function PortfolioPage() {
       nextQuotes[entry.symbol] = entry;
     });
     setQuotes(nextQuotes);
-    await loadHistory(symbols);
+
+    const nextFxRates = await loadFxRates([...new Set(assets.map((asset) => asset.currency))]);
+    setFxRates(nextFxRates);
+    await loadHistory(symbols, nextFxRates);
     setMarketLoading(false);
   }
 
-  async function loadHistory(symbols: string[]) {
+  async function loadFxRates(currencies: string[]) {
+    const normalized = [...new Set(currencies.map((currency) => currency.toUpperCase()))];
+    if (normalized.length === 0 || normalized.every((currency) => currency === 'EUR')) return { EUR: 1 };
+    const { data, error } = await supabase.functions.invoke('market-data', {
+      body: { action: 'fx-rates', currencies: normalized },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || 'Wisselkoersen ophalen mislukt');
+      return { EUR: 1 };
+    }
+    return { EUR: 1, ...(data.rates || {}) } as Record<string, number>;
+  }
+
+  async function loadHistory(symbols: string[], rates = fxRates) {
     const { from, to } = getRange(range);
     const series = await Promise.all(symbols.map(async (symbol) => {
       const { data } = await supabase.functions.invoke('market-data', {
@@ -282,12 +331,13 @@ export default function PortfolioPage() {
     }));
 
     const byDate = new Map<string, number>();
-    const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
+    const chartAssets = chartCurrency === 'EUR' ? assets : assets.filter((asset) => asset.currency === chartCurrency);
     for (const asset of chartAssets) {
       const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      const rate = chartCurrency === 'EUR' ? fxRateToEur(asset.currency, rates) : 1;
       for (const point of symbolSeries) {
         if (point.date < asset.purchase_date || point.close <= 0) continue;
-        byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity);
+        byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity * rate);
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
@@ -389,11 +439,11 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            {currencyGroups.length > 1 && (
+            {chartCurrencyOptions.length > 1 && (
               <Select value={chartCurrency} onValueChange={setChartCurrency}>
                 <SelectTrigger className="min-h-12 rounded-2xl bg-card/70 sm:w-28"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {currencyGroups.map((group) => <SelectItem key={group.currency} value={group.currency}>{group.currency}</SelectItem>)}
+                  {chartCurrencyOptions.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
@@ -407,6 +457,13 @@ export default function PortfolioPage() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
+        <MetricCard
+          title="Totaalwaarde EUR"
+          value={money(eurTotals.value, 'EUR')}
+          sub={`Resultaat ${money(eurGain, 'EUR')} (${pct(eurGainPct)}) · laatste FX-koersen`}
+          icon={eurGain >= 0 ? TrendingUp : TrendingDown}
+          tone={eurGain >= 0 ? 'positive' : 'negative'}
+        />
         {currencyGroups.length === 0 ? (
           <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" icon={Wallet} />
         ) : currencyGroups.map((group) => (
@@ -558,6 +615,8 @@ export default function PortfolioPage() {
                       <TableHead className="text-right">Dag</TableHead>
                       <TableHead className="text-right">Waarde</TableHead>
                       <TableHead className="text-right">Resultaat</TableHead>
+                      <TableHead className="text-right">Waarde EUR</TableHead>
+                      <TableHead className="text-right">Resultaat EUR</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -574,6 +633,8 @@ export default function PortfolioPage() {
                         <TableCell className={`text-right ${row.dayChangePct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{row.currentPrice ? pct(row.dayChangePct) : '-'}</TableCell>
                         <TableCell className="text-right">{money(row.currentValue, row.asset.currency)}</TableCell>
                         <TableCell className={`text-right ${row.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{money(row.gain, row.asset.currency)} · {pct(row.gainPct)}</TableCell>
+                        <TableCell className="text-right">{money(row.currentValueEur, 'EUR')}</TableCell>
+                        <TableCell className={`text-right ${row.gainEur >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{money(row.gainEur, 'EUR')}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => editAsset(row.asset)}><Pencil className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => deleteAsset(row.asset.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -592,7 +653,7 @@ export default function PortfolioPage() {
 }
 
 function PositionCard({ row, onEdit, onDelete }: { row: PortfolioRow; onEdit: (asset: PortfolioAsset) => void; onDelete: (id: string) => void }) {
-  const { asset, quote, currentPrice, currentValue, cost, gain, gainPct, dayChange, dayChangePct, allocation } = row;
+  const { asset, quote, currentPrice, currentValue, cost, gain, gainPct, dayChange, dayChangePct, allocation, currentValueEur, gainEur, fxRateToEur } = row;
   const metric = quote?.metric || {};
   const profile = quote?.profile;
   const currency = asset.currency;
@@ -645,6 +706,15 @@ function PositionCard({ row, onEdit, onDelete }: { row: PortfolioRow; onEdit: (a
         <InfoTile label="Allocatie" value={`${allocation.toFixed(1)}%`} />
         <InfoTile label="Aantal" value={asset.quantity.toLocaleString('nl-BE')} />
       </div>
+
+      {asset.currency !== 'EUR' && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <InfoTile label="Waarde in EUR" value={money(currentValueEur, 'EUR')} strong />
+          <InfoTile label="Resultaat in EUR" value={money(gainEur, 'EUR')} tone={gainEur >= 0 ? 'positive' : 'negative'} />
+          <InfoTile label={`FX ${asset.currency}/EUR`} value={fxRateToEur ? fxRateToEur.toFixed(4) : '-'} />
+          <InfoTile label="EUR-allocatie" value={`${allocation.toFixed(1)}%`} />
+        </div>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
         <InfoTile label="Aankoopwaarde" value={money(cost, currency)} />
@@ -763,6 +833,13 @@ function compactNumber(value: number) {
 function compactMarketCap(value: number, currency: string) {
   const normalized = value < 1_000_000 ? value * 1_000_000 : value;
   return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: currency || 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(normalized);
+}
+
+function fxRateToEur(currency: string, rates: Record<string, number>) {
+  const normalized = currency.toUpperCase();
+  if (normalized === 'EUR') return 1;
+  const rate = Number(rates[normalized] || 0);
+  return Number.isFinite(rate) && rate > 0 ? rate : 1;
 }
 
 function pct(value: number) {

@@ -37,6 +37,17 @@ serve(async (req) => {
       return json({ quotes });
     }
 
+    if (action === "fx-rates") {
+      const currencies = normalizeCurrencies(body.currencies);
+      const rates: Record<string, number> = { EUR: 1 };
+      await Promise.all(currencies.filter((currency) => currency !== "EUR").map(async (currency) => {
+        const data = await finnhub(token, "/forex/rates", { base: currency });
+        const eurRate = Number(data.quote?.EUR || 0);
+        if (Number.isFinite(eurRate) && eurRate > 0) rates[currency] = eurRate;
+      }));
+      return json({ base: "EUR", rates });
+    }
+
     if (action === "candles") {
       const symbol = String(body.symbol || "").trim().toUpperCase();
       if (!symbol) throw new HttpError("Symbol is required", 400);
@@ -91,6 +102,14 @@ function normalizeSymbols(value: unknown) {
   if (symbols.length === 0) throw new HttpError("At least one symbol is required", 400);
   if (symbols.length > 20) throw new HttpError("Request at most 20 symbols at once", 400);
   return symbols;
+}
+
+function normalizeCurrencies(value: unknown) {
+  if (!Array.isArray(value)) throw new HttpError("Currencies must be an array", 400);
+  const currencies = [...new Set(value.map((item) => String(item || "").trim().toUpperCase()).filter(Boolean))];
+  if (currencies.length === 0) throw new HttpError("At least one currency is required", 400);
+  if (currencies.length > 12) throw new HttpError("Request at most 12 currencies at once", 400);
+  return currencies;
 }
 
 function json(body: unknown, status = 200) {
