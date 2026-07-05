@@ -127,6 +127,18 @@
       linear-gradient(135deg, hsl(210 62% 22%), hsl(210 55% 30%) 52%, hsl(174 45% 32%));
   }
 
+  .dashboard-hero-main.wealth-hero {
+    background:
+      radial-gradient(circle at 86% 18%, hsl(38 92% 56% / 0.32), transparent 16rem),
+      linear-gradient(135deg, hsl(218 58% 18%), hsl(220 52% 26%) 50%, hsl(174 45% 28%));
+  }
+
+  .dashboard-hero-main.pension-hero {
+    background:
+      radial-gradient(circle at 86% 18%, hsl(280 50% 62% / 0.28), transparent 16rem),
+      linear-gradient(135deg, hsl(210 60% 20%), hsl(214 48% 28%) 50%, hsl(280 35% 32%));
+  }
+
   .dashboard-hero-pill {
     @apply rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-primary-foreground backdrop-blur;
   }
@@ -149,6 +161,14 @@
 
   .month-tile {
     @apply bg-card/80 hover:border-secondary/50;
+  }
+
+  .polished-action-card {
+    @apply h-auto justify-between rounded-2xl border-border/60 bg-card/90 px-4 py-4 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-md;
+  }
+
+  .data-card {
+    @apply border-border/50 bg-card/95 shadow-sm;
   }
 
   .ios-page-title {

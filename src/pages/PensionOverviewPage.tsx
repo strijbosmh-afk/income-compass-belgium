@@ -64,7 +64,7 @@ function MetricCard({
   const positive = (delta || 0) >= 0;
 
   return (
-    <Card className="border-border/50">
+    <Card className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardContent className="pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -159,15 +159,12 @@ export default function PensionOverviewPage() {
     : null;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 animate-fade-in">
+    <div className="dashboard-shell mx-auto max-w-7xl space-y-4 animate-fade-in md:space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <PiggyBank className="h-4 w-4" />
-            <span>Pensioen</span>
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Kernoverzicht</h1>
-          <p className="mt-1 text-muted-foreground">Laatste update: {fmtDate(latestDate)}</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Pensioen cockpit</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Pensioenoverzicht</h1>
+          <p className="mt-1 text-muted-foreground">Reserve, dekking en evolutie in één rustig overzicht.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
@@ -180,7 +177,7 @@ export default function PensionOverviewPage() {
       </div>
 
       {!hasData ? (
-        <Card className="border-border/50">
+        <Card className="data-card">
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
             <PiggyBank className="h-10 w-10 text-muted-foreground" />
             <div>
@@ -201,22 +198,76 @@ export default function PensionOverviewPage() {
         </Card>
       ) : (
         <>
-          <Card className="border-border/50 bg-muted/20">
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <section className="dashboard-hero">
+            <div className="dashboard-hero-main pension-hero">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Zichtbare pensioenwaarde</p>
-                  <p className="mt-1 text-4xl font-semibold tracking-tight">{fmt(overview.total)}</p>
+                  <p className="text-sm font-medium text-primary-foreground/75">Zichtbare pensioenwaarde</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{fmt(overview.total)}</p>
+                  <p className="mt-2 text-sm text-primary-foreground/70">Laatste update: {fmtDate(latestDate)}</p>
                 </div>
-                {totalDelta !== null && (
-                  <div className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${totalDelta >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
-                    {totalDelta >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    <span>{totalDelta >= 0 ? '+' : ''}{fmt(totalDelta)}{totalDeltaPct !== null ? ` (${totalDeltaPct.toFixed(1)}%)` : ''} sinds vorige snapshot</span>
-                  </div>
-                )}
+                <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
+                  <PiggyBank className="h-7 w-7" />
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="mt-7 grid grid-cols-3 gap-3">
+                <div className="dashboard-hero-pill">
+                  <span>VAPZ/RIZIV</span>
+                  <strong>{fmt(overview.latest?.pensioenreserve || 0)}</strong>
+                </div>
+                <div className="dashboard-hero-pill">
+                  <span>IPT</span>
+                  <strong>{fmt(overview.latestIpt?.opgebouwde_reserve || 0)}</strong>
+                </div>
+                <div className="dashboard-hero-pill">
+                  <span>Dekking</span>
+                  <strong>{fmt((overview.latest?.overlijdensdekking || 0) + (overview.latestIpt?.overlijdenskapitaal || 0))}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-hero-side">
+              <div className="dashboard-insight-card">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Wallet className="h-4 w-4 text-secondary" />
+                  VAPZ/RIZIV reserve
+                </div>
+                <p className="mt-2 text-2xl font-semibold">{fmt(overview.latest?.pensioenreserve || 0)}</p>
+                <p className="text-xs text-muted-foreground">{fmt(overview.latest?.pensioenreserve_vapz || 0)} VAPZ + {fmt(overview.latest?.vap_riziv_toelage || 0)} RIZIV</p>
+              </div>
+              <div className="dashboard-insight-card">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Briefcase className="h-4 w-4 text-secondary" />
+                  IPT reserve
+                </div>
+                <p className="mt-2 text-2xl font-semibold">{fmt(overview.latestIpt?.opgebouwde_reserve || 0)}</p>
+                <p className="text-xs text-muted-foreground">{overview.latestIpt ? `${fmt(overview.latestIpt.jaarpremie)} jaarpremie` : 'Nog geen IPT snapshot'}</p>
+              </div>
+              <div className="dashboard-insight-card md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Evolutie sinds vorige snapshot</p>
+                    <p className={`mt-1 text-2xl font-semibold ${totalDelta === null || totalDelta >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {totalDelta !== null ? `${totalDelta >= 0 ? '+' : ''}${fmt(totalDelta)}` : 'Nog geen vergelijking'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{totalDeltaPct !== null ? `${totalDeltaPct.toFixed(1)}% verschil` : 'Upload nog een snapshot voor trend'}</p>
+                  </div>
+                  <div className="rounded-xl bg-secondary/10 px-3 py-2 text-right">
+                    <p className="text-xs text-muted-foreground">Snapshots</p>
+                    <p className="font-semibold">{records.length + iptRecords.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {totalDelta !== null && (
+            <div className={`inline-flex w-fit items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ${totalDelta >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+              {totalDelta >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              <span>{totalDelta >= 0 ? '+' : ''}{fmt(totalDelta)}{totalDeltaPct !== null ? ` (${totalDeltaPct.toFixed(1)}%)` : ''} sinds vorige snapshot</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
@@ -250,7 +301,7 @@ export default function PensionOverviewPage() {
           </div>
 
           {overview.chartData.length >= 2 && (
-            <Card className="border-border/50">
+            <Card className="data-card">
               <CardHeader>
                 <CardTitle className="text-base">Evolutie pensioenwaarde</CardTitle>
               </CardHeader>
@@ -282,25 +333,25 @@ export default function PensionOverviewPage() {
       )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Button asChild variant="outline" className="h-auto justify-between px-4 py-3">
+        <Button asChild variant="outline" className="polished-action-card">
           <Link to="/pensioen/overzicht">
             <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Alle snapshots</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-between px-4 py-3">
+        <Button asChild variant="outline" className="polished-action-card">
           <Link to="/pensioen/dashboard">
             <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Detailanalyse</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-between px-4 py-3">
+        <Button asChild variant="outline" className="polished-action-card">
           <Link to="/pensioen/upload">
             <span className="flex items-center gap-2"><Upload className="h-4 w-4" /> VAPZ-document</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-auto justify-between px-4 py-3">
+        <Button asChild variant="outline" className="polished-action-card">
           <Link to="/pensioen/upload-ipt">
             <span className="flex items-center gap-2"><Upload className="h-4 w-4" /> IPT-document</span>
             <ArrowRight className="h-4 w-4" />
