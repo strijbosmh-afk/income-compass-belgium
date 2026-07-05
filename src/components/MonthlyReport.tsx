@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Lock, Unlock, CheckCircle2, TrendingUp, TrendingDown, Minus, AlertTriangle, CalendarCheck } from 'lucide-react';
+import { Loader2, FileText, Lock, Unlock, CheckCircle2, TrendingUp, TrendingDown, Minus, AlertTriangle, CalendarCheck, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -62,6 +62,7 @@ export function MonthlyReport() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [closeNote, setCloseNote] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
@@ -428,26 +429,36 @@ export function MonthlyReport() {
   const monthHasData = currentRecs.length > 0;
 
   return (
-    <Card className="border-border/50">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+    <Card className="ios-card border-border/50">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              Maandrapport
+              Maandafsluiting
               {closure && (
                 <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400 gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Afgesloten
                 </Badge>
               )}
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
               Sluit een maand af met verschilcontrole, aandachtspunten en een PDF-samenvatting.
             </p>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs md:hidden"
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            Details
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid grid-cols-2 gap-3 items-end sm:grid-cols-[1fr_1fr_auto_auto]">
+      <CardContent className="space-y-3 md:space-y-5">
+        <div className="grid grid-cols-2 gap-2 items-end sm:gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
           <div>
             <label className="text-xs text-muted-foreground">Jaar</label>
             <Select value={year} onValueChange={setYear}>
@@ -470,31 +481,33 @@ export function MonthlyReport() {
             onClick={toggleClosure}
             variant={closure ? 'outline' : 'secondary'}
             disabled={busy || !monthHasData}
-            className="w-full gap-2 sm:w-auto"
+            className="w-full gap-2 md:w-auto"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : closure ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
             {closure ? 'Heropenen' : 'Afsluiten'}
           </Button>
-          <Button onClick={generatePDF} disabled={!monthHasData} className="w-full gap-2 sm:w-auto">
+          <Button onClick={generatePDF} disabled={!monthHasData} className="w-full gap-2 md:w-auto">
             <FileText className="h-4 w-4" /> PDF
           </Button>
         </div>
 
         {!monthHasData ? (
-          <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/50 rounded-md">
+          <div className="rounded-xl border border-dashed border-border/50 py-6 text-center text-sm text-muted-foreground md:py-10">
             Geen records voor {MONTH_NAMES[monthNum - 1]} {yearNum}.
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Rij 1 — Kerncijfers: financiële waterval Bruto → Netto + volume */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-2 md:hidden">
+              <PreviewTile label="Netto" value={totals.netto} highlight />
+              <PreviewTile label="Prestaties" value={totals.qty} isCount />
+            </div>
+            <div className={`${detailsOpen ? 'grid' : 'hidden'} grid-cols-2 gap-2 md:grid md:grid-cols-4 md:gap-3`}>
               <PreviewTile label="Bruto" value={totals.bruto} />
               <PreviewTile label="Aandeel Arts" value={totals.aandeel} />
               <PreviewTile label="Netto" value={totals.netto} highlight />
               <PreviewTile label="Prestaties" value={totals.qty} isCount />
             </div>
-            {/* Rij 2 — Context: vergelijkingen + uitsplitsing per stroom */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className={`${detailsOpen ? 'grid' : 'hidden'} grid-cols-2 gap-2 md:grid md:grid-cols-5 md:gap-3`}>
               <CompareTile label="vs vorige maand" curr={totals.netto} prev={prevTotals.netto} subLabel={`${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`} />
               <CompareTile label="vs vorig jaar" curr={totals.netto} prev={prevYearTotals.netto} subLabel={`${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`} />
               <PreviewTile label="Ambulant netto" value={ambulant.netto} small />
@@ -504,7 +517,7 @@ export function MonthlyReport() {
           </div>
         )}
 
-        <div className={`rounded-xl border p-4 ${closeChecklist.ok ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+        <div className={`${detailsOpen ? 'block' : 'hidden'} rounded-xl border p-3 md:block md:p-4 ${closeChecklist.ok ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
           <div className="flex items-start gap-3">
             <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${closeChecklist.ok ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'}`}>
               {closeChecklist.ok ? <CalendarCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}

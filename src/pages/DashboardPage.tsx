@@ -200,7 +200,7 @@ export default function DashboardPage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto space-y-4 animate-fade-in md:space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Statistieken */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
         <div className="stat-card">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -326,12 +326,12 @@ export default function DashboardPage() {
       <MonthlyReport />
 
       {/* Kort maandoverzicht: 12 blokken per maand */}
-      <Card className="border-border/50">
+      <Card className="ios-card border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Maandoverzicht {selectedYear}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:grid-cols-4 md:gap-2 lg:grid-cols-6 xl:grid-cols-12">
             {monthlyData.map((m, idx) => {
               const total = m.netto;
               const isSelected = selectedMonth === String(idx + 1);
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                   key={m.month}
                   type="button"
                   onClick={() => setSelectedMonth(isSelected ? 'all' : String(idx + 1))}
-                  className={`text-left rounded-md border px-2 py-2 transition-colors hover:bg-accent/40 ${
+                  className={`rounded-lg border px-2 py-2 text-left transition-colors hover:bg-accent/40 ${
                     isSelected ? 'border-primary bg-primary/5' : 'border-border/50'
                   } ${isEmpty ? 'opacity-60' : ''}`}
                   title={`${MONTH_NAMES[idx]} ${selectedYear}`}
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                   <div className="text-sm font-semibold tabular-nums truncate" title={fmt(total)}>
                     €{total.toLocaleString('de-BE', { maximumFractionDigits: 0 })}
                   </div>
-                  <div className="mt-1 space-y-0.5 text-[10px] tabular-nums text-muted-foreground">
+                  <div className="mt-1 hidden space-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
                     <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
