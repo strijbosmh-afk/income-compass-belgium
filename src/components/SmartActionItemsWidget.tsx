@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, CheckCircle2, FileCheck2, LineChart, PiggyBank, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, FileCheck2, LineChart, PiggyBank, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDataVersion } from '@/hooks/useDataVersion';
@@ -35,6 +35,7 @@ const MONTH_NAMES = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'ju
 export function SmartActionItemsWidget({ year }: { year: number }) {
   const { user } = useAuth();
   const dataVersion = useDataVersion();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [incomeRows, setIncomeRows] = useState<IncomeRow[]>([]);
   const [closures, setClosures] = useState<ClosureRow[]>([]);
   const [latestPensionDate, setLatestPensionDate] = useState<string | null>(null);
@@ -167,16 +168,33 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
     <Card className="data-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <AlertTriangle className="h-4 w-4 text-primary" />
-            Slimme actiepunten
-          </CardTitle>
-          <Badge className={actions.length > 0 ? 'bg-amber-500/15 text-amber-700 border-amber-500/30' : 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'}>
-            {actions.length > 0 ? `${actions.length} open` : 'Alles rustig'}
-          </Badge>
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-primary" />
+              Slimme actiepunten
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground md:hidden">
+              {actions.length > 0 ? `${actions.length} actiepunt${actions.length === 1 ? '' : 'en'} vraagt aandacht` : 'Geen dringende aandachtspunten'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={actions.length > 0 ? 'bg-amber-500/15 text-amber-700 border-amber-500/30' : 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'}>
+              {actions.length > 0 ? `${actions.length} open` : 'Alles rustig'}
+            </Badge>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs md:hidden"
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              Details
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mobileOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={`${mobileOpen ? 'block' : 'hidden'} md:block`}>
         {actions.length === 0 ? (
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-700">
             <CheckCircle2 className="h-5 w-5 shrink-0" />

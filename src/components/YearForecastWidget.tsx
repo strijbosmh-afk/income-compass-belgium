@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CalendarClock, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CalendarClock, ChevronDown, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { useState } from 'react';
 
 type MonthTotals = {
   month: string;
@@ -22,6 +24,7 @@ export function YearForecastWidget({
   monthlyData: MonthTotals[];
   previousYearTotal: number;
 }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -59,19 +62,34 @@ export function YearForecastWidget({
     <Card className="data-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-4 w-4 text-primary" />
-            Jaarprojectie {year}
-          </CardTitle>
-          {previousDeltaPct !== null && (
-            <Badge className={`${trendPositive ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' : 'bg-red-500/15 text-red-700 border-red-500/30'} gap-1`}>
-              {trendPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {pct(previousDeltaPct)} vs vorig jaar
-            </Badge>
-          )}
+          <div className="min-w-0">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              Jaarprojectie {year}
+            </CardTitle>
+            <p className="mt-1 text-xl font-semibold md:hidden">{fmt(projectedYear)}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {previousDeltaPct !== null && (
+              <Badge className={`${trendPositive ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' : 'bg-red-500/15 text-red-700 border-red-500/30'} hidden gap-1 sm:flex`}>
+                {trendPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {pct(previousDeltaPct)} vs vorig jaar
+              </Badge>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs md:hidden"
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              Details
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mobileOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={`${mobileOpen ? 'block' : 'hidden'} md:block`}>
         <div className="grid gap-3 md:grid-cols-4">
           <ForecastMetric label="Projectie netto" value={fmt(projectedYear)} helper={`${completedMonths.length} actieve maand${completedMonths.length === 1 ? '' : 'en'}`} highlight />
           <ForecastMetric label="Tot nu toe" value={fmt(yearToDate)} helper={`Gemiddeld ${fmt(activeAverage)} / actieve maand`} />

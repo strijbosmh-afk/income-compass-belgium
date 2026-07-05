@@ -347,6 +347,50 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      {/* Kort maandoverzicht: 12 blokken per maand */}
+      <Card className="ios-card border-border/50">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base">Maandoverzicht {selectedYear}</CardTitle>
+            <span className="hidden text-xs text-muted-foreground md:inline">Klik een maand om te filteren</span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:grid-cols-4 md:gap-2 lg:grid-cols-6 xl:grid-cols-12">
+            {monthlyData.map((m, idx) => {
+              const total = m.netto;
+              const isSelected = selectedMonth === String(idx + 1);
+              const isEmpty = total === 0;
+              const intensity = bestMonth.netto > 0 ? Math.max(8, Math.round((total / bestMonth.netto) * 100)) : 0;
+              return (
+                <button
+                  key={m.month}
+                  type="button"
+                  onClick={() => setSelectedMonth(isSelected ? 'all' : String(idx + 1))}
+                  className={`month-tile rounded-lg border px-2 py-2 text-left transition-colors hover:bg-accent/40 ${
+                    isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/50'
+                  } ${isEmpty ? 'opacity-60' : ''}`}
+                  title={`${MONTH_NAMES[idx]} ${selectedYear}`}
+                >
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{m.month}</div>
+                  <div className="text-sm font-semibold tabular-nums truncate" title={fmt(total)}>
+                    €{total.toLocaleString('de-BE', { maximumFractionDigits: 0 })}
+                  </div>
+                  <div className="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-muted md:block">
+                    <div className="h-full rounded-full bg-secondary" style={{ width: `${intensity}%` }} />
+                  </div>
+                  <div className="mt-1 hidden space-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
+                    <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                    <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                    <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <YearForecastWidget year={parseInt(selectedYear)} monthlyData={monthlyData} previousYearTotal={previousYearNettoTotal} />
         <SmartActionItemsWidget year={parseInt(selectedYear)} />
@@ -408,50 +452,6 @@ export default function DashboardPage() {
 
       {/* Maandafsluiting */}
       <MonthlyReport />
-
-      {/* Kort maandoverzicht: 12 blokken per maand */}
-      <Card className="ios-card border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-base">Maandoverzicht {selectedYear}</CardTitle>
-            <span className="hidden text-xs text-muted-foreground md:inline">Klik een maand om te filteren</span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3 md:grid-cols-4 md:gap-2 lg:grid-cols-6 xl:grid-cols-12">
-            {monthlyData.map((m, idx) => {
-              const total = m.netto;
-              const isSelected = selectedMonth === String(idx + 1);
-              const isEmpty = total === 0;
-              const intensity = bestMonth.netto > 0 ? Math.max(8, Math.round((total / bestMonth.netto) * 100)) : 0;
-              return (
-                <button
-                  key={m.month}
-                  type="button"
-                  onClick={() => setSelectedMonth(isSelected ? 'all' : String(idx + 1))}
-                  className={`month-tile rounded-lg border px-2 py-2 text-left transition-colors hover:bg-accent/40 ${
-                    isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/50'
-                  } ${isEmpty ? 'opacity-60' : ''}`}
-                  title={`${MONTH_NAMES[idx]} ${selectedYear}`}
-                >
-                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{m.month}</div>
-                  <div className="text-sm font-semibold tabular-nums truncate" title={fmt(total)}>
-                    €{total.toLocaleString('de-BE', { maximumFractionDigits: 0 })}
-                  </div>
-                  <div className="mt-2 hidden h-1.5 overflow-hidden rounded-full bg-muted md:block">
-                    <div className="h-full rounded-full bg-secondary" style={{ width: `${intensity}%` }} />
-                  </div>
-                  <div className="mt-1 hidden space-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
-                    <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
-                    <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
-                    <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Tabbladen */}
       <Tabs value={viewMode} onValueChange={setViewMode}>
