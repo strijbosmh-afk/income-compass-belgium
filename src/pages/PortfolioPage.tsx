@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, BarChart3, Building2, Clock3, ExternalLink, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, TrendingUp, Wallet } from 'lucide-react';
+import { Activity, BarChart3, Building2, Clock3, ExternalLink, Loader2, Pencil, PieChart, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 
@@ -266,6 +266,20 @@ export default function PortfolioPage() {
     return target?.value ?? eurTotals.value;
   }, [eurHistory, valuationDate, eurTotals]);
 
+  const bestPerformer = useMemo(() => {
+    return portfolioRows
+      .filter((row) => row.currentValue > 0)
+      .sort((a, b) => b.gainPct - a.gainPct)[0] || null;
+  }, [portfolioRows]);
+
+  const topHolding = useMemo(() => {
+    return portfolioRows
+      .filter((row) => row.currentValue > 0)
+      .sort((a, b) => b.allocation - a.allocation)[0] || null;
+  }, [portfolioRows]);
+
+  const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
+
   async function loadAssets() {
     if (!user) return;
     setLoading(true);
@@ -440,13 +454,14 @@ export default function PortfolioPage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="dashboard-shell max-w-7xl mx-auto space-y-4 animate-fade-in md:space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Aandelen</h1>
-          <p className="text-muted-foreground mt-1">Beheer aandelen, ETF's en andere beursgenoteerde posities.</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen cockpit</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Beursportfolio</h1>
+          <p className="text-muted-foreground mt-1">Portefeuillewaarde, rendement en posities meteen zichtbaar.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {currencyGroups.length > 1 && (
             <Select value={chartCurrency} onValueChange={setChartCurrency}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -463,24 +478,68 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
-        <CardContent className="pt-5">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-main wealth-hero">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Cumulatieve portefeuillewaarde (EUR)</p>
-              <p className="text-3xl font-semibold mt-1">{money(eurTotals.value, 'EUR')}</p>
-              <p className={`text-sm mt-1 ${eurTotals.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(eurTotals.cost ? (eurTotals.gain / eurTotals.cost) * 100 : 0)})
+              <p className="text-sm font-medium text-primary-foreground/75">Totale waarde in EUR</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(eurTotals.value, 'EUR')}</p>
+              <p className={`mt-2 text-sm ${eurTotals.gain >= 0 ? 'text-emerald-100' : 'text-red-100'}`}>
+                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
               </p>
             </div>
-            <div className="text-xs text-muted-foreground md:text-right">
-              <div>Ingelegd: {money(eurTotals.cost, 'EUR')}</div>
-              <div>Waarde op {valuationDate}: {money(eurValueAtDate, 'EUR')}</div>
-              <div>Wisselkoersen ECB{fxUpdated ? ` · ${fxUpdated}` : ''}</div>
+            <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
+              <PieChart className="h-7 w-7" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            <div className="dashboard-hero-pill">
+              <span>Ingelegd</span>
+              <strong>{money(eurTotals.cost, 'EUR')}</strong>
+            </div>
+            <div className="dashboard-hero-pill">
+              <span>Op datum</span>
+              <strong>{money(eurValueAtDate, 'EUR')}</strong>
+            </div>
+            <div className="dashboard-hero-pill">
+              <span>Posities</span>
+              <strong>{assets.length}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-hero-side">
+          <div className="dashboard-insight-card">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Wallet className="h-4 w-4 text-secondary" />
+              Toppositie
+            </div>
+            <p className="mt-2 text-2xl font-semibold">{topHolding?.asset.symbol || '-'}</p>
+            <p className="text-xs text-muted-foreground">{topHolding ? `${topHolding.allocation.toFixed(1)}% allocatie` : 'Nog geen actuele waarde'}</p>
+          </div>
+          <div className="dashboard-insight-card">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              {totalReturnPct >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+              Rendement
+            </div>
+            <p className={`mt-2 text-2xl font-semibold ${totalReturnPct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{pct(totalReturnPct)}</p>
+            <p className="text-xs text-muted-foreground">{money(eurTotals.gain, 'EUR')} totaal</p>
+          </div>
+          <div className="dashboard-insight-card md:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Beste performer</p>
+                <p className="mt-1 text-2xl font-semibold">{bestPerformer?.asset.symbol || '-'}</p>
+                <p className="text-xs text-muted-foreground">{bestPerformer ? `${bestPerformer.name} · ${pct(bestPerformer.gainPct)}` : 'Nog geen koersdata'}</p>
+              </div>
+              <div className="rounded-xl bg-secondary/10 px-3 py-2 text-right text-xs text-muted-foreground">
+                ECB{fxUpdated ? ` · ${fxUpdated}` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
         {currencyGroups.length === 0 ? (
@@ -497,7 +556,7 @@ export default function PortfolioPage() {
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
 
-      <Card className="border-border/50">
+      <Card className="data-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
           <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
@@ -528,7 +587,7 @@ export default function PortfolioPage() {
 
 
       <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
-        <Card className="border-border/50">
+        <Card className="data-card">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Portefeuillewaarde</CardTitle>
             <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
@@ -560,7 +619,7 @@ export default function PortfolioPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="data-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> {editingId ? 'Positie bewerken' : 'Positie toevoegen'}</CardTitle>
           </CardHeader>
@@ -624,7 +683,7 @@ export default function PortfolioPage() {
         </Card>
       </div>
 
-      <Card className="border-border/50">
+      <Card className="data-card">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Portfolio</CardTitle>
         </CardHeader>
@@ -742,7 +801,7 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 
 function MetricCard({ title, value, sub }: { title: string; value: string; sub: string }) {
   return (
-    <Card className="border-border/50">
+    <Card className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
       <CardContent className="pt-5">
         <p className="text-sm text-muted-foreground">{title}</p>
         <p className="text-2xl font-semibold mt-1">{value}</p>
