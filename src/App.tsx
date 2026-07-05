@@ -52,6 +52,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
