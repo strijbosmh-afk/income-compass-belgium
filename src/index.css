@@ -75,6 +75,9 @@
     font-family: var(--font-body);
     min-width: 320px;
     overscroll-behavior-y: none;
+    background:
+      radial-gradient(circle at top left, hsl(174 50% 40% / 0.12), transparent 28rem),
+      linear-gradient(180deg, hsl(220 30% 98%), hsl(220 20% 96%));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -92,7 +95,7 @@
   }
 
   .stat-card {
-    @apply bg-card rounded-xl border border-border/50 p-6 shadow-sm transition-shadow hover:shadow-md;
+    @apply bg-card/95 rounded-xl border border-border/50 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md;
   }
 
   .app-header {
@@ -106,7 +109,46 @@
   }
 
   .ios-card {
-    @apply border-border/50 shadow-sm;
+    @apply border-border/50 bg-card/95 shadow-sm;
+  }
+
+  .dashboard-shell {
+    @apply pb-4;
+  }
+
+  .dashboard-hero {
+    @apply grid gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)];
+  }
+
+  .dashboard-hero-main {
+    @apply overflow-hidden rounded-3xl border border-primary/15 bg-primary p-6 shadow-lg shadow-primary/10 md:p-8;
+    background:
+      radial-gradient(circle at 86% 18%, hsl(174 50% 58% / 0.38), transparent 16rem),
+      linear-gradient(135deg, hsl(210 62% 22%), hsl(210 55% 30%) 52%, hsl(174 45% 32%));
+  }
+
+  .dashboard-hero-pill {
+    @apply rounded-2xl border border-white/10 bg-white/10 px-3 py-3 text-primary-foreground backdrop-blur;
+  }
+
+  .dashboard-hero-pill span {
+    @apply block text-xs text-primary-foreground/70;
+  }
+
+  .dashboard-hero-pill strong {
+    @apply mt-1 block text-sm font-semibold md:text-base;
+  }
+
+  .dashboard-hero-side {
+    @apply grid gap-4 md:grid-cols-2;
+  }
+
+  .dashboard-insight-card {
+    @apply rounded-3xl border border-border/50 bg-card/95 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .month-tile {
+    @apply bg-card/80 hover:border-secondary/50;
   }
 
   .ios-page-title {
