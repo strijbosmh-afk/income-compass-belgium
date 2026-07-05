@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,12 +8,27 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Stethoscope, Loader2, ScanFace, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  // Only allow same-origin relative paths.
+  if (!raw.startsWith('/') || raw.startsWith('//')) return null;
+  return raw;
+}
+
 export default function Login() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const { toast } = useToast();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
+
+  useEffect(() => {
+    if (user && next) {
+      window.location.href = next;
+    }
+  }, [user, next]);
 
   const toEmail = (username: string) => `${username.trim().toLowerCase()}@medincome.local`;
 
@@ -25,6 +41,10 @@ export default function Login() {
     setLoading(false);
     if (error) {
       toast({ title: 'Fout', description: error.message, variant: 'destructive' });
+      return;
+    }
+    if (next) {
+      window.location.href = next;
     }
   };
 
