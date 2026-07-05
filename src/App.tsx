@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
+import OAuthConsent from "./pages/OAuthConsent";
 import UploadPage from "./pages/UploadPage";
 import RecordsPage from "./pages/RecordsPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -37,7 +38,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
-  if (user) return <Navigate to="/" replace />;
+  const next = new URLSearchParams(window.location.search).get('next');
+  if (user && !next) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
