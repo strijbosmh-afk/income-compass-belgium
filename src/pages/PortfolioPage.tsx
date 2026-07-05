@@ -237,6 +237,7 @@ export default function PortfolioPage() {
       dayLow,
       dividendYield,
       exchange: profile.exchange || asset.exchange || '',
+      gain,
       gainPct,
       industry: profile.finnhubIndustry || '',
       marketCap,
