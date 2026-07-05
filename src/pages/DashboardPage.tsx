@@ -12,6 +12,8 @@ import { GoalsWidget } from '@/components/GoalsWidget';
 import { MissingMonthsWidget } from '@/components/MissingMonthsWidget';
 import { MonthlyReport } from '@/components/MonthlyReport';
 import { applyShare } from '@/lib/incomeTypes';
+import { YearForecastWidget } from '@/components/YearForecastWidget';
+import { SmartActionItemsWidget } from '@/components/SmartActionItemsWidget';
 
 type IncomeEntry = {
   id: string;
@@ -61,7 +63,7 @@ export default function DashboardPage() {
       supabase.from('income_records')
         .select('id, month, year, income_type, nomenclature_code, total_amount, aandeel_arts, bouwfonds, mif, netto, description')
         .eq('user_id', user.id)
-        .eq('year', parseInt(selectedYear)),
+        .in('year', [parseInt(selectedYear), parseInt(selectedYear) - 1]),
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
       supabase.from('income_records').select('year').eq('user_id', user.id),
     ]).then(([recRes, nomRes, yearsRes]) => {
@@ -89,6 +91,7 @@ export default function DashboardPage() {
   
   // Year-filtered (for charts that need full year)
   const yearFiltered = useMemo(() => records.filter(r => String(r.year) === selectedYear), [records, selectedYear]);
+  const previousYearFiltered = useMemo(() => records.filter(r => r.year === parseInt(selectedYear) - 1), [records, selectedYear]);
   
   // Year+month filtered (for totals and stats)
   const filtered = useMemo(() => {
@@ -183,6 +186,8 @@ export default function DashboardPage() {
       return { month: name, afdracht: mTotal - mAandeelArts, bouwfonds: mBouwfonds, mif: mMif };
     });
   }, [yearFiltered]);
+
+  const previousYearNettoTotal = useMemo(() => previousYearFiltered.reduce((sum, record) => sum + record.netto, 0), [previousYearFiltered]);
 
 
 
@@ -341,6 +346,11 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <YearForecastWidget year={parseInt(selectedYear)} monthlyData={monthlyData} previousYearTotal={previousYearNettoTotal} />
+        <SmartActionItemsWidget year={parseInt(selectedYear)} />
+      </div>
 
       {/* Statistieken */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
