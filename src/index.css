@@ -237,6 +237,9 @@
 @media (max-width: 767px) {
   body {
     -webkit-tap-highlight-color: transparent;
+    background:
+      radial-gradient(circle at top right, hsl(174 50% 40% / 0.16), transparent 18rem),
+      linear-gradient(180deg, hsl(220 28% 98%), hsl(220 18% 95%));
   }
 
   button, a, [role='button'] {
@@ -253,6 +256,22 @@
     @apply space-y-4;
   }
 
+  .dashboard-shell {
+    @apply pb-2;
+  }
+
+  .dashboard-shell h1 {
+    @apply text-2xl leading-tight;
+  }
+
+  .dashboard-shell > div:first-child {
+    @apply gap-2;
+  }
+
+  .dashboard-shell > div:first-child p {
+    @apply text-sm leading-snug;
+  }
+
   .ios-card {
     @apply rounded-2xl;
   }
@@ -263,6 +282,76 @@
 
   .ios-card > div:last-child {
     @apply px-4 pb-4;
+  }
+
+  .dashboard-hero {
+    @apply gap-3;
+  }
+
+  .dashboard-hero-main {
+    @apply rounded-[1.65rem] p-4 shadow-md shadow-primary/10;
+  }
+
+  .dashboard-hero-main p.text-4xl,
+  .dashboard-hero-main p.md\:text-5xl {
+    @apply text-3xl leading-tight;
+  }
+
+  .dashboard-hero-main .mt-7 {
+    @apply mt-5 gap-2;
+  }
+
+  .dashboard-hero-pill {
+    @apply rounded-2xl px-2.5 py-2.5;
+  }
+
+  .dashboard-hero-pill span {
+    @apply truncate text-[10px] leading-tight;
+  }
+
+  .dashboard-hero-pill strong {
+    @apply truncate text-xs leading-tight;
+  }
+
+  .dashboard-hero-side {
+    @apply grid-cols-2 gap-2;
+  }
+
+  .dashboard-insight-card {
+    @apply rounded-2xl p-3 shadow-sm;
+  }
+
+  .dashboard-insight-card div.text-sm {
+    @apply text-xs leading-tight;
+  }
+
+  .dashboard-insight-card p.text-2xl {
+    @apply text-lg leading-tight;
+  }
+
+  .dashboard-insight-card.md\:col-span-2 {
+    @apply col-span-2;
+  }
+
+  .data-card {
+    @apply rounded-2xl;
+  }
+
+  .polished-action-card {
+    @apply rounded-2xl px-3 py-3 text-sm;
+  }
+
+  .ios-tab-bar {
+    @apply inset-x-2 bottom-2 rounded-[1.4rem] border border-border/60 bg-card/90 px-1.5 pt-1.5 shadow-2xl shadow-primary/10;
+    padding-bottom: max(env(safe-area-inset-bottom), 0.45rem);
+  }
+
+  .ios-tab-item {
+    @apply rounded-2xl;
+  }
+
+  .ios-tab-item-active {
+    @apply bg-primary/10 text-primary;
   }
 
   .ios-eyebrow,
