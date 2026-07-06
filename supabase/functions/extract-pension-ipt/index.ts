@@ -111,27 +111,31 @@ REGELS:
       const errorText = await res.text();
       console.error("AI Gateway error:", res.status, errorText);
       if (res.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Probeer zo opnieuw." }), {
+        return new Response(JSON.stringify({ error: "AI is momenteel druk. Probeer over enkele seconden opnieuw." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (res.status === 402) {
-        return new Response(JSON.stringify({ error: "Krediet opgebruikt. Voeg credits toe." }), {
+        return new Response(JSON.stringify({ error: "AI-krediet opgebruikt. Voeg credits toe in Lovable Cloud." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${res.status}`);
+      return new Response(JSON.stringify({ error: `AI-verwerking mislukt (${res.status}). Controleer of de PDF leesbaar is.` }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await res.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren." }), {
+      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren uit deze PDF. Controleer of het een geldig IPT-jaaroverzicht is." }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    let parsed: any;
+    try { parsed = JSON.parse(toolCall.function.arguments); }
+    catch { return new Response(JSON.stringify({ error: "AI-antwoord kon niet gelezen worden." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
