@@ -111,6 +111,15 @@ type AllocationDatum = {
   percentage: number;
 };
 
+type CashAccount = 'private' | 'bvba';
+
+type CashFormState = {
+  account: CashAccount;
+  amount: string;
+  snapshot_date: string;
+  notes: string;
+};
+
 const emptyForm: FormState = {
   symbol: '',
   name: '',
@@ -123,6 +132,13 @@ const emptyForm: FormState = {
   purchase_price: '',
   notes: '',
 };
+
+const emptyCashForm = (): CashFormState => ({
+  account: 'private',
+  amount: '',
+  snapshot_date: new Date().toISOString().slice(0, 10),
+  notes: '',
+});
 
 const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
 const COLORS = ['#2f9e91', '#1d4f7a', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#64748b', '#ec4899'];
@@ -146,8 +162,10 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingCash, setSavingCash] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [cashForm, setCashForm] = useState<CashFormState>(emptyCashForm);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SymbolResult[]>([]);
@@ -242,8 +260,10 @@ export default function PortfolioPage() {
     return () => window.clearTimeout(handle);
   }, [query]);
 
+  const analysisAssets = useMemo(() => latestCashSnapshots(assets), [assets]);
+
   useEffect(() => {
-    if (assets.length === 0) {
+    if (analysisAssets.length === 0) {
       setQuotes({});
       setHistory([]);
       return;
@@ -253,7 +273,7 @@ export default function PortfolioPage() {
       refreshMarketData();
     }, 15 * 60 * 1000);
     return () => window.clearInterval(handle);
-  }, [assets, range, chartCurrency]);
+  }, [analysisAssets, range, chartCurrency]);
 
   const toEur = useMemo(() => {
     return (value: number, currency: string) => {
@@ -268,18 +288,18 @@ export default function PortfolioPage() {
 
   const currencyGroups = useMemo(() => {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
-    for (const asset of assets) {
+    for (const asset of analysisAssets) {
       const quote = quotes[asset.symbol]?.quote;
       const livePrice = Number(quote?.c || 0);
       const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
-      const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot ? asset.purchase_price : 0);
+      const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
       const cost = asset.quantity * asset.purchase_price;
       const value = currentPrice > 0 ? asset.quantity * currentPrice : 0;
       const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
       groups.set(asset.currency, { cost: prev.cost + cost, value: prev.value + value, gain: prev.gain + value - cost });
     }
     return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
-  }, [assets, quotes]);
+  }, [analysisAssets, quotes]);
 
   const eurTotals = useMemo(() => {
     let cost = 0;
@@ -297,13 +317,13 @@ export default function PortfolioPage() {
     }
   }, [currencyGroups, chartCurrency]);
 
-  const portfolioRows = useMemo(() => assets.map((asset) => {
+  const portfolioRows = useMemo(() => analysisAssets.map((asset) => {
     const quoteEntry = quotes[asset.symbol];
     const quote = quoteEntry?.quote;
     const profile = quoteEntry?.profile || {};
     const livePrice = Number(quote?.c || 0);
     const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
-    const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot ? asset.purchase_price : 0);
+    const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
     const previousClose = Number(quote?.pc || 0);
     const cost = asset.quantity * asset.purchase_price;
     const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : 0;
@@ -353,7 +373,7 @@ export default function PortfolioPage() {
       weekLow,
       isBoleroSnapshot,
     };
-  }), [assets, quotes, eurTotals.value, toEur]);
+  }), [analysisAssets, quotes, eurTotals.value, toEur]);
 
   const valueAtDate = useMemo(() => {
     if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
@@ -383,6 +403,15 @@ export default function PortfolioPage() {
   const cashValue = useMemo(() => portfolioRows
     .filter((row) => isCashAsset(row.asset))
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [portfolioRows, toEur]);
+  const manualCashRows = useMemo(() => portfolioRows
+    .filter((row) => isManualCashAsset(row.asset))
+    .sort((a, b) => b.asset.purchase_date.localeCompare(a.asset.purchase_date)), [portfolioRows]);
+  const privateCashValue = useMemo(() => manualCashRows
+    .filter((row) => manualCashAccount(row.asset) === 'private')
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
+  const bvbaCashValue = useMemo(() => manualCashRows
+    .filter((row) => manualCashAccount(row.asset) === 'bvba')
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
   const debitValue = Math.min(0, cashValue);
   const investmentValue = Math.max(0, eurTotals.value - cashValue);
   const netWorth = eurTotals.value + pensionTotal;
@@ -435,7 +464,20 @@ export default function PortfolioPage() {
 
   async function refreshMarketData() {
     setMarketLoading(true);
-    const symbols = [...new Set(assets.map((asset) => asset.symbol))];
+    const symbols = [...new Set(analysisAssets.filter((asset) => !isCashAsset(asset)).map((asset) => asset.symbol))];
+    if (symbols.length === 0) {
+      const cashAssets = analysisAssets.filter((asset) => isCashAsset(asset));
+      const cashDate = cashAssets.map((asset) => asset.purchase_date).sort().at(-1) || new Date().toISOString().slice(0, 10);
+      const chartCashValue = cashAssets
+        .filter((asset) => asset.currency === chartCurrency)
+        .reduce((sum, asset) => sum + asset.quantity * asset.purchase_price, 0);
+      const eurCashValue = cashAssets.reduce((sum, asset) => sum + toEur(asset.quantity * asset.purchase_price, asset.currency), 0);
+      setQuotes({});
+      setHistory(cashAssets.length > 0 ? [{ date: cashDate, value: chartCashValue }] : []);
+      setEurHistory(cashAssets.length > 0 ? [{ date: cashDate, value: eurCashValue }] : []);
+      setMarketLoading(false);
+      return;
+    }
     const { data, error } = await supabase.functions.invoke('market-data', {
       body: { action: 'quotes', symbols },
     });
@@ -505,19 +547,31 @@ export default function PortfolioPage() {
     };
 
     const byDate = new Map<string, number>();
-    const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
+    const chartAssets = analysisAssets.filter((asset) => asset.currency === chartCurrency && !isCashAsset(asset));
     for (const asset of chartAssets) {
       for (const [date, value] of buildAssetSeries(asset)) {
         byDate.set(date, (byDate.get(date) || 0) + value);
+      }
+    }
+    for (const cashAsset of analysisAssets.filter((asset) => asset.currency === chartCurrency && isCashAsset(asset))) {
+      for (const date of timeline) {
+        if (!purchaseGate(cashAsset.purchase_date, date)) continue;
+        byDate.set(date, (byDate.get(date) || 0) + cashAsset.quantity * cashAsset.purchase_price);
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
 
     // Cumulative EUR history across ALL currencies (using latest FX rate)
     const eurByDate = new Map<string, number>();
-    for (const asset of assets) {
+    for (const asset of analysisAssets.filter((item) => !isCashAsset(item))) {
       for (const [date, value] of buildAssetSeries(asset)) {
         eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(value, asset.currency));
+      }
+    }
+    for (const cashAsset of analysisAssets.filter((asset) => isCashAsset(asset))) {
+      for (const date of timeline) {
+        if (!purchaseGate(cashAsset.purchase_date, date)) continue;
+        eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(cashAsset.quantity * cashAsset.purchase_price, cashAsset.currency));
       }
     }
     setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
@@ -572,6 +626,42 @@ export default function PortfolioPage() {
     setForm(emptyForm);
     setQuery('');
     setEditingId(null);
+    loadAssets();
+  }
+
+  async function saveManualCash() {
+    if (!user) return;
+    const amount = parseFlexibleNumber(cashForm.amount);
+    if (!cashForm.snapshot_date || !cashForm.amount.trim() || !Number.isFinite(amount)) {
+      toast.error('Vul een geldige datum en cashbedrag in.');
+      return;
+    }
+
+    setSavingCash(true);
+    const accountLabel = cashAccountLabel(cashForm.account);
+    const note = cashForm.notes.trim();
+    const payload = {
+      user_id: user.id,
+      symbol: cashAccountSymbol(cashForm.account),
+      name: `Cash ${accountLabel}`,
+      asset_type: 'other' as AssetType,
+      exchange: accountLabel,
+      mic: null,
+      currency: 'EUR',
+      purchase_date: cashForm.snapshot_date,
+      quantity: amount,
+      purchase_price: 1,
+      notes: `Manual cash snapshot ${cashForm.account}${note ? `; ${note}` : ''}`,
+    };
+
+    const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
+    setSavingCash(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Cashsnapshot toegevoegd');
+    setCashForm(emptyCashForm());
     loadAssets();
   }
 
@@ -755,7 +845,7 @@ export default function PortfolioPage() {
           />
         ))}
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
-        <MetricCard title="Cash Bolero" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Debetstand op brokerrekening' : 'Vrije cash op brokerrekening'} />
+        <MetricCard title="Cash totaal" value={money(cashValue, 'EUR')} sub={`Prive ${money(privateCashValue, 'EUR')} · BVBA ${money(bvbaCashValue, 'EUR')}`} />
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
 
@@ -817,6 +907,79 @@ export default function PortfolioPage() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="data-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cashrekeningen</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
+              <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Rekening</Label>
+                    <Select value={cashForm.account} onValueChange={(value) => setCashForm({ ...cashForm, account: value as CashAccount })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="private">Prive rekening</SelectItem>
+                        <SelectItem value="bvba">BVBA rekening</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Field label="Snapshotdatum" type="date" value={cashForm.snapshot_date} onChange={(value) => setCashForm({ ...cashForm, snapshot_date: value })} />
+                </div>
+                <Field label="Cashbedrag in EUR" value={cashForm.amount} onChange={(value) => setCashForm({ ...cashForm, amount: value })} />
+                <Field label="Notitie" value={cashForm.notes} onChange={(value) => setCashForm({ ...cashForm, notes: value })} />
+                <Button onClick={saveManualCash} disabled={savingCash} className="w-full">
+                  {savingCash && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Cashsnapshot bewaren
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Elke invoer wordt als snapshot bewaard. Analyses gebruiken per cashrekening automatisch de meest recente datum.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                <MetricCard title="Prive cash" value={money(privateCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'private') || 'Nog geen snapshot'} />
+                <MetricCard title="BVBA cash" value={money(bvbaCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'bvba') || 'Nog geen snapshot'} />
+                <MetricCard title="Cashbuffer totaal" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Inclusief debetstand' : monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
+
+                <div className="md:col-span-2 2xl:col-span-3">
+                  {manualCashRows.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+                      Nog geen manuele cashsnapshots. Voeg hierboven je prive- of BVBA-rekening toe.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-border/60">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Rekening</TableHead>
+                            <TableHead>Datum</TableHead>
+                            <TableHead className="text-right">Bedrag</TableHead>
+                            <TableHead>Notitie</TableHead>
+                            <TableHead />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {manualCashRows.map((row) => (
+                            <TableRow key={row.asset.id}>
+                              <TableCell className="font-medium">{cashAccountLabel(manualCashAccount(row.asset) || 'private')}</TableCell>
+                              <TableCell>{row.asset.purchase_date}</TableCell>
+                              <TableCell className={`text-right ${row.currentValue < 0 ? 'text-destructive' : ''}`}>{money(row.currentValue, row.quoteCurrency)}</TableCell>
+                              <TableCell className="max-w-80 truncate text-muted-foreground">{manualCashNote(row.asset.notes)}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => deleteAsset(row.asset.id)}><Trash2 className="h-4 w-4" /></Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="allocation" className="space-y-4">
@@ -1215,7 +1378,7 @@ function boleroAssetType(type: string): AssetType {
 function parseBoleroNumber(value: unknown) {
   const text = String(value ?? '')
     .replace(/\u00a0/g, ' ')
-    .replace(/[^\d,.\-]/g, '')
+    .replace(/[^\d,.-]/g, '')
     .trim();
   if (!text) return 0;
   const normalized = text.includes(',')
@@ -1223,6 +1386,18 @@ function parseBoleroNumber(value: unknown) {
     : text;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseFlexibleNumber(value: string) {
+  const text = value
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s/g, '')
+    .trim();
+  const normalized = text.includes(',')
+    ? text.replace(/\./g, '').replace(',', '.')
+    : text;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
 function normalizeHeader(header: string) {
@@ -1365,12 +1540,65 @@ function groupRows(rows: any[], keyFn: (row: any) => string, toEur: (value: numb
     .sort((a, b) => b.value - a.value);
 }
 
+function latestCashSnapshots(assets: PortfolioAsset[]) {
+  const latest = new Map<string, PortfolioAsset>();
+  const regularAssets: PortfolioAsset[] = [];
+  for (const asset of assets) {
+    if (!isCashAsset(asset)) {
+      regularAssets.push(asset);
+      continue;
+    }
+    const key = asset.symbol.toUpperCase();
+    const previous = latest.get(key);
+    if (!previous || compareCashSnapshots(asset, previous) > 0) {
+      latest.set(key, asset);
+    }
+  }
+  return [...regularAssets, ...latest.values()];
+}
+
+function compareCashSnapshots(a: PortfolioAsset, b: PortfolioAsset) {
+  const dateCompare = a.purchase_date.localeCompare(b.purchase_date);
+  if (dateCompare !== 0) return dateCompare;
+  return a.id.localeCompare(b.id);
+}
+
 function isCashAsset(asset: PortfolioAsset) {
   const haystack = `${asset.symbol} ${asset.name} ${asset.asset_type} ${asset.notes || ''}`.toLowerCase();
   return haystack.includes('cash') || asset.symbol.toUpperCase().startsWith('CASH-');
 }
 
+function isManualCashAsset(asset: PortfolioAsset) {
+  return manualCashAccount(asset) !== null;
+}
+
+function manualCashAccount(asset: PortfolioAsset): CashAccount | null {
+  const symbol = asset.symbol.toUpperCase();
+  const notes = String(asset.notes || '').toLowerCase();
+  if (symbol === 'CASH-PRIVATE' || notes.includes('manual cash snapshot private')) return 'private';
+  if (symbol === 'CASH-BVBA' || notes.includes('manual cash snapshot bvba')) return 'bvba';
+  return null;
+}
+
+function cashAccountSymbol(account: CashAccount) {
+  return account === 'private' ? 'CASH-PRIVATE' : 'CASH-BVBA';
+}
+
+function cashAccountLabel(account: CashAccount) {
+  return account === 'private' ? 'Prive rekening' : 'BVBA rekening';
+}
+
+function cashSnapshotDate(rows: Array<{ asset: PortfolioAsset }>, account: CashAccount) {
+  return rows.find((row) => manualCashAccount(row.asset) === account)?.asset.purchase_date || '';
+}
+
+function manualCashNote(notes: string | null) {
+  return String(notes || '').replace(/^Manual cash snapshot (private|bvba);?\s*/i, '') || '-';
+}
+
 function inferBrokerFromAsset(asset: PortfolioAsset) {
+  const account = manualCashAccount(asset);
+  if (account) return cashAccountLabel(account);
   const notes = String(asset.notes || '').toLowerCase();
   if (notes.includes('bolero')) return 'Bolero';
   if (notes.includes('degiro') || notes.includes('de giro')) return 'DEGIRO';
