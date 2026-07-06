@@ -14,6 +14,7 @@ import { MonthlyReport } from '@/components/MonthlyReport';
 import { applyShare } from '@/lib/incomeTypes';
 import { YearForecastWidget } from '@/components/YearForecastWidget';
 import { SmartActionItemsWidget } from '@/components/SmartActionItemsWidget';
+import { FinancialFutureScoreWidget } from '@/components/FinancialFutureScoreWidget';
 
 type IncomeEntry = {
   id: string;
@@ -346,6 +347,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <FinancialFutureScoreWidget />
 
       {/* Kort maandoverzicht: 12 blokken per maand */}
       <Card className="ios-card border-border/50">
