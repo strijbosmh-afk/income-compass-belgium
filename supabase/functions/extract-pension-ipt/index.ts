@@ -51,15 +51,23 @@ serve(async (req) => {
     const { pdf, mimeType } = await req.json();
     validateBase64Payload("PDF", pdf, mimeType, PDF_MIME_TYPES, 12 * 1024 * 1024);
 
-    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-jaaroverzichten (Individuele Pensioentoezegging, Nederlands).
+    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische pensioenoverzichten (Nederlands).
+De gebruiker denkt dat dit een IPT is (Individuele Pensioentoezegging).
 
-Extraheer per jaar:
+STAP 1 — Detecteer type (detected_category):
+- 'ipt' voor 'Individuele Pensioentoezegging', 'IPT', 'groepsverzekering', werkgevers-storting.
+- 'vapz_riziv' bij expliciete 'RIZIV' / 'sociaal statuut' vermelding.
+- 'vapz' voor gewone VAPZ.
+- 'pensioensparen' voor 3de pijler pensioenspaarfonds/-verzekering.
+- 'unknown' bij twijfel.
+
+STAP 2 — Extraheer per jaar:
 1. year + snapshot_date — herken "Jaaroverzicht <jaar>"; snapshot_date = <jaar>-12-31.
 2. beginkapitaal — "Uw spaartegoed op 01/01/<jaar>" of "Uw kapitaal op 01/01/<jaar>".
-3. eindkapitaal — "Uw spaartegoed op 01/01/<jaar+1>" of "Uw kapitaal op 01/01/<jaar+1>".
+3. eindkapitaal — "Uw spaartegoed op 01/01/<jaar+1>" of "Uw kapitaal op 01/01/<jaar+1>" (= totaal gespaard bedrag op einddatum).
 4. opgebouwde_reserve — totale opgebouwde IPT-reserve op einddatum (meestal = eindkapitaal).
 5. jaarpremie — jaarlijkse premie / som stortingen.
-6. overlijdenskapitaal — kapitaal bij overlijden op einddatum.
+6. overlijdenskapitaal — kapitaal bij overlijden op einddatum. Synoniemen: "Overlijdenskapitaal", "Kapitaal bij overlijden", "Dekking bij overlijden", "Verzekerd overlijdenskapitaal", "Prestatie bij overlijden".
 7. gewaarborgd_rendement — gewaarborgd rendement in %.
 8. winst_uit_beleggingen — "Prestatie van de eenheden" of "Nettorendement van de fondsen" in EUR.
 9. inkomende_bewegingen — som inkomende bewegingen (positief).
@@ -73,6 +81,7 @@ REGELS:
 - Percentages als getal ("1,75 %" → 1.75).
 - Niet zichtbaar → 0.
 - "Uw spaartegoed" en "Uw kapitaal" = hetzelfde veld.
+- Bij meerdere jaren, kies het MEEST RECENTE jaar.
 - Antwoord ALTIJD via de tool call.`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
