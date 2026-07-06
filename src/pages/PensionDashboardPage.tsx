@@ -219,11 +219,11 @@ export default function PensionDashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> IPT-reserve</div>
-              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.opgebouwde_reserve || 0)}</p>
+              <p className="text-2xl font-semibold mt-2">{fmt(iptLatest?.opgebouwde_reserve || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> IPT-overlijdensdekking</div>
-              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.overlijdenskapitaal || 0)}</p>
+              <p className="text-2xl font-semibold mt-2">{fmt(iptLatest?.overlijdenskapitaal || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst beleggingen</div>
