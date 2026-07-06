@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, BarChart3, Building2, Clock3, ExternalLink, FileSpreadsheet, Loader2, Pencil, PieChart, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Activity, AlertTriangle, BarChart3, Building2, Clock3, ExternalLink, FileSpreadsheet, Flame, Landmark, Loader2, Pencil, PieChart as PieIcon, Plus, RefreshCw, Search, ShieldCheck, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
@@ -103,6 +105,12 @@ type BoleroPosition = {
   isin: string;
 };
 
+type AllocationDatum = {
+  name: string;
+  value: number;
+  percentage: number;
+};
+
 const emptyForm: FormState = {
   symbol: '',
   name: '',
@@ -117,6 +125,15 @@ const emptyForm: FormState = {
 };
 
 const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
+const COLORS = ['#2f9e91', '#1d4f7a', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#64748b', '#ec4899'];
+const assetTypeLabels: Record<AssetType, string> = {
+  stock: 'Individuele aandelen',
+  etf: 'Aandelen-ETF',
+  fund: 'Fondsen',
+  bond: 'Obligaties',
+  crypto: 'Crypto',
+  other: 'Cash/andere',
+};
 
 export default function PortfolioPage() {
   const { user } = useAuth();
@@ -138,12 +155,18 @@ export default function PortfolioPage() {
   const [valuationDate, setValuationDate] = useState(new Date().toISOString().slice(0, 10));
   const [chartCurrency, setChartCurrency] = useState('EUR');
   const [importingBolero, setImportingBolero] = useState(false);
+  const [pensionTotal, setPensionTotal] = useState(0);
+  const [pensionSnapshotDate, setPensionSnapshotDate] = useState('');
+  const [monthlyNetIncome, setMonthlyNetIncome] = useState(0);
+  const [incomeWindowLabel, setIncomeWindowLabel] = useState('');
+  const [section, setSection] = useState('cockpit');
   const boleroInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!user) return;
     loadAssets();
     loadFx();
+    loadWealthContext();
   }, [user]);
 
   async function loadFx() {
@@ -157,6 +180,57 @@ export default function PortfolioPage() {
     } catch (_err) {
       // keep default EUR=1
     }
+  }
+
+  async function loadWealthContext() {
+    if (!user) return;
+    await Promise.all([loadIncomeContext(), loadPensionContext()]);
+  }
+
+  async function loadIncomeContext() {
+    if (!user) return;
+    const { data, error } = await (supabase as any)
+      .from('income_records')
+      .select('record_date, netto')
+      .eq('user_id', user.id)
+      .order('record_date', { ascending: false })
+      .limit(400);
+    if (error || !data) return;
+
+    const byMonth = new Map<string, number>();
+    for (const row of data) {
+      const key = String(row.record_date || '').slice(0, 7);
+      if (!key) continue;
+      byMonth.set(key, (byMonth.get(key) || 0) + Number(row.netto || 0));
+    }
+    const months = Array.from(byMonth.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
+    if (months.length === 0) return;
+    const average = months.reduce((sum, [, value]) => sum + value, 0) / months.length;
+    setMonthlyNetIncome(average);
+    setIncomeWindowLabel(`${months.at(-1)?.[0]} tot ${months[0]?.[0]}`);
+  }
+
+  async function loadPensionContext() {
+    if (!user) return;
+    const sources = [
+      { table: 'pension_ipt_records', field: 'opgebouwde_reserve' },
+      { table: 'vapz_records', field: 'pensioenreserve' },
+      { table: 'vapz_riziv_records', field: 'pensioenreserve' },
+      { table: 'pensioensparen_records', field: 'pensioenreserve' },
+    ];
+    const rows = await Promise.all(sources.map(async ({ table, field }) => {
+      const { data } = await (supabase as any)
+        .from(table)
+        .select(`${field}, snapshot_date`)
+        .eq('user_id', user.id)
+        .order('snapshot_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ? { value: Number(data[field] || 0), date: String(data.snapshot_date || '') } : null;
+    }));
+    const values = rows.filter(Boolean) as { value: number; date: string }[];
+    setPensionTotal(values.reduce((sum, row) => sum + row.value, 0));
+    setPensionSnapshotDate(values.map((row) => row.date).filter(Boolean).sort().at(-1) || '');
   }
 
 
@@ -196,7 +270,8 @@ export default function PortfolioPage() {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of assets) {
       const quote = quotes[asset.symbol]?.quote;
-      const current = Number(quote?.c || 0);
+      const snapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+      const current = Number(quote?.c || 0) || (snapshot ? asset.purchase_price : 0);
       const cost = asset.quantity * asset.purchase_price;
       const value = current > 0 ? asset.quantity * current : 0;
       const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
@@ -304,6 +379,31 @@ export default function PortfolioPage() {
   }, [portfolioRows]);
 
   const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
+  const cashValue = useMemo(() => portfolioRows
+    .filter((row) => isCashAsset(row.asset))
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [portfolioRows, toEur]);
+  const investmentValue = Math.max(0, eurTotals.value - cashValue);
+  const netWorth = eurTotals.value + pensionTotal;
+  const bufferTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 6 : 0;
+  const bufferMonths = monthlyNetIncome > 0 ? cashValue / monthlyNetIncome : 0;
+  const investableCash = Math.max(0, cashValue - bufferTarget);
+  const monthlyCapacity = investableCash > 0 ? investableCash / 12 : 0;
+  const fireTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 12 * 25 : 0;
+  const fireProgress = fireTarget > 0 ? Math.min((netWorth / fireTarget) * 100, 100) : 0;
+
+  const allocationData = useMemo(() => groupRows(portfolioRows, (row) => assetTypeLabels[row.asset.asset_type] || row.asset.asset_type, toEur), [portfolioRows, toEur]);
+  const brokerData = useMemo(() => groupRows(portfolioRows, (row) => inferBrokerFromAsset(row.asset), toEur), [portfolioRows, toEur]);
+  const currencyData = useMemo(() => groupRows(portfolioRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [portfolioRows, toEur]);
+  const regionData = useMemo(() => groupRows(portfolioRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [portfolioRows, toEur]);
+  const sectorData = useMemo(() => groupRows(portfolioRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [portfolioRows, toEur]);
+
+  const riskItems = useMemo(() => buildRiskItems({
+    rows: portfolioRows,
+    cashValue,
+    bufferMonths,
+    monthlyNetIncome,
+    currencyData,
+  }), [portfolioRows, cashValue, bufferMonths, monthlyNetIncome, currencyData]);
 
   async function loadAssets() {
     if (!user) return;
@@ -589,7 +689,7 @@ export default function PortfolioPage() {
               </p>
             </div>
             <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
-              <PieChart className="h-7 w-7" />
+              <PieIcon className="h-7 w-7" />
             </div>
           </div>
 
@@ -655,6 +755,137 @@ export default function PortfolioPage() {
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
+
+      <Tabs value={section} onValueChange={setSection} className="space-y-4">
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="cockpit">Cockpit</TabsTrigger>
+          <TabsTrigger value="allocation">Allocatie</TabsTrigger>
+          <TabsTrigger value="risk">Risico & fiscaliteit</TabsTrigger>
+          <TabsTrigger value="import">Import</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cockpit" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Beleggingen + cash + pensioen/IPT" />
+            <MetricCard title="Beleggingen" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
+            <MetricCard title="Cashbuffer" value={money(cashValue, 'EUR')} sub={monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
+            <MetricCard title="Pensioen/IPT" value={money(pensionTotal, 'EUR')} sub={pensionSnapshotDate ? `Laatste snapshot ${pensionSnapshotDate}` : 'Nog geen pensioenimport'} />
+            <MetricCard title="Inlegcapaciteit" value={money(monthlyCapacity, 'EUR')} sub="Per maand boven 6m cashbuffer" />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><Flame className="h-4 w-4" /> FIRE / pensioenrichting</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Indicatieve FIRE-doelwaarde</p>
+                    <p className="text-2xl font-semibold">{fireTarget > 0 ? money(fireTarget, 'EUR') : '-'}</p>
+                  </div>
+                  <Badge variant="outline">{fireTarget > 0 ? `${fireProgress.toFixed(1)}% bereikt` : 'Netto inkomen ontbreekt'}</Badge>
+                </div>
+                <Progress value={fireProgress} className="h-3" />
+                <p className="text-xs text-muted-foreground">
+                  Gebaseerd op 25x gemiddeld jaarlijks netto inkomen. Dit is een grove cockpit-indicator, geen financieel advies.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4" /> Inkomstencontext</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Gemiddeld netto/maand</span>
+                  <strong>{monthlyNetIncome > 0 ? money(monthlyNetIncome, 'EUR') : '-'}</strong>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">Periode</span>
+                  <span className="text-sm">{incomeWindowLabel || 'Geen recente inkomsten'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">6m bufferdoel</span>
+                  <strong>{bufferTarget > 0 ? money(bufferTarget, 'EUR') : '-'}</strong>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="allocation" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <AllocationChartCard title="Activaklasse" data={allocationData} />
+            <AllocationChartCard title="Broker / bron" data={brokerData} />
+            <AllocationChartCard title="Munt" data={currencyData} />
+            <AllocationChartCard title="Regio" data={regionData} />
+          </div>
+          <AllocationBarsCard title="Sector / profiel" data={sectorData} />
+        </TabsContent>
+
+        <TabsContent value="risk" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Portfolio-check</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {riskItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Geen duidelijke aandachtspunten op basis van de huidige posities.</p>
+                ) : riskItems.map((item) => (
+                  <div key={item.title} className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className={`mt-0.5 h-4 w-4 ${item.tone === 'warn' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                      <div>
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base">Belgische aandachtspunten</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                <InfoTile title="TOB" text="Controleer per ETF/aandeel de juiste beurstaks. Belgische registratie kan sterk verschillen." />
+                <InfoTile title="Roerende voorheffing" text="Dividendposities kunnen Belgische RV en buitenlandse bronheffing hebben." />
+                <InfoTile title="Reynders-tax" text="Fondsen/ETF's met obligatiecomponent vragen extra controle bij verkoop." />
+                <InfoTile title="Brokerdata" text="Bolero-import is een snapshot. Live koersen hangen af van ticker/marktdata-herkenning." />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="import" className="space-y-4">
+          <Card className="data-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Broker-import MVP</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Startpunt is Bolero Expert `.xlsx`: bestaande Bolero snapshot-posities worden vervangen en als huidige posities ingeladen.
+                Andere brokers blijven voorlopig manueel of via latere CSV-mapping.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => boleroInputRef.current?.click()} disabled={importingBolero}>
+                  {importingBolero ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                  Bolero Expert importeren
+                </Button>
+                <Badge variant="outline">DEGIRO CSV: gepland</Badge>
+                <Badge variant="outline">Saxo CSV: gepland</Badge>
+                <Badge variant="outline">Keytrade CSV: gepland</Badge>
+                <Badge variant="outline">IBKR CSV: gepland</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Card className="data-card">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1023,6 +1254,159 @@ function MetricCard({ title, value, sub }: { title: string; value: string; sub: 
       </CardContent>
     </Card>
   );
+}
+
+function AllocationChartCard({ title, data }: { title: string; data: AllocationDatum[] }) {
+  return (
+    <Card className="data-card">
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
+        <div className="h-56">
+          {data.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Geen data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={2}>
+                  {data.map((entry, idx) => <Cell key={entry.name} fill={COLORS[idx % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <AllocationTable data={data} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AllocationBarsCard({ title, data }: { title: string; data: AllocationDatum[] }) {
+  return (
+    <Card className="data-card">
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <div className="h-72">
+          {data.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Geen data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.slice(0, 8)} layout="vertical" margin={{ left: 24, right: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis type="number" tickFormatter={(value) => compactMoney(Number(value))} />
+                <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                <Bar dataKey="value" radius={[0, 8, 8, 0]} fill="hsl(var(--primary))" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <AllocationTable data={data} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AllocationTable({ data }: { data: AllocationDatum[] }) {
+  return (
+    <div className="space-y-3">
+      {data.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nog geen posities om te verdelen.</p>
+      ) : data.map((item, idx) => (
+        <div key={item.name} className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+              <span className="truncate">{item.name}</span>
+            </span>
+            <span className="font-medium">{item.percentage.toFixed(1)}%</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>{money(item.value, 'EUR')}</span>
+            <Progress value={item.percentage} className="h-2 max-w-36" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InfoTile({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function groupRows(rows: any[], keyFn: (row: any) => string, toEur: (value: number, currency: string) => number): AllocationDatum[] {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const value = toEur(Number(row.currentValue || 0), row.quoteCurrency || row.asset?.currency || 'EUR');
+    if (value <= 0) continue;
+    const key = keyFn(row).trim() || 'Onbekend';
+    map.set(key, (map.get(key) || 0) + value);
+  }
+  const total = Array.from(map.values()).reduce((sum, value) => sum + value, 0);
+  return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value, percentage: total > 0 ? (value / total) * 100 : 0 }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function isCashAsset(asset: PortfolioAsset) {
+  const haystack = `${asset.symbol} ${asset.name} ${asset.asset_type} ${asset.notes || ''}`.toLowerCase();
+  return haystack.includes('cash') || asset.symbol.toUpperCase().startsWith('CASH-');
+}
+
+function inferBrokerFromAsset(asset: PortfolioAsset) {
+  const notes = String(asset.notes || '').toLowerCase();
+  if (notes.includes('bolero')) return 'Bolero';
+  if (notes.includes('degiro') || notes.includes('de giro')) return 'DEGIRO';
+  if (notes.includes('saxo')) return 'Saxo';
+  if (notes.includes('keytrade')) return 'Keytrade';
+  if (notes.includes('interactive brokers') || notes.includes('ibkr')) return 'Interactive Brokers';
+  return 'Manueel';
+}
+
+function inferRegion(value: string) {
+  const v = value.toLowerCase();
+  if (!v) return 'Onbekend';
+  if (v.includes('nasdaq') || v.includes('nyse') || v.includes('usa') || v.includes('new york')) return 'Verenigde Staten';
+  if (v.includes('euronext') || v.includes('xetra') || v.includes('frankfurt') || v.includes('amsterdam') || v.includes('brussels') || v.includes('paris')) return 'Europa';
+  if (v.includes('london') || v.includes('lse')) return 'Verenigd Koninkrijk';
+  if (v.includes('tokyo') || v.includes('hong kong') || v.includes('singapore')) return 'Azië';
+  return value || 'Onbekend';
+}
+
+function buildRiskItems({ rows, cashValue, bufferMonths, monthlyNetIncome, currencyData }: {
+  rows: any[];
+  cashValue: number;
+  bufferMonths: number;
+  monthlyNetIncome: number;
+  currencyData: AllocationDatum[];
+}) {
+  const items: { title: string; detail: string; tone: 'info' | 'warn' }[] = [];
+  const top = rows.filter((row) => row.currentValue > 0).sort((a, b) => b.allocation - a.allocation)[0];
+  if (top && top.allocation > 25) {
+    items.push({ title: 'Hoge concentratie', detail: `${top.asset.symbol} weegt ${top.allocation.toFixed(1)}% van de portefeuille.`, tone: 'warn' });
+  }
+  const crypto = rows.filter((row) => row.asset.asset_type === 'crypto').reduce((sum, row) => sum + row.allocation, 0);
+  if (crypto > 5) items.push({ title: 'Crypto boven 5%', detail: `Crypto weegt ongeveer ${crypto.toFixed(1)}%. Beperk speculatieve blootstelling bewust.`, tone: 'warn' });
+  const foreign = currencyData.filter((item) => item.name !== 'EUR').reduce((sum, item) => sum + item.percentage, 0);
+  if (foreign > 30) items.push({ title: 'Valutarisico', detail: `${foreign.toFixed(1)}% staat niet in EUR. Wisselkoersen beïnvloeden je EUR-netto waarde.`, tone: 'info' });
+  const snapshots = rows.filter((row) => row.isBoleroSnapshot).length;
+  if (snapshots > 0) items.push({ title: 'Snapshotdata', detail: `${snapshots} positie(s) komen uit Bolero-import. Herimporteer periodiek voor actuele holdings.`, tone: 'info' });
+  if (monthlyNetIncome > 0 && bufferMonths < 3) {
+    items.push({ title: 'Cashbuffer laag', detail: `Cashbuffer is ${bufferMonths.toFixed(1)} maand(en) netto inkomen. Richtwaarde: 3 tot 6 maanden.`, tone: 'warn' });
+  } else if (monthlyNetIncome === 0 && cashValue === 0) {
+    items.push({ title: 'Cashbuffer onbekend', detail: 'Voeg cashpositie of recente inkomsten toe om buffermaanden te berekenen.', tone: 'info' });
+  }
+  return items;
 }
 
 function normalizeAsset(asset: any): PortfolioAsset {
