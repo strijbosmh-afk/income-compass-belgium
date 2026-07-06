@@ -175,7 +175,7 @@ export default function PensionOverviewPage() {
                 {overview.perCat.map(c => (
                   <div key={c.key} className="dashboard-hero-pill">
                     <span>{c.label}</span>
-                    <strong>{fmt(c.latest?.pensioenreserve || 0)}</strong>
+                    <strong>{fmt(c.catReserve)}</strong>
                   </div>
                 ))}
               </div>
