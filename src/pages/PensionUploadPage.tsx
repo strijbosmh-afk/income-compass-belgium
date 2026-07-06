@@ -39,7 +39,6 @@ interface BatchItem {
   pdfPath?: string;
   extracted?: Snapshot;
   note: string;
-  note: string;
   fileHash?: string;
 }
 
