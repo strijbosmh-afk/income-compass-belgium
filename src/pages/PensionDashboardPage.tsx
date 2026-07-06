@@ -121,25 +121,13 @@ export default function PensionDashboardPage() {
     ...SIMPLE_CATEGORIES.map(c => ({ key: c.key as PensionCategory, label: c.label, icon: c.icon })),
   ];
 
-  const totalLatest = cats.reduce((s, c) => {
-    const l = latestByCat[c.key];
-    if (!l) return s;
-    return s + ('opgebouwde_reserve' in l ? l.opgebouwde_reserve : l.pensioenreserve);
-  }, 0);
-  const totalPrev = cats.reduce((s, c) => {
-    const p = previousByCat[c.key];
-    if (!p) return s;
-    return s + ('opgebouwde_reserve' in p ? p.opgebouwde_reserve : p.pensioenreserve);
-  }, 0);
+  const totalLatest = cats.reduce((s, c) => s + (catTotals[c.key]?.reserve || 0), 0);
+  const totalPrev = cats.reduce((s, c) => s + (catTotals[c.key]?.prevReserve || 0), 0);
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
-  const totalDekking = cats.reduce((s, c) => {
-    const l = latestByCat[c.key];
-    if (!l) return s;
-    return s + ('overlijdenskapitaal' in l ? (l.overlijdenskapitaal || 0) : (l.overlijdensdekking || 0));
-  }, 0);
+  const totalDekking = cats.reduce((s, c) => s + (catTotals[c.key]?.dekking || 0), 0);
 
-  const anyData = cats.some(c => latestByCat[c.key]);
+  const anyData = cats.some(c => (catTotals[c.key]?.policyCount || 0) > 0);
   if (!anyData) {
     return (
       <div className="max-w-4xl mx-auto animate-fade-in">
