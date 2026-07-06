@@ -206,10 +206,14 @@ export default function PensionDashboardPage() {
 
       {iptYearly.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> IPT-reserve</div>
               <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.opgebouwde_reserve || 0)}</p>
+            </CardContent></Card>
+            <Card className="border-border/50"><CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> IPT-overlijdensdekking</div>
+              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.overlijdenskapitaal || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst beleggingen</div>
@@ -222,7 +226,7 @@ export default function PensionDashboardPage() {
           </div>
 
           <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> IPT — winst & rendement per jaar</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> IPT — winst, rendement & overlijdensdekking per jaar</CardTitle></CardHeader>
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -234,6 +238,7 @@ export default function PensionDashboardPage() {
                     <Tooltip formatter={(v: number, name: string) => name === 'Rendement' ? `${(v ?? 0).toFixed(2)}%` : fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
                     <Legend />
                     <Bar yAxisId="left" dataKey="Winst" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                    <Line yAxisId="left" type="monotone" dataKey="Overlijdenskapitaal" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                     <Line yAxisId="right" type="monotone" dataKey="Rendement" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
