@@ -197,6 +197,7 @@ export type Database = {
       pensioensparen_records: {
         Row: {
           created_at: string
+          file_hash: string | null
           id: string
           jaarpremie: number
           note: string | null
@@ -210,6 +211,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
@@ -223,6 +225,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
@@ -241,6 +244,7 @@ export type Database = {
           beginkapitaal: number
           created_at: string
           eindkapitaal: number
+          file_hash: string | null
           gewaarborgd_rendement: number
           id: string
           inkomende_bewegingen: number
@@ -262,6 +266,7 @@ export type Database = {
           beginkapitaal?: number
           created_at?: string
           eindkapitaal?: number
+          file_hash?: string | null
           gewaarborgd_rendement?: number
           id?: string
           inkomende_bewegingen?: number
@@ -283,6 +288,7 @@ export type Database = {
           beginkapitaal?: number
           created_at?: string
           eindkapitaal?: number
+          file_hash?: string | null
           gewaarborgd_rendement?: number
           id?: string
           inkomende_bewegingen?: number
@@ -356,6 +362,7 @@ export type Database = {
       vapz_records: {
         Row: {
           created_at: string
+          file_hash: string | null
           id: string
           jaarpremie: number
           note: string | null
@@ -369,6 +376,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
@@ -382,6 +390,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
@@ -398,6 +407,7 @@ export type Database = {
       vapz_riziv_records: {
         Row: {
           created_at: string
+          file_hash: string | null
           id: string
           jaarpremie: number
           note: string | null
@@ -411,6 +421,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
@@ -424,6 +435,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          file_hash?: string | null
           id?: string
           jaarpremie?: number
           note?: string | null
