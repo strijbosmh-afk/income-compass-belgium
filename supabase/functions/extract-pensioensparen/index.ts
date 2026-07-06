@@ -59,7 +59,7 @@ REGELS:
           { role: "system", content: systemPrompt },
           { role: "user", content: [
             { type: "text", text: "Extraheer de pensioensparen-waarden en referentiedatum uit deze PDF." },
-            { type: "image_url", image_url: { url: `data:${mimeType};base64,${pdf}` } },
+            { type: "file", file: { filename: "pensioensparen.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
           ]},
         ],
         tools: [TOOL_SCHEMA],
