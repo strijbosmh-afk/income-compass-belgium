@@ -101,7 +101,7 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
       nextActions.push({
         title: `${MONTH_NAMES[monthToClose - 1]} nog niet afgesloten`,
         description: 'Controleer de maand en maak een vaste PDF-samenvatting zodra alles klopt.',
-        href: '/',
+        href: `/?close=${year}-${String(monthToClose).padStart(2, '0')}#maandafsluiting`,
         cta: 'Afsluiten',
         severity: 'medium',
         icon: FileCheck2,
