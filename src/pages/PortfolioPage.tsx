@@ -289,6 +289,7 @@ export default function PortfolioPage() {
   const currencyGroups = useMemo(() => {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of analysisAssets) {
+      if (isCashAsset(asset)) continue;
       const quote = quotes[asset.symbol]?.quote;
       const livePrice = Number(quote?.c || 0);
       const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
