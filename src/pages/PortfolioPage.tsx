@@ -157,6 +157,10 @@ export default function PortfolioPage() {
       return;
     }
     refreshMarketData();
+    const handle = window.setInterval(() => {
+      refreshMarketData();
+    }, 15 * 60 * 1000);
+    return () => window.clearInterval(handle);
   }, [assets, range, chartCurrency]);
 
   const toEur = useMemo(() => {
