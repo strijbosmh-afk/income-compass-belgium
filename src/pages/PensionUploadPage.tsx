@@ -61,6 +61,8 @@ export default function PensionUploadPage() {
   const [items, setItems] = useState<BatchItem[]>([]);
   const [savingAll, setSavingAll] = useState(false);
   const [mismatchDialog, setMismatchDialog] = useState<{ itemId: string; detected: PensionCategory | 'unknown'; selected: PensionCategory } | null>(null);
+
+  const catConfig = useMemo(() => {
     if (category === 'ipt') return { functionName: IPT_CONFIG.functionName, table: IPT_CONFIG.table, bucket: PENSION_BUCKETS.ipt, label: IPT_CONFIG.label };
     const s = SIMPLE_CATEGORIES.find(c => c.key === category)!;
     return { functionName: s.functionName, table: s.table, bucket: PENSION_BUCKETS[category], label: s.label };
