@@ -409,8 +409,7 @@ export default function PensionUploadPage() {
     </div>
   );
 }
-  );
-}
+
 
 function StatusBadge({ status }: { status: ItemStatus }) {
   const map: Record<ItemStatus, { label: string; cls: string; icon?: any }> = {
