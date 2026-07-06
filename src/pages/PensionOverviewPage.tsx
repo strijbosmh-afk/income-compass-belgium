@@ -16,6 +16,7 @@ interface SnapshotRow {
   pensioenreserve: number;
   overlijdensdekking: number;
   jaarpremie: number;
+  note?: string;
 }
 
 type CategoryData = { key: PensionCategory; label: string; icon: any; description: string; rows: SnapshotRow[] };
