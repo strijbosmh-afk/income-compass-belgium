@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion, bumpDataVersion } from '@/hooks/useDataVersion';
@@ -7,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, Scale } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, Scale, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
 import { applyShare, incomeTypeLabel } from '@/lib/incomeTypes';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type IncomeRecord = {
   id: string;
@@ -53,6 +55,7 @@ type GroupedRecord = {
 export default function RecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [records, setRecords] = useState<IncomeRecord[]>([]);
   const [nomenclatureCodes, setNomenclatureCodes] = useState<NomenclatureCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +72,8 @@ export default function RecordsPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const fetchRecords = async () => {
     if (!user) return;
@@ -232,6 +237,33 @@ export default function RecordsPage() {
     setCompareLoading(false);
   };
 
+  const monthNames = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+  const canReset = filterYear !== 'all' && filterMonth !== 'all' && filterType !== 'all';
+  const resetLabel = canReset
+    ? `${monthNames[parseInt(filterMonth) - 1]} ${filterYear} — ${incomeTypeLabel[filterType] || filterType}`
+    : '';
+
+  const resetMonthType = async () => {
+    if (!user || !canReset) return;
+    setResetting(true);
+    const { error, count } = await supabase
+      .from('income_records')
+      .delete({ count: 'exact' })
+      .eq('user_id', user.id)
+      .eq('year', parseInt(filterYear))
+      .eq('month', parseInt(filterMonth))
+      .eq('income_type', filterType);
+    setResetting(false);
+    setResetOpen(false);
+    if (error) {
+      toast({ title: 'Fout bij verwijderen', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Records verwijderd', description: `${count ?? 0} records gewist. Je kan nu opnieuw uploaden.` });
+    bumpDataVersion();
+    navigate('/upload');
+  };
+
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
   const netto = records.reduce((sum, r) => sum + r.netto, 0);
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
@@ -283,10 +315,39 @@ export default function RecordsPage() {
             <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="gap-2 sm:ml-auto" onClick={runCompare}>
-          <Scale className="h-4 w-4" /> Vergelijk met dashboard
-        </Button>
+        <div className="col-span-2 sm:ml-auto flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={!canReset}
+            onClick={() => setResetOpen(true)}
+            title={canReset ? `Verwijder alle records voor ${resetLabel}` : 'Kies eerst jaar, maand en type'}
+          >
+            <RotateCcw className="h-4 w-4" /> Maand + type opnieuw uploaden
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={runCompare}>
+            <Scale className="h-4 w-4" /> Vergelijk met dashboard
+          </Button>
+        </div>
       </div>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Records verwijderen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alle records voor <strong>{resetLabel}</strong> worden definitief verwijderd. Daarna kan je de screenshots opnieuw uploaden. Deze actie kan niet ongedaan gemaakt worden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetting}>Annuleer</AlertDialogCancel>
+            <AlertDialogAction disabled={resetting} onClick={(e) => { e.preventDefault(); void resetMonthType(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {resetting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Bezig…</> : 'Verwijder & upload opnieuw'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
         <DialogContent className="max-w-xl">
