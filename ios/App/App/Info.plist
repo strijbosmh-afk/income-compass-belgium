@@ -25,15 +25,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>MedIncome gebruikt de camera om een inkomstenoverzicht te fotograferen.</string>
+	<string>MedIncome gebruikt de camera om inkomstenoverzichten te fotograferen en automatisch te verwerken.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID beveiligt de financiële gegevens in MedIncome.</string>
+	<string>Face ID beschermt de financiële gegevens in MedIncome.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>MedIncome gebruikt de fotobibliotheek om een screenshot van een inkomstenoverzicht te kiezen.</string>
+	<string>MedIncome gebruikt je fotobibliotheek om screenshots van inkomstenoverzichten te importeren.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MedIncome mag gemaakte foto's aan je fotobibliotheek toevoegen wanneer iOS dat vereist.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
@@ -49,6 +49,25 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>

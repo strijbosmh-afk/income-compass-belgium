@@ -194,11 +194,57 @@ export type Database = {
         }
         Relationships: []
       }
+      pensioensparen_records: {
+        Row: {
+          created_at: string
+          file_hash: string | null
+          id: string
+          jaarpremie: number
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          file_hash?: string | null
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          file_hash?: string | null
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       pension_ipt_records: {
         Row: {
           beginkapitaal: number
           created_at: string
           eindkapitaal: number
+          file_hash: string | null
           gewaarborgd_rendement: number
           id: string
           inkomende_bewegingen: number
@@ -220,6 +266,7 @@ export type Database = {
           beginkapitaal?: number
           created_at?: string
           eindkapitaal?: number
+          file_hash?: string | null
           gewaarborgd_rendement?: number
           id?: string
           inkomende_bewegingen?: number
@@ -241,6 +288,7 @@ export type Database = {
           beginkapitaal?: number
           created_at?: string
           eindkapitaal?: number
+          file_hash?: string | null
           gewaarborgd_rendement?: number
           id?: string
           inkomende_bewegingen?: number
@@ -260,174 +308,144 @@ export type Database = {
         }
         Relationships: []
       }
-      pension_records: {
+      portfolio_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          currency: string
+          exchange: string | null
+          id: string
+          mic: string | null
+          name: string
+          notes: string | null
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          currency?: string
+          exchange?: string | null
+          id?: string
+          mic?: string | null
+          name?: string
+          notes?: string | null
+          purchase_date: string
+          purchase_price: number
+          quantity: number
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          currency?: string
+          exchange?: string | null
+          id?: string
+          mic?: string | null
+          name?: string
+          notes?: string | null
+          purchase_date?: string
+          purchase_price?: number
+          quantity?: number
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vapz_records: {
         Row: {
           created_at: string
+          file_hash: string | null
           id: string
+          jaarpremie: number
           note: string | null
           overlijdensdekking: number
           pensioenreserve: number
-          pensioenreserve_vapz: number
           snapshot_date: string
           source_pdf_url: string | null
           updated_at: string
           user_id: string
-          vap_riziv_toelage: number
           year: number
         }
         Insert: {
           created_at?: string
+          file_hash?: string | null
           id?: string
+          jaarpremie?: number
           note?: string | null
           overlijdensdekking?: number
           pensioenreserve?: number
-          pensioenreserve_vapz?: number
           snapshot_date: string
           source_pdf_url?: string | null
           updated_at?: string
           user_id: string
-          vap_riziv_toelage?: number
           year: number
         }
         Update: {
           created_at?: string
+          file_hash?: string | null
           id?: string
+          jaarpremie?: number
           note?: string | null
           overlijdensdekking?: number
           pensioenreserve?: number
-          pensioenreserve_vapz?: number
           snapshot_date?: string
           source_pdf_url?: string | null
           updated_at?: string
           user_id?: string
-          vap_riziv_toelage?: number
           year?: number
         }
         Relationships: []
       }
-      portfolio_assets: {
+      vapz_riziv_records: {
         Row: {
-          asset_class: string
-          broker: string
           created_at: string
-          currency: string
-          current_price: number
-          expense_ratio: number
-          has_bond_component: boolean
+          file_hash: string | null
           id: string
-          is_accumulating: boolean
-          is_ucits: boolean
-          isin: string | null
-          name: string
-          notes: string | null
-          region: string
-          sector: string
-          symbol: string
-          target_weight: number
-          tax_profile: string
+          jaarpremie: number
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          snapshot_date: string
+          source_pdf_url: string | null
           updated_at: string
           user_id: string
+          year: number
         }
         Insert: {
-          asset_class?: string
-          broker?: string
           created_at?: string
-          currency?: string
-          current_price?: number
-          expense_ratio?: number
-          has_bond_component?: boolean
+          file_hash?: string | null
           id?: string
-          is_accumulating?: boolean
-          is_ucits?: boolean
-          isin?: string | null
-          name?: string
-          notes?: string | null
-          region?: string
-          sector?: string
-          symbol: string
-          target_weight?: number
-          tax_profile?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
           updated_at?: string
           user_id: string
+          year: number
         }
         Update: {
-          asset_class?: string
-          broker?: string
           created_at?: string
-          currency?: string
-          current_price?: number
-          expense_ratio?: number
-          has_bond_component?: boolean
+          file_hash?: string | null
           id?: string
-          is_accumulating?: boolean
-          is_ucits?: boolean
-          isin?: string | null
-          name?: string
-          notes?: string | null
-          region?: string
-          sector?: string
-          symbol?: string
-          target_weight?: number
-          tax_profile?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      portfolio_transactions: {
-        Row: {
-          amount: number
-          asset_id: string | null
-          broker: string
-          created_at: string
-          currency: string
-          fees: number
-          id: string
-          notes: string | null
-          price: number
-          quantity: number
-          symbol: string
-          taxes: number
-          transaction_date: string
-          transaction_type: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount?: number
-          asset_id?: string | null
-          broker?: string
-          created_at?: string
-          currency?: string
-          fees?: number
-          id?: string
-          notes?: string | null
-          price?: number
-          quantity?: number
-          symbol?: string
-          taxes?: number
-          transaction_date?: string
-          transaction_type: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          asset_id?: string | null
-          broker?: string
-          created_at?: string
-          currency?: string
-          fees?: number
-          id?: string
-          notes?: string | null
-          price?: number
-          quantity?: number
-          symbol?: string
-          taxes?: number
-          transaction_date?: string
-          transaction_type?: string
-          updated_at?: string
-          user_id?: string
+          year?: number
         }
         Relationships: []
       }

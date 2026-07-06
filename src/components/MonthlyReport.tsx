@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
@@ -6,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Lock, Unlock, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, FileText, Lock, Unlock, CheckCircle2, TrendingUp, TrendingDown, Minus, AlertTriangle, CalendarCheck, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { applyShare } from '@/lib/incomeTypes';
 
 type IncomeRecord = {
   id: string;
@@ -26,7 +28,7 @@ type IncomeRecord = {
   quantity: number;
 };
 
-type Closure = { id: string; year: number; month: number; closed_at: string };
+type Closure = { id: string; year: number; month: number; closed_at: string; note: string | null };
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
 const fmt = (val: number) => val.toLocaleString('de-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,19 +62,41 @@ export function MonthlyReport() {
   const [closures, setClosures] = useState<Closure[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [closeNote, setCloseNote] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
   const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = searchParams.get('close');
+    if (!close) return;
+    const m = close.match(/^(\d{4})-(\d{1,2})$/);
+    if (!m) return;
+    setYear(m[1]);
+    setMonth(String(parseInt(m[2], 10)));
+    // Scroll after render
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setDetailsOpen(true);
+    }, 100);
+    // Clear the param so it doesn't retrigger
+    const next = new URLSearchParams(searchParams);
+    next.delete('close');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     Promise.all([
       supabase.from('income_records').select('id,month,year,income_type,nomenclature_code,description,total_amount,aandeel_arts,bouwfonds,mif,netto,quantity').eq('user_id', user.id),
-      supabase.from('month_closures').select('id,year,month,closed_at').eq('user_id', user.id),
+      supabase.from('month_closures').select('id,year,month,closed_at,note').eq('user_id', user.id),
     ]).then(([recRes, closeRes]) => {
-      setRecords((recRes.data as IncomeRecord[]) || []);
+      setRecords((((recRes.data as IncomeRecord[]) || []).map((record) => applyShare(record))) as IncomeRecord[]);
       setClosures((closeRes.data as Closure[]) || []);
       setLoading(false);
     });
@@ -96,6 +120,10 @@ export function MonthlyReport() {
   const prevYearRecs = useMemo(() => records.filter(r => r.year === yearNum - 1 && r.month === monthNum), [records, yearNum, monthNum]);
 
   const closure = useMemo(() => closures.find(c => c.year === yearNum && c.month === monthNum), [closures, yearNum, monthNum]);
+
+  useEffect(() => {
+    setCloseNote(closure?.note || '');
+  }, [closure?.id]);
 
   const totals = useMemo(() => aggregate(currentRecs), [currentRecs]);
   const ambulant = useMemo(() => aggregate(currentRecs.filter(r => r.income_type === 'ambulatory')), [currentRecs]);
@@ -125,6 +153,27 @@ export function MonthlyReport() {
     return [...map.values()].sort((a, b) => b.netto - a.netto).slice(0, 10);
   }, [currentRecs]);
 
+  const closeChecklist = useMemo(() => {
+    const pastMonths = Array.from({ length: Math.max(0, monthNum - 1) }, (_, i) => i + 1)
+      .map(m => ({ month: m, recs: records.filter(r => r.year === yearNum && r.month === m) }))
+      .filter(m => m.recs.length > 0);
+    const expectedNetto = pastMonths.length > 0
+      ? pastMonths.reduce((sum, m) => sum + aggregate(m.recs).netto, 0) / pastMonths.length
+      : prevTotals.netto || prevYearTotals.netto || 0;
+    const diff = totals.netto - expectedNetto;
+    const diffPct = expectedNetto > 0 ? (diff / expectedNetto) * 100 : null;
+    const lowComparedToExpected = expectedNetto > 0 && totals.netto < expectedNetto * 0.5;
+    const missingCurrent = currentRecs.length === 0;
+    const missingPriorMonth = prevDate.year === yearNum && monthNum > 1 && prevMonthRecs.length === 0;
+    const issues = [
+      missingCurrent ? 'Geen records in deze maand.' : null,
+      missingPriorMonth ? `Vorige maand (${MONTH_NAMES[prevDate.month - 1]}) heeft geen records.` : null,
+      lowComparedToExpected ? 'Netto ligt meer dan 50% onder de verwachte maandwaarde.' : null,
+    ].filter(Boolean) as string[];
+
+    return { expectedNetto, diff, diffPct, issues, ok: issues.length === 0 && currentRecs.length > 0 };
+  }, [records, yearNum, monthNum, currentRecs, prevDate, prevMonthRecs, prevTotals.netto, prevYearTotals.netto, totals.netto]);
+
   const toggleClosure = async () => {
     if (!user) return;
     setBusy(true);
@@ -135,7 +184,12 @@ export function MonthlyReport() {
         setClosures(prev => prev.filter(c => c.id !== closure.id));
         toast.success('Maand heropend');
       } else {
-        const { data, error } = await supabase.from('month_closures').insert({ user_id: user.id, year: yearNum, month: monthNum }).select().single();
+        const checklistNote = [
+          closeChecklist.expectedNetto > 0 ? `Verwacht netto: € ${fmt(closeChecklist.expectedNetto)} (${closeChecklist.diff >= 0 ? '+' : ''}€ ${fmt(closeChecklist.diff)})` : null,
+          closeChecklist.issues.length > 0 ? `Aandachtspunten: ${closeChecklist.issues.join(' ')}` : 'Geen aandachtspunten bij afsluiten.',
+          closeNote.trim() ? `Notitie: ${closeNote.trim()}` : null,
+        ].filter(Boolean).join('\n');
+        const { data, error } = await supabase.from('month_closures').insert({ user_id: user.id, year: yearNum, month: monthNum, note: checklistNote }).select().single();
         if (error) throw error;
         setClosures(prev => [...prev, data as Closure]);
         toast.success('Maand afgesloten');
@@ -396,26 +450,36 @@ export function MonthlyReport() {
   const monthHasData = currentRecs.length > 0;
 
   return (
-    <Card className="border-border/50">
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+    <Card ref={cardRef} id="maandafsluiting" className="ios-card border-border/50 scroll-mt-20">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              Maandrapport
+              Maandafsluiting
               {closure && (
                 <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400 gap-1">
                   <CheckCircle2 className="h-3 w-3" /> Afgesloten
                 </Badge>
               )}
             </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Eén-pagina overzicht per maand met vergelijking en status.
+            <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
+              Sluit een maand af met verschilcontrole, aandachtspunten en een PDF-samenvatting.
             </p>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 text-xs md:hidden"
+            onClick={() => setDetailsOpen((open) => !open)}
+          >
+            Details
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
+      <CardContent className="space-y-3 md:space-y-5">
+        <div className="grid grid-cols-2 gap-2 items-end sm:gap-3 md:grid-cols-[1fr_1fr_auto_auto]">
           <div>
             <label className="text-xs text-muted-foreground">Jaar</label>
             <Select value={year} onValueChange={setYear}>
@@ -438,31 +502,33 @@ export function MonthlyReport() {
             onClick={toggleClosure}
             variant={closure ? 'outline' : 'secondary'}
             disabled={busy || !monthHasData}
-            className="gap-2"
+            className="w-full gap-2 md:w-auto"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : closure ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
             {closure ? 'Heropenen' : 'Afsluiten'}
           </Button>
-          <Button onClick={generatePDF} disabled={!monthHasData} className="gap-2">
+          <Button onClick={generatePDF} disabled={!monthHasData} className="w-full gap-2 md:w-auto">
             <FileText className="h-4 w-4" /> PDF
           </Button>
         </div>
 
         {!monthHasData ? (
-          <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/50 rounded-md">
+          <div className="rounded-xl border border-dashed border-border/50 py-6 text-center text-sm text-muted-foreground md:py-10">
             Geen records voor {MONTH_NAMES[monthNum - 1]} {yearNum}.
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Rij 1 — Kerncijfers: financiële waterval Bruto → Netto + volume */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-2 md:hidden">
+              <PreviewTile label="Netto" value={totals.netto} highlight />
+              <PreviewTile label="Prestaties" value={totals.qty} isCount />
+            </div>
+            <div className={`${detailsOpen ? 'grid' : 'hidden'} grid-cols-2 gap-2 md:grid md:grid-cols-4 md:gap-3`}>
               <PreviewTile label="Bruto" value={totals.bruto} />
               <PreviewTile label="Aandeel Arts" value={totals.aandeel} />
               <PreviewTile label="Netto" value={totals.netto} highlight />
               <PreviewTile label="Prestaties" value={totals.qty} isCount />
             </div>
-            {/* Rij 2 — Context: vergelijkingen + uitsplitsing per stroom */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className={`${detailsOpen ? 'grid' : 'hidden'} grid-cols-2 gap-2 md:grid md:grid-cols-5 md:gap-3`}>
               <CompareTile label="vs vorige maand" curr={totals.netto} prev={prevTotals.netto} subLabel={`${MONTH_NAMES[prevDate.month - 1].substring(0, 3)} ${prevDate.year}`} />
               <CompareTile label="vs vorig jaar" curr={totals.netto} prev={prevYearTotals.netto} subLabel={`${MONTH_NAMES[monthNum - 1].substring(0, 3)} ${yearNum - 1}`} />
               <PreviewTile label="Ambulant netto" value={ambulant.netto} small />
@@ -471,6 +537,44 @@ export function MonthlyReport() {
             </div>
           </div>
         )}
+
+        <div className={`${detailsOpen ? 'block' : 'hidden'} rounded-xl border p-3 md:block md:p-4 ${closeChecklist.ok ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${closeChecklist.ok ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'}`}>
+              {closeChecklist.ok ? <CalendarCheck className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <p className="font-medium text-sm">Afsluitcontrole</p>
+                <p className="text-xs text-muted-foreground">
+                  Verwacht netto: {closeChecklist.expectedNetto > 0 ? `€ ${fmt(closeChecklist.expectedNetto)}` : 'n.v.t.'}
+                  {closeChecklist.expectedNetto > 0 && (
+                    <span className={closeChecklist.diff >= 0 ? ' text-emerald-700 dark:text-emerald-400' : ' text-destructive'}>
+                      {' '}({closeChecklist.diff >= 0 ? '+' : ''}€ {fmt(closeChecklist.diff)}{closeChecklist.diffPct !== null ? `, ${fmtPct(closeChecklist.diffPct)}` : ''})
+                    </span>
+                  )}
+                </p>
+              </div>
+              {closeChecklist.issues.length > 0 ? (
+                <ul className="space-y-1 text-xs text-amber-800 dark:text-amber-300">
+                  {closeChecklist.issues.map(issue => <li key={issue}>• {issue}</li>)}
+                </ul>
+              ) : (
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">Geen aandachtspunten gevonden. De maand is klaar om af te sluiten.</p>
+              )}
+              <input
+                value={closeNote}
+                onChange={(e) => setCloseNote(e.target.value)}
+                disabled={!!closure}
+                placeholder="Optionele afsluitnotitie"
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              {closure?.note && (
+                <p className="whitespace-pre-line rounded-lg bg-background/70 p-2 text-xs text-muted-foreground">{closure.note}</p>
+              )}
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

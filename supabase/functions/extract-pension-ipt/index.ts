@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { PDF_MIME_TYPES, errorResponse, requireAiCaller, validateBase64Payload } from "../_shared/security.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,13 +14,19 @@ const TOOL_SCHEMA = {
     parameters: {
       type: "object",
       properties: {
+        detected_category: {
+          type: "string",
+          enum: ["vapz", "vapz_riziv", "pensioensparen", "ipt", "unknown"],
+          description: "Type pensioenproduct dat je herkent in de PDF.",
+        },
+        detection_confidence: { type: "number", description: "0-1 vertrouwen in detected_category" },
         snapshot_date: { type: "string", description: "Referentiedatum (einde overzichtsjaar) in YYYY-MM-DD. Bv. 'Jaaroverzicht 2024' → '2024-12-31'." },
         year: { type: "integer", description: "Kalenderjaar van het overzicht (bv. 2024)." },
         beginkapitaal: { type: "number", description: "Beginkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar>' in EUR." },
-        eindkapitaal: { type: "number", description: "Eindkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar+1>' in EUR." },
-        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op einddatum (meestal = eindkapitaal)." },
+        eindkapitaal: { type: "number", description: "Eindkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar+1>' in EUR (= totaal gespaard bedrag op einddatum)." },
+        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op einddatum in EUR (meestal = eindkapitaal). Neem TOTAAL." },
         jaarpremie: { type: "number", description: "Jaarpremie / som van stortingen dit jaar in EUR. 0 indien niet zichtbaar." },
-        overlijdenskapitaal: { type: "number", description: "Overlijdenskapitaal in EUR op einddatum." },
+        overlijdenskapitaal: { type: "number", description: "Kapitaal bij overlijden op einddatum in EUR. Synoniemen: 'Overlijdenskapitaal', 'Kapitaal bij overlijden', 'Dekking overlijden', 'Verzekerd overlijdenskapitaal'." },
         gewaarborgd_rendement: { type: "number", description: "Gewaarborgd rendementspercentage (bv. 1.75). 0 indien niet zichtbaar." },
         winst_uit_beleggingen: { type: "number", description: "Beleggingswinst in EUR. Herken als 'Prestatie van de eenheden' of 'Nettorendement van de fondsen'." },
         inkomende_bewegingen: { type: "number", description: "Som van inkomende bewegingen in EUR (positief)." },
@@ -27,7 +34,7 @@ const TOOL_SCHEMA = {
         kosten_taksen: { type: "number", description: "Som van 'Kosten en taksen' / 'Taksen en kosten' in EUR (negatief indien zo getoond)." },
         kosten_overlijden: { type: "number", description: "Kosten van de overlijdensdekking in EUR (negatief indien zo getoond)." },
       },
-      required: ["snapshot_date", "year", "beginkapitaal", "eindkapitaal", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen", "inkomende_bewegingen", "uitgaande_bewegingen", "kosten_taksen", "kosten_overlijden"],
+      required: ["detected_category", "detection_confidence", "snapshot_date", "year", "beginkapitaal", "eindkapitaal", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen", "inkomende_bewegingen", "uitgaande_bewegingen", "kosten_taksen", "kosten_overlijden"],
     },
   },
 };
@@ -36,21 +43,31 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    requireAiCaller(req);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { pdf, mimeType } = await req.json();
-    if (!pdf) throw new Error("No PDF provided");
+    validateBase64Payload("PDF", pdf, mimeType, PDF_MIME_TYPES, 12 * 1024 * 1024);
 
-    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische IPT-jaaroverzichten (Individuele Pensioentoezegging, Nederlands).
+    const systemPrompt = `Je bent een precieze data-extractie-assistent voor Belgische pensioenoverzichten (Nederlands).
+De gebruiker denkt dat dit een IPT is (Individuele Pensioentoezegging).
 
-Extraheer per jaar:
+STAP 1 — Detecteer type (detected_category):
+- 'ipt' voor 'Individuele Pensioentoezegging', 'IPT', 'groepsverzekering', werkgevers-storting.
+- 'vapz_riziv' bij expliciete 'RIZIV' / 'sociaal statuut' vermelding.
+- 'vapz' voor gewone VAPZ.
+- 'pensioensparen' voor 3de pijler pensioenspaarfonds/-verzekering.
+- 'unknown' bij twijfel.
+
+STAP 2 — Extraheer per jaar:
 1. year + snapshot_date — herken "Jaaroverzicht <jaar>"; snapshot_date = <jaar>-12-31.
 2. beginkapitaal — "Uw spaartegoed op 01/01/<jaar>" of "Uw kapitaal op 01/01/<jaar>".
-3. eindkapitaal — "Uw spaartegoed op 01/01/<jaar+1>" of "Uw kapitaal op 01/01/<jaar+1>".
+3. eindkapitaal — "Uw spaartegoed op 01/01/<jaar+1>" of "Uw kapitaal op 01/01/<jaar+1>" (= totaal gespaard bedrag op einddatum).
 4. opgebouwde_reserve — totale opgebouwde IPT-reserve op einddatum (meestal = eindkapitaal).
 5. jaarpremie — jaarlijkse premie / som stortingen.
-6. overlijdenskapitaal — kapitaal bij overlijden op einddatum.
+6. overlijdenskapitaal — kapitaal bij overlijden op einddatum. Synoniemen: "Overlijdenskapitaal", "Kapitaal bij overlijden", "Dekking bij overlijden", "Verzekerd overlijdenskapitaal", "Prestatie bij overlijden".
 7. gewaarborgd_rendement — gewaarborgd rendement in %.
 8. winst_uit_beleggingen — "Prestatie van de eenheden" of "Nettorendement van de fondsen" in EUR.
 9. inkomende_bewegingen — som inkomende bewegingen (positief).
@@ -64,6 +81,7 @@ REGELS:
 - Percentages als getal ("1,75 %" → 1.75).
 - Niet zichtbaar → 0.
 - "Uw spaartegoed" en "Uw kapitaal" = hetzelfde veld.
+- Bij meerdere jaren, kies het MEEST RECENTE jaar.
 - Antwoord ALTIJD via de tool call.`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -80,7 +98,7 @@ REGELS:
             role: "user",
             content: [
               { type: "text", text: "Extraheer de IPT-waarden en de referentiedatum uit deze PDF." },
-              { type: "image_url", image_url: { url: `data:${mimeType || "application/pdf"};base64,${pdf}` } },
+              { type: "file", file: { filename: "ipt.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
             ],
           },
         ],
@@ -93,34 +111,36 @@ REGELS:
       const errorText = await res.text();
       console.error("AI Gateway error:", res.status, errorText);
       if (res.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Probeer zo opnieuw." }), {
+        return new Response(JSON.stringify({ error: "AI is momenteel druk. Probeer over enkele seconden opnieuw." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (res.status === 402) {
-        return new Response(JSON.stringify({ error: "Krediet opgebruikt. Voeg credits toe." }), {
+        return new Response(JSON.stringify({ error: "AI-krediet opgebruikt. Voeg credits toe in Lovable Cloud." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${res.status}`);
+      return new Response(JSON.stringify({ error: `AI-verwerking mislukt (${res.status}). Controleer of de PDF leesbaar is.` }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await res.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren." }), {
+      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren uit deze PDF. Controleer of het een geldig IPT-jaaroverzicht is." }), {
         status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const parsed = JSON.parse(toolCall.function.arguments);
+    let parsed: any;
+    try { parsed = JSON.parse(toolCall.function.arguments); }
+    catch { return new Response(JSON.stringify({ error: "AI-antwoord kon niet gelezen worden." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("extract-pension-ipt error:", err);
-    return new Response(JSON.stringify({ error: err.message || "Onbekende fout" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return errorResponse(err, corsHeaders);
   }
 });

@@ -1,25 +1,36 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, Stethoscope, CheckCircle2, AlertCircle, Trash2, ChevronDown } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, CheckCircle2, AlertCircle, AlertTriangle, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-
-interface PensionSnapshot {
-  snapshot_date: string;
-  year: number;
-  pensioenreserve: number;
-  overlijdensdekking: number;
-  pensioenreserve_vapz: number;
-  vap_riziv_toelage: number;
-}
+import { bumpDataVersion } from '@/hooks/useDataVersion';
+import { PDF_UPLOAD_RULES, validateBatchForUpload } from '@/lib/fileValidation';
+import { SIMPLE_CATEGORIES, IPT_CONFIG, PENSION_BUCKETS, pensionCategoryLabel, type PensionCategory, type SimplePensionCategory, type SimpleSnapshot } from '@/lib/pensionCategories';
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
+
+interface IptSnapshot extends SimpleSnapshot {
+  beginkapitaal: number;
+  eindkapitaal: number;
+  opgebouwde_reserve: number;
+  overlijdenskapitaal: number;
+  gewaarborgd_rendement: number;
+  winst_uit_beleggingen: number;
+  inkomende_bewegingen: number;
+  uitgaande_bewegingen: number;
+  kosten_taksen: number;
+  kosten_overlijden: number;
+}
+
+type Snapshot = SimpleSnapshot | IptSnapshot;
 
 interface BatchItem {
   id: string;
@@ -27,66 +38,138 @@ interface BatchItem {
   status: ItemStatus;
   error?: string;
   pdfPath?: string;
-  extracted?: PensionSnapshot;
+  extracted?: Snapshot;
   note: string;
+  fileHash?: string;
+  detectedCategory?: PensionCategory | 'unknown';
+  detectionConfidence?: number;
+  mismatch?: boolean;
+  mismatchAcknowledged?: boolean;
 }
 
-const fmt = (v: number) => `€${(v || 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const CATEGORY_OPTIONS: { value: PensionCategory; label: string; description: string }[] = [
+  { value: 'ipt', label: IPT_CONFIG.label, description: IPT_CONFIG.description },
+  ...SIMPLE_CATEGORIES.map(c => ({ value: c.key as PensionCategory, label: c.label, description: c.description })),
+];
 
 export default function PensionUploadPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [category, setCategory] = useState<PensionCategory>('vapz');
   const [dragActive, setDragActive] = useState(false);
   const [items, setItems] = useState<BatchItem[]>([]);
   const [savingAll, setSavingAll] = useState(false);
+  const [mismatchDialog, setMismatchDialog] = useState<{ itemId: string; detected: PensionCategory | 'unknown'; selected: PensionCategory } | null>(null);
+
+  const catConfig = useMemo(() => {
+    if (category === 'ipt') return { functionName: IPT_CONFIG.functionName, table: IPT_CONFIG.table, bucket: PENSION_BUCKETS.ipt, label: IPT_CONFIG.label };
+    const s = SIMPLE_CATEGORIES.find(c => c.key === category)!;
+    return { functionName: s.functionName, table: s.table, bucket: PENSION_BUCKETS[category], label: s.label };
+  }, [category]);
 
   const processFiles = useCallback(async (files: File[]) => {
     if (!user) return;
-    const pdfs = files.filter(f => f.type === 'application/pdf');
-    if (pdfs.length === 0) {
-      toast({ title: 'Ongeldige bestanden', description: 'Enkel PDF-bestanden worden geaccepteerd.', variant: 'destructive' });
+    const fileError = validateBatchForUpload(files, PDF_UPLOAD_RULES);
+    if (fileError) {
+      toast({ title: 'Ongeldige bestanden', description: fileError, variant: 'destructive' });
       return;
     }
-    const newItems: BatchItem[] = pdfs.map(f => ({
+    const newItems: BatchItem[] = files.map(f => ({
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${f.name}`,
-      file: f,
-      status: 'pending',
-      note: '',
+      file: f, status: 'pending', note: '',
     }));
     setItems(prev => [...prev, ...newItems]);
 
-    // Process sequentially to keep server load reasonable
     for (const item of newItems) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
-        const safeName = item.file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
-        const filePath = `${user.id}/${Date.now()}_${safeName}`;
-        const { error: uploadError } = await supabase.storage.from('pension-pdfs').upload(filePath, item.file);
-        if (uploadError) throw uploadError;
 
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath } : i));
+        // Duplicate check via SHA-256 hash of the file
+        const fileHash = await computeSha256(item.file);
+        const { data: existing, error: dupErr } = await (supabase as any)
+          .from(catConfig.table)
+          .select('id, snapshot_date, year')
+          .eq('user_id', user.id)
+          .eq('file_hash', fileHash)
+          .maybeSingle();
+        if (dupErr) throw dupErr;
+        if (existing) {
+          setItems(prev => prev.map(i => i.id === item.id
+            ? { ...i, status: 'error', error: `Duplicaat — dezelfde PDF is al opgeslagen (${existing.snapshot_date || existing.year}).` }
+            : i));
+          continue;
+        }
+
+        const safeName = item.file.name.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_');
+        const filePath = `${user.id}/${Date.now()}_${safeName}`;
+        const { error: upErr } = await supabase.storage.from(catConfig.bucket).upload(filePath, item.file, { contentType: item.file.type });
+        if (upErr) throw upErr;
+
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath, fileHash } : i));
         const base64 = await fileToBase64(item.file);
-        const { data, error } = await supabase.functions.invoke('extract-pension', {
-          body: { pdf: base64, mimeType: item.file.type },
-        });
+        const { data, error } = await supabase.functions.invoke(catConfig.functionName, { body: { pdf: base64, mimeType: item.file.type } });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        const extracted: PensionSnapshot = {
-          snapshot_date: data.snapshot_date,
-          year: data.year,
-          pensioenreserve: Number(data.pensioenreserve) || 0,
-          overlijdensdekking: Number(data.overlijdensdekking) || 0,
-          pensioenreserve_vapz: Number(data.pensioenreserve_vapz) || 0,
-          vap_riziv_toelage: Number(data.vap_riziv_toelage) || 0,
-        };
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
+        let extracted: Snapshot;
+        if (category === 'ipt') {
+          extracted = {
+            snapshot_date: data.snapshot_date,
+            year: data.year,
+            pensioenreserve: Number(data.opgebouwde_reserve) || 0,
+            overlijdensdekking: Number(data.overlijdenskapitaal) || 0,
+            jaarpremie: Number(data.jaarpremie) || 0,
+            beginkapitaal: Number(data.beginkapitaal) || 0,
+            eindkapitaal: Number(data.eindkapitaal) || 0,
+            opgebouwde_reserve: Number(data.opgebouwde_reserve) || 0,
+            overlijdenskapitaal: Number(data.overlijdenskapitaal) || 0,
+            gewaarborgd_rendement: Number(data.gewaarborgd_rendement) || 0,
+            winst_uit_beleggingen: Number(data.winst_uit_beleggingen) || 0,
+            inkomende_bewegingen: Number(data.inkomende_bewegingen) || 0,
+            uitgaande_bewegingen: Number(data.uitgaande_bewegingen) || 0,
+            kosten_taksen: Number(data.kosten_taksen) || 0,
+            kosten_overlijden: Number(data.kosten_overlijden) || 0,
+          } as IptSnapshot;
+        } else {
+          extracted = {
+            snapshot_date: data.snapshot_date,
+            year: data.year,
+            pensioenreserve: Number(data.pensioenreserve) || 0,
+            overlijdensdekking: Number(data.overlijdensdekking) || 0,
+            jaarpremie: Number(data.jaarpremie) || 0,
+          };
+        }
+
+        // Basisvalidatie
+        if (!extracted.snapshot_date || !/^\d{4}-\d{2}-\d{2}$/.test(extracted.snapshot_date)) {
+          throw new Error('AI kon geen geldige referentiedatum vinden in deze PDF.');
+        }
+        if (!extracted.year || extracted.year < 1950 || extracted.year > 2100) {
+          throw new Error('AI kon geen geldig jaartal vinden in deze PDF.');
+        }
+        if (extracted.pensioenreserve <= 0 && extracted.overlijdensdekking <= 0 && extracted.jaarpremie <= 0) {
+          throw new Error('Geen bedragen kunnen extraheren. Controleer of dit een geldig jaaroverzicht is.');
+        }
+
+        // Categorie-detectie
+        const detected = (data.detected_category as PensionCategory | 'unknown') || 'unknown';
+        const confidence = Number(data.detection_confidence) || 0;
+        const isMismatch = detected !== 'unknown' && detected !== category && confidence >= 0.6;
+
+        setItems(prev => prev.map(i => i.id === item.id ? {
+          ...i, status: 'ready', extracted,
+          detectedCategory: detected, detectionConfidence: confidence, mismatch: isMismatch,
+        } : i));
+
+        if (isMismatch) {
+          setMismatchDialog(prev => prev ?? { itemId: item.id, detected, selected: category });
+        }
       } catch (err: any) {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: err.message || 'Verwerking mislukt' } : i));
       }
     }
-  }, [user, toast]);
+  }, [user, toast, category, catConfig]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -95,35 +178,24 @@ export default function PensionUploadPage() {
     if (files.length) processFiles(files);
   }, [processFiles]);
 
-  const updateExtracted = (id: string, k: keyof PensionSnapshot, v: string) => {
+  const updateExtracted = (id: string, k: string, v: string) => {
     setItems(prev => prev.map(i => {
       if (i.id !== id || !i.extracted) return i;
-      const next = { ...i.extracted };
-      if (k === 'snapshot_date') {
-        next.snapshot_date = v;
-        next.year = parseInt(v.slice(0, 4)) || next.year;
-      } else if (k === 'year') {
-        next.year = parseInt(v) || next.year;
-      } else {
-        (next as any)[k] = parseFloat(v.replace(',', '.')) || 0;
-      }
+      const next: any = { ...i.extracted };
+      if (k === 'snapshot_date') { next.snapshot_date = v; next.year = parseInt(v.slice(0, 4)) || next.year; }
+      else if (k === 'year') { next.year = parseInt(v) || next.year; }
+      else { next[k] = parseFloat(v.replace(',', '.')) || 0; }
       return { ...i, extracted: next };
     }));
   };
 
-  const updateNote = (id: string, note: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, note } : i));
-  };
-
-  const removeItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-  };
+  const removeItem = (id: string) => setItems(prev => prev.filter(i => i.id !== id));
 
   const saveAll = async () => {
     if (!user) return;
     const ready = items.filter(i => i.status === 'ready' && i.extracted);
     if (ready.length === 0) {
-      toast({ title: 'Niets om op te slaan', description: 'Geen verwerkte snapshots gevonden.', variant: 'destructive' });
+      toast({ title: 'Niets om op te slaan', variant: 'destructive' });
       return;
     }
     setSavingAll(true);
@@ -131,17 +203,33 @@ export default function PensionUploadPage() {
     for (const item of ready) {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'saving' } : i));
       try {
-        const { error } = await supabase.from('pension_records').insert({
+        const extracted = item.extracted!;
+        let payload: any = {
           user_id: user.id,
-          snapshot_date: item.extracted!.snapshot_date,
-          year: item.extracted!.year,
-          pensioenreserve: item.extracted!.pensioenreserve,
-          overlijdensdekking: item.extracted!.overlijdensdekking,
-          pensioenreserve_vapz: item.extracted!.pensioenreserve_vapz,
-          vap_riziv_toelage: item.extracted!.vap_riziv_toelage,
+          snapshot_date: extracted.snapshot_date,
+          year: extracted.year,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
-        });
+          file_hash: item.fileHash || null,
+        };
+        if (category === 'ipt') {
+          const ipt = extracted as IptSnapshot;
+          payload = { ...payload,
+            beginkapitaal: ipt.beginkapitaal, eindkapitaal: ipt.eindkapitaal,
+            opgebouwde_reserve: ipt.opgebouwde_reserve, jaarpremie: ipt.jaarpremie,
+            overlijdenskapitaal: ipt.overlijdenskapitaal, gewaarborgd_rendement: ipt.gewaarborgd_rendement,
+            winst_uit_beleggingen: ipt.winst_uit_beleggingen,
+            inkomende_bewegingen: ipt.inkomende_bewegingen, uitgaande_bewegingen: ipt.uitgaande_bewegingen,
+            kosten_taksen: ipt.kosten_taksen, kosten_overlijden: ipt.kosten_overlijden,
+          };
+        } else {
+          payload = { ...payload,
+            pensioenreserve: extracted.pensioenreserve,
+            overlijdensdekking: extracted.overlijdensdekking,
+            jaarpremie: extracted.jaarpremie,
+          };
+        }
+        const { error } = await (supabase as any).from(catConfig.table).insert(payload);
         if (error) throw error;
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'saved' } : i));
         savedCount++;
@@ -150,9 +238,10 @@ export default function PensionUploadPage() {
       }
     }
     setSavingAll(false);
-    toast({ title: 'Opgeslagen', description: `${savedCount} van ${ready.length} snapshots opgeslagen.` });
+    toast({ title: 'Opgeslagen', description: `${savedCount} van ${ready.length} ${catConfig.label}-snapshots opgeslagen.` });
     if (savedCount > 0) {
-      setTimeout(() => navigate('/pensioen/overzicht'), 800);
+      bumpDataVersion();
+      setTimeout(() => navigate('/pensioen'), 800);
     }
   };
 
@@ -162,35 +251,42 @@ export default function PensionUploadPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pensioen PDF Uploaden</h1>
-        <p className="text-muted-foreground mt-1">Upload één of meerdere jaarlijkse pensioenoverzichten (PDF) — reserves worden automatisch geëxtraheerd.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Pensioen uploaden</h1>
+        <p className="text-muted-foreground mt-1">Kies een categorie en sleep één of meerdere jaarlijkse PDFs — reserve, overlijdensdekking en jaarpremie worden automatisch geëxtraheerd.</p>
       </div>
 
       <Card className="border-border/50">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
+          <div>
+            <Label className="text-xs">Categorie</Label>
+            <Select value={category} onValueChange={(v) => setCategory(v as PensionCategory)}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CATEGORY_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex flex-col text-left">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
-              dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30'
-            }`}
+            className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30'}`}
           >
             <div className="flex flex-col items-center gap-3">
-              <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center">
-                <Upload className="h-6 w-6 text-muted-foreground" />
-              </div>
+              <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center"><Upload className="h-6 w-6 text-muted-foreground" /></div>
               <div>
-                <p className="font-medium text-foreground">Sleep één of meerdere pensioen-PDFs hierheen</p>
-                <p className="text-sm text-muted-foreground mt-1">of klik om bestanden te selecteren — meerdere tegelijk toegestaan</p>
+                <p className="font-medium text-foreground">Sleep één of meerdere {catConfig.label}-PDFs hierheen</p>
+                <p className="text-sm text-muted-foreground mt-1">of klik om bestanden te selecteren</p>
               </div>
-              <input
-                type="file"
-                accept="application/pdf"
-                multiple
-                onChange={(e) => { const fs = Array.from(e.target.files || []); if (fs.length) processFiles(fs); e.target.value = ''; }}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
+              <input type="file" accept="application/pdf" multiple onChange={(e) => { const fs = Array.from(e.target.files || []); if (fs.length) processFiles(fs); e.target.value = ''; }} className="absolute inset-0 opacity-0 cursor-pointer" />
             </div>
           </div>
         </CardContent>
@@ -198,86 +294,124 @@ export default function PensionUploadPage() {
 
       {items.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Verwerking ({items.length} bestanden)</h2>
-            <div className="flex gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               <Button variant="outline" disabled={anyBusy || savingAll} onClick={() => setItems([])}>Lijst wissen</Button>
               <Button disabled={readyCount === 0 || savingAll || anyBusy} onClick={saveAll}>
-                {savingAll && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Alles opslaan ({readyCount})
+                {savingAll && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Alles opslaan ({readyCount})
               </Button>
             </div>
           </div>
 
-          {items.map(item => {
-            const hasContent = (item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved')) || item.status === 'error';
-            return (
-              <Collapsible key={item.id} defaultOpen={true}>
-                <Card className="border-border/50">
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors select-none">
-                      <div className="flex items-start justify-between gap-3">
-                        <CardTitle className="text-sm flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="truncate">{item.file.name}</span>
-                          <StatusBadge status={item.status} error={item.error} />
-                        </CardTitle>
-                        <div className="flex items-center gap-1">
-                          {hasContent && (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
-                          )}
-                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeItem(item.id); }} disabled={item.status === 'saving'}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+          {items.map(item => (
+            <Collapsible key={item.id} defaultOpen={true}>
+              <Card className="border-border/50">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors select-none">
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-sm flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate">{item.file.name}</span>
+                        <StatusBadge status={item.status} />
+                      </CardTitle>
+                      <div className="flex items-center gap-1">
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeItem(item.id); }} disabled={item.status === 'saving'}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs">Referentiedatum</Label>
-                            <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Jaar</Label>
-                            <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
+                    <CardContent className="space-y-4">
+                      {item.mismatch && !item.mismatchAcknowledged && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="font-medium text-amber-900 dark:text-amber-200">
+                              Mogelijk verkeerde categorie: dit lijkt <strong>{pensionCategoryLabel(item.detectedCategory as PensionCategory)}</strong>, geen <strong>{catConfig.label}</strong>.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">Wissel de categorie bovenaan en upload opnieuw voor de juiste extractie, of houd deze indeling.</p>
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" onClick={() => {
+                                if (item.detectedCategory && item.detectedCategory !== 'unknown') {
+                                  setCategory(item.detectedCategory as PensionCategory);
+                                  removeItem(item.id);
+                                }
+                              }}>Wissel + verwijder</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, mismatchAcknowledged: true } : i))}>Behouden</Button>
+                            </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <FieldRow icon={PiggyBank} label="Pensioenreserve (cumulatief)" value={item.extracted.pensioenreserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve', v)} />
-                          <FieldRow icon={Shield} label="Overlijdensdekking" value={item.extracted.overlijdensdekking} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdensdekking', v)} />
-                          <FieldRow icon={Wallet} label="Pensioenreserve VAPZ" value={item.extracted.pensioenreserve_vapz} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve_vapz', v)} />
-                          <FieldRow icon={Stethoscope} label="VAP RIZIV toelage" value={item.extracted.vap_riziv_toelage} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'vap_riziv_toelage', v)} />
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs">Referentiedatum</Label>
+                          <Input type="date" value={item.extracted.snapshot_date} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'snapshot_date', e.target.value)} />
                         </div>
                         <div>
-                          <Label className="text-xs">Notitie (optioneel)</Label>
-                          <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => updateNote(item.id, e.target.value)} placeholder="bv. AG Insurance jaaroverzicht" />
+                          <Label className="text-xs">Jaar</Label>
+                          <Input type="number" value={item.extracted.year} disabled={item.status !== 'ready'} onChange={(e) => updateExtracted(item.id, 'year', e.target.value)} />
                         </div>
-                        <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                          Pensioenreserve is een cumulatief saldo — bedragen worden niet opgeteld in het dashboard.
-                        </div>
-                      </CardContent>
-                    )}
-                    {item.status === 'error' && (
-                      <CardContent>
-                        <p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p>
-                      </CardContent>
-                    )}
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            );
-          })}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FieldRow icon={PiggyBank} label="Pensioenreserve" value={item.extracted.pensioenreserve} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'pensioenreserve', v)} />
+                        <FieldRow icon={Shield} label="Overlijdensdekking" value={item.extracted.overlijdensdekking} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'overlijdensdekking', v)} />
+                        <FieldRow icon={Wallet} label="Jaarpremie" value={item.extracted.jaarpremie} disabled={item.status !== 'ready'} onChange={(v) => updateExtracted(item.id, 'jaarpremie', v)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Notitie (optioneel)</Label>
+                        <Input value={item.note} disabled={item.status !== 'ready'} onChange={(e) => setItems(prev => prev.map(i => i.id === item.id ? { ...i, note: e.target.value } : i))} placeholder="bv. AG Insurance jaaroverzicht" />
+                      </div>
+                    </CardContent>
+                  )}
+                  {item.status === 'error' && (
+                    <CardContent><p className="text-sm text-destructive flex items-center gap-2"><AlertCircle className="h-4 w-4" />{item.error}</p></CardContent>
+                  )}
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          ))}
         </div>
       )}
+
+      <AlertDialog open={!!mismatchDialog} onOpenChange={(o) => !o && setMismatchDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Verkeerde categorie gedetecteerd?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Je hebt <strong>{mismatchDialog ? pensionCategoryLabel(mismatchDialog.selected) : ''}</strong> geselecteerd, maar de PDF lijkt een{' '}
+              <strong>{mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</strong>-overzicht te zijn.
+              Wissel van categorie en upload opnieuw voor de juiste extractie, of behoud je huidige keuze.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              if (mismatchDialog) setItems(prev => prev.map(i => i.id === mismatchDialog.itemId ? { ...i, mismatchAcknowledged: true } : i));
+              setMismatchDialog(null);
+            }}>Behouden</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (mismatchDialog && mismatchDialog.detected !== 'unknown') {
+                setCategory(mismatchDialog.detected as PensionCategory);
+                setItems(prev => prev.filter(i => i.id !== mismatchDialog.itemId));
+              }
+              setMismatchDialog(null);
+            }}>Wissel naar {mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function StatusBadge({ status, error }: { status: ItemStatus; error?: string }) {
+
+function StatusBadge({ status }: { status: ItemStatus }) {
   const map: Record<ItemStatus, { label: string; cls: string; icon?: any }> = {
     pending: { label: 'Wachten...', cls: 'bg-muted text-muted-foreground' },
     uploading: { label: 'Uploaden...', cls: 'bg-primary/10 text-primary', icon: Loader2 },
@@ -285,7 +419,7 @@ function StatusBadge({ status, error }: { status: ItemStatus; error?: string }) 
     ready: { label: 'Klaar', cls: 'bg-emerald-500/10 text-emerald-600' },
     saving: { label: 'Opslaan...', cls: 'bg-primary/10 text-primary', icon: Loader2 },
     saved: { label: 'Opgeslagen', cls: 'bg-emerald-500/10 text-emerald-600', icon: CheckCircle2 },
-    error: { label: error ? 'Fout' : 'Fout', cls: 'bg-destructive/10 text-destructive', icon: AlertCircle },
+    error: { label: 'Fout', cls: 'bg-destructive/10 text-destructive', icon: AlertCircle },
   };
   const { label, cls, icon: Icon } = map[status];
   return (
@@ -308,11 +442,14 @@ function FieldRow({ icon: Icon, label, value, onChange, disabled }: { icon: any;
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+async function computeSha256(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }

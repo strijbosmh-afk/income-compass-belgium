@@ -18,7 +18,7 @@ export const incomeTypeShort: Record<string, string> = {
 };
 
 // Halveer alle bedragen voor associatie-records (50% wordt naar eigen rekening gestort).
-// Wordt enkel toegepast bij insert; storage = effectief eigen aandeel.
+// Wordt toegepast bij weergave/rapportage; storage bewaart het volledige poolbedrag.
 export function applyShare<T extends {
   income_type: string;
   total_amount?: number;

@@ -1,72 +1,90 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, ArrowDownUp, Euro, FileSpreadsheet, Flame, Landmark, Loader2, PieChart as PieIcon, Plus, ShieldAlert, Target, Trash2, TrendingUp, Wallet } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import * as XLSX from 'xlsx';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Activity, BarChart3, Building2, Clock3, ExternalLink, FileSpreadsheet, Loader2, Pencil, PieChart, Plus, RefreshCw, Search, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { toast } from 'sonner';
+
+type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
+type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
 
 type PortfolioAsset = {
   id: string;
   user_id: string;
   symbol: string;
-  isin: string | null;
   name: string;
-  asset_class: string;
-  region: string;
-  sector: string;
+  asset_type: AssetType;
+  exchange: string | null;
+  mic: string | null;
   currency: string;
-  broker: string;
-  current_price: number;
-  target_weight: number;
-  expense_ratio: number;
-  tax_profile: string;
-  is_accumulating: boolean;
-  is_ucits: boolean;
-  has_bond_component: boolean;
+  purchase_date: string;
+  quantity: number;
+  purchase_price: number;
   notes: string | null;
 };
 
-type PortfolioTransaction = {
-  id: string;
-  asset_id: string | null;
-  transaction_date: string;
-  transaction_type: TxType;
+type SymbolResult = {
+  description?: string;
+  displaySymbol?: string;
   symbol: string;
-  quantity: number;
-  price: number;
-  amount: number;
-  fees: number;
-  taxes: number;
-  currency: string;
-  broker: string;
-  notes: string | null;
+  type?: string;
 };
 
-type TxType = 'buy' | 'sell' | 'dividend' | 'deposit' | 'withdrawal' | 'fee' | 'tax';
+type MarketQuote = {
+  c?: number;
+  d?: number;
+  dp?: number;
+  h?: number;
+  l?: number;
+  o?: number;
+  pc?: number;
+  t?: number;
+};
 
-type Position = {
-  asset: PortfolioAsset;
-  quantity: number;
-  invested: number;
-  marketValue: number;
-  pnl: number;
-  pnlPct: number | null;
-  dividends: number;
-  feesAndTaxes: number;
-  weight: number;
+type QuoteEntry = {
+  symbol: string;
+  quote: MarketQuote;
+  profile?: {
+    country?: string;
+    currency?: string;
+    exchange?: string;
+    finnhubIndustry?: string;
+    averageVolume?: number;
+    beta?: number;
+    dividendYield?: number;
+    fiftyTwoWeekHigh?: number;
+    fiftyTwoWeekLow?: number;
+    logo?: string;
+    marketCapitalization?: number;
+    marketCap?: number;
+    name?: string;
+    regularMarketVolume?: number;
+    shareOutstanding?: number;
+    shortName?: string;
+    ticker?: string;
+    weburl?: string;
+    pe?: number;
+  };
+};
+
+type FormState = {
+  symbol: string;
+  name: string;
+  asset_type: AssetType;
+  exchange: string;
+  mic: string;
+  currency: string;
+  purchase_date: string;
+  quantity: string;
+  purchase_price: string;
+  notes: string;
 };
 
 type BoleroPosition = {
@@ -85,942 +103,799 @@ type BoleroPosition = {
   isin: string;
 };
 
-type PensionRecord = {
-  pensioenreserve: number;
-  pensioenreserve_vapz: number;
-  snapshot_date: string;
-};
-
-type PensionIptRecord = {
-  opgebouwde_reserve: number;
-  snapshot_date: string;
-};
-
-const assetClassLabels: Record<string, string> = {
-  equity_etf: 'Aandelen-ETF',
-  equity_stock: 'Individueel aandeel',
-  bond_etf: 'Obligatie-ETF',
-  bond: 'Obligatie',
-  money_market: 'Geldmarkt',
-  cash: 'Cash',
-  real_estate: 'Vastgoed',
-  commodity: 'Goud/commodities',
-  crypto: 'Crypto',
-  pension: 'Pensioen/IPT',
-  other: 'Andere',
-};
-
-const taxProfiles: Record<string, { label: string; tobRate: number; notes: string[] }> = {
-  stock: { label: 'Aandeel - TOB indicatief 0,35%', tobRate: 0.0035, notes: ['Dividend? Reken doorgaans met roerende voorheffing.', 'Controleer buitenlandse dividendbronheffing.'] },
-  etf_standard: { label: 'ETF standaard - TOB indicatief 0,12%', tobRate: 0.0012, notes: ['Controleer domicilie, UCITS/KID en broker-classificatie.', 'Accumulerend verlaagt dividendcashflow, niet noodzakelijk alle fiscale risico.'] },
-  etf_be_registered_acc: { label: 'ETF BE-geregistreerd kapitaliserend - TOB indicatief 1,32%', tobRate: 0.0132, notes: ['Hoge TOB-categorie: verifieer bij broker/FOD.', 'Kan DCA-kosten sterk verhogen.'] },
-  bond_or_money_market: { label: 'Obligatie/geldmarkt - TOB indicatief 0,12%', tobRate: 0.0012, notes: ['Let op Reynders-tax bij fondsen met obligatiecomponent.', 'Rente/coupon kan roerende voorheffing activeren.'] },
-  cash: { label: 'Cash - geen beursorder', tobRate: 0, notes: ['Geen TOB, wel inflatie- en tegenpartijrisico.'] },
-  crypto: { label: 'Crypto - manueel opvolgen', tobRate: 0, notes: ['Fiscale behandeling hangt sterk af van profiel en transactiefrequentie.', 'Gebruik aparte speculatieve limiet.'] },
-};
-
-const COLORS = ['#2f9e91', '#1d4f7a', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#64748b', '#ec4899'];
-const today = () => new Date().toISOString().slice(0, 10);
-const parseNum = (v: string | number | null | undefined) => Number(String(v ?? '').replace(',', '.')) || 0;
-const fmt = (v: number, currency = 'EUR') => v.toLocaleString('nl-BE', { style: 'currency', currency });
-const pct = (v: number) => `${v.toLocaleString('nl-BE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
-
-const emptyAsset = () => ({
+const emptyForm: FormState = {
   symbol: '',
-  isin: '',
   name: '',
-  asset_class: 'equity_etf',
-  region: 'global',
-  sector: 'broad',
+  asset_type: 'etf',
+  exchange: '',
+  mic: '',
   currency: 'EUR',
-  broker: '',
-  current_price: '0',
-  target_weight: '0',
-  expense_ratio: '0',
-  tax_profile: 'etf_standard',
-  is_accumulating: true,
-  is_ucits: true,
-  has_bond_component: false,
+  purchase_date: new Date().toISOString().slice(0, 10),
+  quantity: '',
+  purchase_price: '',
   notes: '',
-});
+};
 
-const emptyTx = () => ({
-  asset_id: '',
-  transaction_date: today(),
-  transaction_type: 'buy' as TxType,
-  quantity: '0',
-  price: '0',
-  amount: '0',
-  fees: '0',
-  taxes: '0',
-  notes: '',
-});
+const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
 
 export default function PortfolioPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
-  const [transactions, setTransactions] = useState<PortfolioTransaction[]>([]);
-  const [incomeRecords, setIncomeRecords] = useState<{ year: number; month: number; netto: number }[]>([]);
-  const [pensionRecords, setPensionRecords] = useState<PensionRecord[]>([]);
-  const [iptRecords, setIptRecords] = useState<PensionIptRecord[]>([]);
+  const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
+  const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
+  const [eurHistory, setEurHistory] = useState<{ date: string; value: number }[]>([]);
+  const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
+  const [fxUpdated, setFxUpdated] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [assetOpen, setAssetOpen] = useState(false);
-  const [txOpen, setTxOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [assetForm, setAssetForm] = useState(emptyAsset());
-  const [txForm, setTxForm] = useState(emptyTx());
-  const [monthlyDca, setMonthlyDca] = useState('2000');
-  const [targetFireAmount, setTargetFireAmount] = useState('1500000');
-  const [cashBufferMonths, setCashBufferMonths] = useState('6');
-  const [csvText, setCsvText] = useState('');
-
-  const load = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    const [assetRes, txRes, incomeRes, pensionRes, iptRes] = await Promise.all([
-      supabase.from('portfolio_assets').select('*').eq('user_id', user.id).order('symbol'),
-      supabase.from('portfolio_transactions').select('*').eq('user_id', user.id).order('transaction_date', { ascending: false }),
-      supabase.from('income_records').select('year, month, netto').eq('user_id', user.id),
-      supabase.from('pension_records').select('pensioenreserve, pensioenreserve_vapz, snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
-      supabase.from('pension_ipt_records').select('opgebouwde_reserve, snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
-    ]);
-    if (assetRes.error) toast({ title: 'Portfolio laden mislukt', description: assetRes.error.message, variant: 'destructive' });
-    if (txRes.error) toast({ title: 'Transacties laden mislukt', description: txRes.error.message, variant: 'destructive' });
-    setAssets((assetRes.data || []) as PortfolioAsset[]);
-    setTransactions((txRes.data || []) as PortfolioTransaction[]);
-    setIncomeRecords((incomeRes.data || []) as { year: number; month: number; netto: number }[]);
-    setPensionRecords((pensionRes.data || []) as PensionRecord[]);
-    setIptRecords((iptRes.data || []) as PensionIptRecord[]);
-    setLoading(false);
-  }, [toast, user]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<SymbolResult[]>([]);
+  const [range, setRange] = useState<RangeKey>('1M');
+  const [valuationDate, setValuationDate] = useState(new Date().toISOString().slice(0, 10));
+  const [chartCurrency, setChartCurrency] = useState('EUR');
+  const [importingBolero, setImportingBolero] = useState(false);
+  const boleroInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  const positions = useMemo<Position[]>(() => {
-    const totalByAsset = assets.map(asset => {
-      const txs = transactions.filter(t => t.asset_id === asset.id || (!t.asset_id && t.symbol.toUpperCase() === asset.symbol.toUpperCase()));
-      let quantity = 0;
-      let invested = 0;
-      let dividends = 0;
-      let feesAndTaxes = 0;
-      txs.forEach(t => {
-        const gross = t.amount || t.quantity * t.price;
-        feesAndTaxes += t.fees + t.taxes;
-        if (t.transaction_type === 'buy') {
-          quantity += t.quantity;
-          invested += gross + t.fees + t.taxes;
-        } else if (t.transaction_type === 'sell') {
-          quantity -= t.quantity;
-          invested -= Math.min(invested, gross);
-        } else if (t.transaction_type === 'dividend') {
-          dividends += gross - t.taxes;
-        } else if (t.transaction_type === 'fee' || t.transaction_type === 'tax') {
-          invested += gross;
-        }
-      });
-      const marketValue = asset.asset_class === 'cash' ? invested : quantity * asset.current_price;
-      const value = marketValue || invested;
-      const pnl = value + dividends - invested;
-      return {
-        asset,
-        quantity,
-        invested,
-        marketValue: value,
-        pnl,
-        pnlPct: invested > 0 ? (pnl / invested) * 100 : null,
-        dividends,
-        feesAndTaxes,
-        weight: 0,
-      };
-    }).filter(p => Math.abs(p.marketValue) > 0.01 || Math.abs(p.quantity) > 0.000001);
-    const total = totalByAsset.reduce((s, p) => s + p.marketValue, 0);
-    return totalByAsset.map(p => ({ ...p, weight: total > 0 ? (p.marketValue / total) * 100 : 0 }));
-  }, [assets, transactions]);
-
-  const totalValue = positions.reduce((s, p) => s + p.marketValue, 0);
-  const totalInvested = positions.reduce((s, p) => s + p.invested, 0);
-  const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
-  const totalDividends = positions.reduce((s, p) => s + p.dividends, 0);
-
-  const allocationData = useMemo(() => {
-    const map = new Map<string, number>();
-    positions.forEach(p => map.set(assetClassLabels[p.asset.asset_class] || p.asset.asset_class, (map.get(assetClassLabels[p.asset.asset_class] || p.asset.asset_class) || 0) + p.marketValue));
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [positions]);
-
-  const regionData = useMemo(() => {
-    const map = new Map<string, number>();
-    positions.forEach(p => map.set(p.asset.region || 'onbekend', (map.get(p.asset.region || 'onbekend') || 0) + p.marketValue));
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [positions]);
-
-  const sectorData = useMemo(() => groupPositions(positions, p => p.asset.sector || 'onbekend'), [positions]);
-  const currencyData = useMemo(() => groupPositions(positions, p => p.asset.currency || 'EUR'), [positions]);
-  const brokerData = useMemo(() => groupPositions(positions, p => p.asset.broker || 'Onbekend'), [positions]);
-  const targetTotal = assets.reduce((s, a) => s + a.target_weight, 0);
-  const dcaAmount = parseNum(monthlyDca);
-
-  const avgMonthlyNetto = useMemo(() => {
-    const buckets = new Map<string, number>();
-    incomeRecords.forEach(r => buckets.set(`${r.year}-${r.month}`, (buckets.get(`${r.year}-${r.month}`) || 0) + r.netto));
-    const vals = Array.from(buckets.values()).slice(-12);
-    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
-  }, [incomeRecords]);
-
-  const cashValue = positions.filter(p => p.asset.asset_class === 'cash' || p.asset.asset_class === 'money_market').reduce((s, p) => s + p.marketValue, 0);
-  const latestPension = pensionRecords[0];
-  const latestIpt = iptRecords[0];
-  const pensionValue = (latestPension?.pensioenreserve || 0) + (latestPension?.pensioenreserve_vapz || 0) + (latestIpt?.opgebouwde_reserve || 0);
-  const investableValue = positions.filter(p => !['cash', 'money_market', 'pension'].includes(p.asset.asset_class)).reduce((s, p) => s + p.marketValue, 0);
-  const totalNetWorth = cashValue + investableValue + pensionValue;
-  const yearlyDca = dcaAmount * 12;
-  const fireTarget = parseNum(targetFireAmount);
-  const firePct = fireTarget > 0 ? (totalNetWorth / fireTarget) * 100 : 0;
-  const cashTarget = avgMonthlyNetto * parseNum(cashBufferMonths);
-  const cashBufferPct = cashTarget > 0 ? (cashValue / cashTarget) * 100 : 0;
-  const estimatedYearsToFire = yearlyDca > 0 && fireTarget > totalNetWorth ? (fireTarget - totalNetWorth) / yearlyDca : 0;
-  const wealthStackData = [
-    { name: 'Cashbuffer', value: cashValue },
-    { name: 'Beleggingen', value: investableValue },
-    { name: 'Pensioen/IPT', value: pensionValue },
-  ].filter(d => d.value > 0);
-
-  const rebalanceRows = useMemo(() => {
-    return assets
-      .filter(a => a.target_weight > 0)
-      .map(asset => {
-        const position = positions.find(p => p.asset.id === asset.id);
-        const current = position?.marketValue || 0;
-        const targetPct = targetTotal > 0 ? asset.target_weight / targetTotal : 0;
-        const targetValue = (totalValue + dcaAmount) * targetPct;
-        const gap = targetValue - current;
-        return { asset, current, targetValue, gap, buySuggestion: Math.max(0, gap) };
-      })
-      .sort((a, b) => b.buySuggestion - a.buySuggestion);
-  }, [assets, positions, totalValue, dcaAmount, targetTotal]);
-
-  const taxWarnings = useMemo(() => {
-    const warnings: { title: string; detail: string; tone: 'warn' | 'info' }[] = [];
-    assets.forEach(asset => {
-      if (!asset.is_ucits && ['equity_etf', 'bond_etf', 'money_market'].includes(asset.asset_class)) {
-        warnings.push({ title: `${asset.symbol}: geen UCITS-vlag`, detail: 'Controleer KID/PRIIPs, domicilie en brokerbeschikbaarheid voor retailbeleggers.', tone: 'warn' });
-      }
-      if (asset.has_bond_component || asset.asset_class === 'bond_etf' || asset.asset_class === 'money_market') {
-        warnings.push({ title: `${asset.symbol}: obligatiecomponent`, detail: 'Mogelijke Reynders-tax of rente/couponbehandeling. Verifieer fondsdata en fiscaliteit.', tone: 'warn' });
-      }
-      if (!asset.is_accumulating && ['equity_etf', 'equity_stock'].includes(asset.asset_class)) {
-        warnings.push({ title: `${asset.symbol}: distribuerend/dividend`, detail: 'Dividenden kunnen roerende voorheffing en buitenlandse bronheffing veroorzaken.', tone: 'info' });
-      }
-      if (asset.tax_profile === 'etf_be_registered_acc') {
-        warnings.push({ title: `${asset.symbol}: hoge TOB-categorie`, detail: 'Indicatief 1,32% TOB-profiel geselecteerd. Dit verdient extra controle voor elke aankoop.', tone: 'warn' });
-      }
-      if (asset.asset_class === 'crypto' && asset.target_weight > 5) {
-        warnings.push({ title: `${asset.symbol}: hoge crypto-doelweging`, detail: 'Speculatieve bucket boven 5%. Bewaak concentratie en fiscale documentatie.', tone: 'warn' });
-      }
-    });
-    return warnings;
-  }, [assets]);
-
-  const concentration = positions[0] ? Math.max(...positions.map(p => p.weight)) : 0;
-  const targetDrift = assets
-    .filter(a => a.target_weight > 0 && targetTotal > 0)
-    .map(a => {
-      const current = positions.find(p => p.asset.id === a.id)?.weight || 0;
-      return Math.abs(current - (a.target_weight / targetTotal) * 100);
-    })
-    .reduce((m, v) => Math.max(m, v), 0);
-
-  const saveAsset = async () => {
-    if (!user || !assetForm.symbol.trim()) return;
-    const payload = {
-      user_id: user.id,
-      symbol: assetForm.symbol.trim().toUpperCase(),
-      isin: assetForm.isin.trim() || null,
-      name: assetForm.name.trim() || assetForm.symbol.trim().toUpperCase(),
-      asset_class: assetForm.asset_class,
-      region: assetForm.region.trim() || 'global',
-      sector: assetForm.sector.trim() || 'broad',
-      currency: assetForm.currency.trim().toUpperCase() || 'EUR',
-      broker: assetForm.broker.trim(),
-      current_price: parseNum(assetForm.current_price),
-      target_weight: parseNum(assetForm.target_weight),
-      expense_ratio: parseNum(assetForm.expense_ratio),
-      tax_profile: assetForm.tax_profile,
-      is_accumulating: assetForm.is_accumulating,
-      is_ucits: assetForm.is_ucits,
-      has_bond_component: assetForm.has_bond_component,
-      notes: assetForm.notes.trim() || null,
-    };
-    const { error } = await supabase.from('portfolio_assets').insert(payload);
-    if (error) toast({ title: 'Asset opslaan mislukt', description: error.message, variant: 'destructive' });
-    else {
-      toast({ title: 'Asset toegevoegd' });
-      setAssetOpen(false);
-      setAssetForm(emptyAsset());
-      void load();
-    }
-  };
-
-  const saveTransaction = async () => {
-    if (!user || !txForm.asset_id) return;
-    const asset = assets.find(a => a.id === txForm.asset_id);
-    if (!asset) return;
-    const quantity = parseNum(txForm.quantity);
-    const price = parseNum(txForm.price);
-    const amount = parseNum(txForm.amount) || quantity * price;
-    const taxProfile = taxProfiles[asset.tax_profile] || taxProfiles.etf_standard;
-    const taxes = parseNum(txForm.taxes) || (txForm.transaction_type === 'buy' || txForm.transaction_type === 'sell' ? amount * taxProfile.tobRate : 0);
-    const { error } = await supabase.from('portfolio_transactions').insert({
-      user_id: user.id,
-      asset_id: asset.id,
-      symbol: asset.symbol,
-      broker: asset.broker,
-      currency: asset.currency,
-      transaction_date: txForm.transaction_date,
-      transaction_type: txForm.transaction_type,
-      quantity,
-      price,
-      amount,
-      fees: parseNum(txForm.fees),
-      taxes,
-      notes: txForm.notes.trim() || null,
-    });
-    if (error) toast({ title: 'Transactie opslaan mislukt', description: error.message, variant: 'destructive' });
-    else {
-      toast({ title: 'Transactie toegevoegd' });
-      setTxOpen(false);
-      setTxForm(emptyTx());
-      void load();
-    }
-  };
-
-  const removeTransaction = async (id: string) => {
-    const { error } = await supabase.from('portfolio_transactions').delete().eq('id', id);
-    if (error) toast({ title: 'Verwijderen mislukt', description: error.message, variant: 'destructive' });
-    else void load();
-  };
-
-  const importCsv = async () => {
     if (!user) return;
-    const rows = parseCsv(csvText);
-    if (rows.length === 0) {
-      toast({ title: 'Geen importdata', variant: 'destructive' });
+    loadAssets();
+    loadFx();
+  }, [user]);
+
+  async function loadFx() {
+    try {
+      const res = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR');
+      const data = await res.json();
+      if (data?.rates) {
+        setFxRates({ EUR: 1, ...data.rates });
+        setFxUpdated(data.date || '');
+      }
+    } catch (_err) {
+      // keep default EUR=1
+    }
+  }
+
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      if (query.trim().length >= 2) searchSymbols(query);
+      else setResults([]);
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => {
+    if (assets.length === 0) {
+      setQuotes({});
+      setHistory([]);
       return;
     }
-    const assetBySymbol = new Map(assets.flatMap(a => [[a.symbol.toUpperCase(), a], [String(a.isin || '').toUpperCase(), a]]));
-    const payload = rows.map(row => {
-      const normalized = normalizeBrokerRow(row);
-      const symbol = normalized.symbol.toUpperCase();
-      const asset = assetBySymbol.get(symbol) || assetBySymbol.get(normalized.isin.toUpperCase());
-      return {
-        user_id: user.id,
-        asset_id: asset?.id || null,
-        symbol: asset?.symbol || symbol,
-        broker: normalized.broker || asset?.broker || '',
-        currency: (normalized.currency || asset?.currency || 'EUR').toUpperCase(),
-        transaction_date: normalized.date || today(),
-        transaction_type: normalized.type,
-        quantity: normalized.quantity,
-        price: normalized.price,
-        amount: normalized.amount,
-        fees: normalized.fees,
-        taxes: normalized.taxes,
-        notes: normalized.notes || null,
-      };
-    }).filter(row => row.symbol && row.transaction_type);
-    const { error } = await supabase.from('portfolio_transactions').insert(payload);
-    if (error) toast({ title: 'CSV-import mislukt', description: error.message, variant: 'destructive' });
-    else {
-      toast({ title: 'CSV geïmporteerd', description: `${payload.length} transactie(s) toegevoegd.` });
-      setCsvText('');
-      setImportOpen(false);
-      void load();
-    }
-  };
+    refreshMarketData();
+    const handle = window.setInterval(() => {
+      refreshMarketData();
+    }, 15 * 60 * 1000);
+    return () => window.clearInterval(handle);
+  }, [assets, range, chartCurrency]);
 
-  const importBoleroFile = async (file: File) => {
+  const toEur = useMemo(() => {
+    return (value: number, currency: string) => {
+      if (!value) return 0;
+      const ccy = (currency || 'EUR').toUpperCase();
+      if (ccy === 'EUR') return value;
+      const rate = fxRates[ccy];
+      if (!rate || rate <= 0) return value;
+      return value / rate;
+    };
+  }, [fxRates]);
+
+  const currencyGroups = useMemo(() => {
+    const groups = new Map<string, { cost: number; value: number; gain: number }>();
+    for (const asset of assets) {
+      const quote = quotes[asset.symbol]?.quote;
+      const current = Number(quote?.c || 0);
+      const cost = asset.quantity * asset.purchase_price;
+      const value = current > 0 ? asset.quantity * current : 0;
+      const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
+      groups.set(asset.currency, { cost: prev.cost + cost, value: prev.value + value, gain: prev.gain + value - cost });
+    }
+    return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
+  }, [assets, quotes]);
+
+  const eurTotals = useMemo(() => {
+    let cost = 0;
+    let value = 0;
+    for (const group of currencyGroups) {
+      cost += toEur(group.cost, group.currency);
+      value += toEur(group.value, group.currency);
+    }
+    return { cost, value, gain: value - cost };
+  }, [currencyGroups, toEur]);
+
+  useEffect(() => {
+    if (currencyGroups.length > 0 && !currencyGroups.some((group) => group.currency === chartCurrency)) {
+      setChartCurrency(currencyGroups[0].currency);
+    }
+  }, [currencyGroups, chartCurrency]);
+
+  const portfolioRows = useMemo(() => assets.map((asset) => {
+    const quoteEntry = quotes[asset.symbol];
+    const quote = quoteEntry?.quote;
+    const profile = quoteEntry?.profile || {};
+    const livePrice = Number(quote?.c || 0);
+    const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+    const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot ? asset.purchase_price : 0);
+    const previousClose = Number(quote?.pc || 0);
+    const cost = asset.quantity * asset.purchase_price;
+    const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : 0;
+    const gain = currentValue - cost;
+    const dayChangeAmount = Number(quote?.d ?? (currentPrice - previousClose));
+    const dayChange = Number(quote?.dp ?? (currentPrice > 0 && previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0));
+    const quoteCurrency = (profile.currency || asset.currency || 'EUR').toUpperCase();
+    const dayLow = Number(quote?.l || 0);
+    const dayHigh = Number(quote?.h || 0);
+    const open = Number(quote?.o || 0);
+    const weekLow = Number(profile.fiftyTwoWeekLow || 0);
+    const weekHigh = Number(profile.fiftyTwoWeekHigh || 0);
+    const marketCap = Number(profile.marketCap || (profile.marketCapitalization ? profile.marketCapitalization * 1_000_000 : 0));
+    const volume = Number(profile.regularMarketVolume || 0);
+    const averageVolume = Number(profile.averageVolume || 0);
+    const allocation = eurTotals.value > 0 && currentValue > 0 ? (toEur(currentValue, quoteCurrency) / eurTotals.value) * 100 : 0;
+    const dividendYield = Number(profile.dividendYield || 0);
+    const gainPct = cost > 0 && currentValue > 0 ? (gain / cost) * 100 : 0;
+    const updatedAt = quote?.t ? new Date(Number(quote.t) * 1000).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    return {
+      allocation,
+      asset,
+      averageVolume,
+      beta: Number(profile.beta || 0),
+      currentPrice,
+      cost,
+      currentValue,
+      dayChange,
+      dayChangeAmount,
+      dayHigh,
+      dayLow,
+      dividendYield,
+      exchange: profile.exchange || asset.exchange || '',
+      gain,
+      gainPct,
+      industry: profile.finnhubIndustry || '',
+      marketCap,
+      name: profile.name || profile.shortName || asset.name,
+      open,
+      pe: Number(profile.pe || 0),
+      previousClose,
+      quoteCurrency,
+      updatedAt,
+      volume,
+      website: profile.weburl || '',
+      weekHigh,
+      weekLow,
+      isBoleroSnapshot,
+    };
+  }), [assets, quotes, eurTotals.value, toEur]);
+
+  const valueAtDate = useMemo(() => {
+    if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
+    const target = history.filter((point) => point.date <= valuationDate).at(-1);
+    return target?.value ?? 0;
+  }, [history, valuationDate, currencyGroups, chartCurrency]);
+
+  const eurValueAtDate = useMemo(() => {
+    if (eurHistory.length === 0) return eurTotals.value;
+    const target = eurHistory.filter((point) => point.date <= valuationDate).at(-1);
+    return target?.value ?? eurTotals.value;
+  }, [eurHistory, valuationDate, eurTotals]);
+
+  const bestPerformer = useMemo(() => {
+    return portfolioRows
+      .filter((row) => row.currentValue > 0)
+      .sort((a, b) => b.gainPct - a.gainPct)[0] || null;
+  }, [portfolioRows]);
+
+  const topHolding = useMemo(() => {
+    return portfolioRows
+      .filter((row) => row.currentValue > 0)
+      .sort((a, b) => b.allocation - a.allocation)[0] || null;
+  }, [portfolioRows]);
+
+  const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
+
+  async function loadAssets() {
     if (!user) return;
+    setLoading(true);
+    const { data, error } = await (supabase as any)
+      .from('portfolio_assets')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('purchase_date', { ascending: false });
+    if (error) toast.error(error.message);
+    else setAssets((data || []).map(normalizeAsset));
+    setLoading(false);
+  }
+
+  async function searchSymbols(term: string) {
+    setSearching(true);
+    const { data, error } = await supabase.functions.invoke('market-data', {
+      body: { action: 'search', query: term },
+    });
+    setSearching(false);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || 'Ticker zoeken mislukt');
+      return;
+    }
+    setResults(data.results || []);
+  }
+
+  async function refreshMarketData() {
+    setMarketLoading(true);
+    const symbols = [...new Set(assets.map((asset) => asset.symbol))];
+    const { data, error } = await supabase.functions.invoke('market-data', {
+      body: { action: 'quotes', symbols },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || 'Koersen ophalen mislukt');
+      setMarketLoading(false);
+      return;
+    }
+
+    const nextQuotes: Record<string, QuoteEntry> = {};
+    (data.quotes || []).forEach((entry: QuoteEntry) => {
+      nextQuotes[entry.symbol] = entry;
+    });
+    setQuotes(nextQuotes);
+    await loadHistory(symbols);
+    setMarketLoading(false);
+  }
+
+  async function loadHistory(symbols: string[]) {
+    const { from, to, interval } = getRange(range);
+    const intraday = interval !== '1d';
+    const series = await Promise.all(symbols.map(async (symbol) => {
+      const { data } = await supabase.functions.invoke('market-data', {
+        body: { action: 'candles', symbol, from, to, interval },
+      });
+      if (!data || data.s !== 'ok') return { symbol, points: [] as { date: string; close: number }[] };
+      const points = (data.t || []).map((ts: number, idx: number) => ({
+        date: intraday
+          ? new Date(ts * 1000).toISOString().slice(0, 16)
+          : new Date(ts * 1000).toISOString().slice(0, 10),
+        close: Number(data.c?.[idx] || 0),
+      }));
+      return { symbol, points };
+    }));
+
+    const purchaseGate = (assetDate: string, pointKey: string) =>
+      intraday ? pointKey.slice(0, 10) >= assetDate : pointKey >= assetDate;
+
+    // Union of all timeline keys across every symbol → shared x-axis
+    const allDates = new Set<string>();
+    for (const item of series) {
+      for (const point of item.points) {
+        if (point.close > 0) allDates.add(point.date);
+      }
+    }
+    const timeline = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+
+    // For each asset, carry the last known close forward over the timeline so a
+    // missing candle (weekend, holiday, delayed provider update) doesn't drop the
+    // asset out of the cumulative sum.
+    const buildAssetSeries = (asset: PortfolioAsset) => {
+      const symbolPoints = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      const closeByDate = new Map<string, number>();
+      for (const point of symbolPoints) {
+        if (point.close > 0) closeByDate.set(point.date, point.close);
+      }
+      const values = new Map<string, number>();
+      let last = 0;
+      for (const date of timeline) {
+        const next = closeByDate.get(date);
+        if (next !== undefined) last = next;
+        if (last <= 0) continue;
+        if (!purchaseGate(asset.purchase_date, date)) continue;
+        values.set(date, last * asset.quantity);
+      }
+      return values;
+    };
+
+    const byDate = new Map<string, number>();
+    const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
+    for (const asset of chartAssets) {
+      for (const [date, value] of buildAssetSeries(asset)) {
+        byDate.set(date, (byDate.get(date) || 0) + value);
+      }
+    }
+    setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
+
+    // Cumulative EUR history across ALL currencies (using latest FX rate)
+    const eurByDate = new Map<string, number>();
+    for (const asset of assets) {
+      for (const [date, value] of buildAssetSeries(asset)) {
+        eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(value, asset.currency));
+      }
+    }
+    setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
+  }
+
+  function selectSymbol(result: SymbolResult) {
+    setForm((prev) => ({
+      ...prev,
+      symbol: result.symbol,
+      name: result.description || result.displaySymbol || result.symbol,
+      asset_type: inferAssetType(result.type),
+    }));
+    setQuery(result.displaySymbol || result.symbol);
+    setResults([]);
+  }
+
+  async function saveAsset() {
+    if (!user) return;
+    const symbol = form.symbol.trim().toUpperCase();
+    const quantity = Number(form.quantity);
+    const purchasePrice = Number(form.purchase_price);
+    if (!symbol || !form.purchase_date || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(purchasePrice) || purchasePrice < 0) {
+      toast.error('Vul minstens ticker, aankoopdatum, aantal en aankoopprijs correct in.');
+      return;
+    }
+
+    setSaving(true);
+    const payload = {
+      user_id: user.id,
+      symbol,
+      name: form.name.trim() || symbol,
+      asset_type: form.asset_type,
+      exchange: form.exchange.trim() || null,
+      mic: form.mic.trim() || null,
+      currency: form.currency.trim().toUpperCase() || 'EUR',
+      purchase_date: form.purchase_date,
+      quantity,
+      purchase_price: purchasePrice,
+      notes: form.notes.trim() || null,
+    };
+
+    const query = editingId
+      ? (supabase as any).from('portfolio_assets').update(payload).eq('id', editingId)
+      : (supabase as any).from('portfolio_assets').insert(payload);
+    const { error } = await query;
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(editingId ? 'Positie bijgewerkt' : 'Positie toegevoegd');
+    setForm(emptyForm);
+    setQuery('');
+    setEditingId(null);
+    loadAssets();
+  }
+
+  function editAsset(asset: PortfolioAsset) {
+    setEditingId(asset.id);
+    setQuery(asset.symbol);
+    setForm({
+      symbol: asset.symbol,
+      name: asset.name,
+      asset_type: asset.asset_type,
+      exchange: asset.exchange || '',
+      mic: asset.mic || '',
+      currency: asset.currency,
+      purchase_date: asset.purchase_date,
+      quantity: String(asset.quantity),
+      purchase_price: String(asset.purchase_price),
+      notes: asset.notes || '',
+    });
+  }
+
+  async function deleteAsset(id: string) {
+    if (!confirm('Deze positie verwijderen?')) return;
+    const { error } = await (supabase as any).from('portfolio_assets').delete().eq('id', id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Positie verwijderd');
+      loadAssets();
+    }
+  }
+
+  async function importBoleroFile(file: File) {
+    if (!user) return;
+    setImportingBolero(true);
     try {
+      const XLSX = await import('xlsx');
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-      const positionsFromFile = parseBoleroWorkbook(workbook);
-      if (positionsFromFile.length === 0) {
-        toast({ title: 'Geen Bolero-posities gevonden', description: 'Kon geen Portfolio Positions-tabel herkennen.', variant: 'destructive' });
+      const positions = parseBoleroWorkbook(workbook, XLSX);
+      if (positions.length === 0) {
+        toast.error('Geen Bolero-posities gevonden in dit bestand.');
         return;
       }
 
-      await supabase
-        .from('portfolio_transactions')
+      const { error: deleteError } = await (supabase as any)
+        .from('portfolio_assets')
         .delete()
         .eq('user_id', user.id)
-        .ilike('notes', 'Bolero position snapshot%');
+        .ilike('notes', 'Bolero Expert snapshot%');
+      if (deleteError) throw deleteError;
 
-      const importedAssets: PortfolioAsset[] = [];
-      for (const position of positionsFromFile) {
-        const assetPayload = boleroPositionToAsset(position, user.id);
-        const existing = assets.find(a =>
-          (position.isin && a.isin === position.isin) ||
-          a.symbol.toUpperCase() === assetPayload.symbol.toUpperCase()
-        );
-        const assetRes = existing
-          ? await supabase.from('portfolio_assets').update(assetPayload).eq('id', existing.id).select('*').single()
-          : await supabase.from('portfolio_assets').insert(assetPayload).select('*').single();
-        if (assetRes.error) throw assetRes.error;
-        importedAssets.push(assetRes.data as PortfolioAsset);
-      }
+      const payload = positions.map((position) => boleroPositionToAsset(position, user.id, file.name));
+      const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
+      if (error) throw error;
 
-      const txPayload = positionsFromFile.map(position => {
-        const asset = importedAssets.find(a => a.isin === position.isin || a.symbol === boleroSymbol(position));
-        const isCash = position.type.toLowerCase() === 'cash';
-        const currentFx = position.currentValue !== 0 ? position.eurValue / position.currentValue : 1;
-        const estimatedCostEur = isCash ? position.eurValue : position.purchaseValue * currentFx;
-        return {
-          user_id: user.id,
-          asset_id: asset?.id || null,
-          symbol: asset?.symbol || boleroSymbol(position),
-          broker: 'Bolero',
-          currency: 'EUR',
-          transaction_date: today(),
-          transaction_type: 'buy' as TxType,
-          quantity: isCash ? 1 : position.quantity,
-          price: isCash ? position.eurValue : estimatedCostEur / Math.max(position.quantity, 1),
-          amount: estimatedCostEur,
-          fees: 0,
-          taxes: 0,
-          notes: `Bolero position snapshot ${file.name}; origineel ${position.currency}; markt ${position.market || 'n.v.t.'}; rendement ${position.returnPct || 0}%`,
-        };
+      toast.success('Bolero-portefeuille geïmporteerd', {
+        description: `${payload.length} positie(s) als huidige snapshot geladen.`,
       });
-      const txRes = await supabase.from('portfolio_transactions').insert(txPayload);
-      if (txRes.error) throw txRes.error;
-
-      toast({ title: 'Bolero-portefeuille geïmporteerd', description: `${positionsFromFile.length} positie(s) als huidige portefeuille geladen.` });
-      setImportOpen(false);
-      void load();
+      await loadAssets();
+      setChartCurrency('EUR');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Import mislukt.';
-      toast({ title: 'Bolero-import mislukt', description: message, variant: 'destructive' });
+      toast.error('Bolero-import mislukt', { description: message });
+    } finally {
+      setImportingBolero(false);
+      if (boleroInputRef.current) boleroInputRef.current.value = '';
     }
-  };
+  }
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-start justify-between gap-3">
+    <div className="dashboard-shell max-w-7xl mx-auto space-y-4 animate-fade-in md:space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
-          <p className="text-muted-foreground mt-1">Beleggingen, allocatie, DCA en Belgische tax-aandachtspunten.</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen cockpit</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Beursportfolio</h1>
+          <p className="text-muted-foreground mt-1">Portefeuillewaarde, rendement en posities meteen zichtbaar.</p>
         </div>
-        <div className="flex flex-wrap gap-2 justify-end">
-          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2"><FileSpreadsheet className="h-4 w-4" /> CSV</Button>
-          <Button variant="outline" onClick={() => setTxOpen(true)} className="gap-2" disabled={assets.length === 0}><ArrowDownUp className="h-4 w-4" /> Transactie</Button>
-          <Button onClick={() => setAssetOpen(true)} className="gap-2"><Plus className="h-4 w-4" /> Asset</Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <MetricCard icon={Euro} label="Portfolio waarde" value={fmt(totalValue)} />
-        <MetricCard icon={TrendingUp} label="Resultaat incl. dividend" value={fmt(totalPnl)} sub={totalInvested > 0 ? pct((totalPnl / totalInvested) * 100) : 'Nog geen kostbasis'} tone={totalPnl >= 0 ? 'good' : 'bad'} />
-        <MetricCard icon={PieIcon} label="Grootste positie" value={pct(concentration)} sub={concentration > 25 ? 'Concentratierisico' : 'Binnen normale marge'} tone={concentration > 25 ? 'warn' : 'neutral'} />
-        <MetricCard icon={Target} label="Grootste target drift" value={pct(targetDrift)} sub={targetDrift > 10 ? 'Herbalanceer met nieuwe inleg' : 'Doelverdeling oké'} tone={targetDrift > 10 ? 'warn' : 'neutral'} />
-      </div>
-
-      <Tabs defaultValue="overview">
-        <TabsList className="flex h-auto flex-wrap justify-start">
-          <TabsTrigger value="cockpit">Cockpit</TabsTrigger>
-          <TabsTrigger value="overview">Overzicht</TabsTrigger>
-          <TabsTrigger value="allocation">Allocatie</TabsTrigger>
-          <TabsTrigger value="dca">DCA & rebalancing</TabsTrigger>
-          <TabsTrigger value="tax">Tax flags</TabsTrigger>
-          <TabsTrigger value="transactions">Transacties</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="cockpit" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <MetricCard icon={Wallet} label="Netto vermogen" value={fmt(totalNetWorth)} sub="Cash + beleggingen + pensioen/IPT" />
-            <MetricCard icon={Landmark} label="Pensioen/IPT" value={fmt(pensionValue)} sub={latestPension || latestIpt ? 'Laatste snapshot' : 'Nog geen pensioenimport'} />
-            <MetricCard icon={Target} label="Cashbuffer" value={fmt(cashValue)} sub={`${pct(cashBufferPct)} van ${cashBufferMonths} maanden`} tone={cashBufferPct < 75 ? 'warn' : 'good'} />
-            <MetricCard icon={Flame} label="FIRE-voortgang" value={pct(firePct)} sub={estimatedYearsToFire > 0 ? `± ${estimatedYearsToFire.toFixed(1)} jaar met huidige DCA` : 'Doel bereikt of geen doel'} tone={firePct >= 100 ? 'good' : 'neutral'} />
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Financiële cockpit</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <CockpitLine label="Gemiddeld netto inkomen/maand" value={fmt(avgMonthlyNetto)} />
-                <CockpitLine label="Maandelijkse inlegcapaciteit" value={fmt(dcaAmount)} sub={avgMonthlyNetto > 0 ? `${pct((dcaAmount / avgMonthlyNetto) * 100)} van netto` : undefined} />
-                <CockpitLine label="Jaarlijkse inlegcapaciteit" value={fmt(yearlyDca)} />
-                <CockpitLine label="Cashbuffer-doel" value={fmt(cashTarget)} sub={`${cashBufferMonths} maanden netto inkomen`} />
-                <CockpitLine label="FIRE/pensioendoel" value={fmt(fireTarget)} />
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div>
-                    <Label className="text-xs">Cashbuffer maanden</Label>
-                    <Input value={cashBufferMonths} onChange={e => setCashBufferMonths(e.target.value)} inputMode="decimal" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">FIRE/pensioendoel</Label>
-                    <Input value={targetFireAmount} onChange={e => setTargetFireAmount(e.target.value)} inputMode="decimal" className="mt-1" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <ChartCard title="Vermogensopbouw" data={wealthStackData} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="overview" className="space-y-4 mt-4">
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Posities</CardTitle></CardHeader>
-            <CardContent>
-              {positions.length === 0 ? (
-                <EmptyPortfolio onAdd={() => setAssetOpen(true)} />
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Asset</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Aantal</TableHead>
-                      <TableHead className="text-right">Waarde</TableHead>
-                      <TableHead className="text-right">Weging</TableHead>
-                      <TableHead className="text-right">P/L</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {positions.sort((a, b) => b.marketValue - a.marketValue).map(p => (
-                      <TableRow key={p.asset.id}>
-                        <TableCell>
-                          <div className="font-medium">{p.asset.symbol}</div>
-                          <div className="text-xs text-muted-foreground">{p.asset.name} {p.asset.isin ? `• ${p.asset.isin}` : ''}</div>
-                        </TableCell>
-                        <TableCell><Badge variant="outline">{assetClassLabels[p.asset.asset_class] || p.asset.asset_class}</Badge></TableCell>
-                        <TableCell className="text-right font-mono">{p.quantity.toLocaleString('nl-BE', { maximumFractionDigits: 4 })}</TableCell>
-                        <TableCell className="text-right font-mono">{fmt(p.marketValue, p.asset.currency)}</TableCell>
-                        <TableCell className="text-right font-mono">{pct(p.weight)}</TableCell>
-                        <TableCell className={`text-right font-mono ${p.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(p.pnl, p.asset.currency)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="allocation" className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-          <ChartCard title="Allocatie per activaklasse" data={allocationData} />
-          <ChartCard title="Regioverdeling" data={regionData} />
-          <ChartCard title="Sectorverdeling" data={sectorData} />
-          <ChartCard title="Muntverdeling" data={currencyData} />
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Brokerverdeling</CardTitle></CardHeader>
-            <CardContent>
-              <AllocationTable data={brokerData} total={totalValue} />
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Doel vs huidige weging</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={assets.map(a => ({
-                  symbol: a.symbol,
-                  huidig: positions.find(p => p.asset.id === a.id)?.weight || 0,
-                  doel: targetTotal > 0 ? (a.target_weight / targetTotal) * 100 : 0,
-                }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="symbol" />
-                  <YAxis tickFormatter={v => `${v}%`} />
-                  <Tooltip formatter={(v: number) => pct(v)} />
-                  <Bar dataKey="huidig" fill="#2f9e91" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="doel" fill="#1d4f7a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="dca" className="space-y-4 mt-4">
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Maandelijkse inleg</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label className="text-xs">DCA-bedrag</Label>
-                <Input value={monthlyDca} inputMode="decimal" onChange={e => setMonthlyDca(e.target.value)} className="mt-1" />
-              </div>
-              <div className="rounded-lg border border-border/50 p-3">
-                <div className="text-xs text-muted-foreground">Gem. netto inkomen/maand</div>
-                <div className="text-xl font-semibold">{fmt(avgMonthlyNetto)}</div>
-              </div>
-              <div className="rounded-lg border border-border/50 p-3">
-                <div className="text-xs text-muted-foreground">DCA als % van netto</div>
-                <div className="text-xl font-semibold">{avgMonthlyNetto > 0 ? pct((dcaAmount / avgMonthlyNetto) * 100) : 'n.v.t.'}</div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Koopvolgorde met nieuwe inleg</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asset</TableHead>
-                    <TableHead className="text-right">Huidig</TableHead>
-                    <TableHead className="text-right">Doelwaarde na DCA</TableHead>
-                    <TableHead className="text-right">Suggestie</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rebalanceRows.map(row => (
-                    <TableRow key={row.asset.id}>
-                      <TableCell>
-                        <div className="font-medium">{row.asset.symbol}</div>
-                        <div className="text-xs text-muted-foreground">Doelgewicht {targetTotal > 0 ? pct((row.asset.target_weight / targetTotal) * 100) : '0%'}</div>
-                      </TableCell>
-                      <TableCell className="text-right font-mono">{fmt(row.current, row.asset.currency)}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(row.targetValue, row.asset.currency)}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{row.buySuggestion > 1 ? fmt(row.buySuggestion, row.asset.currency) : 'Overslaan'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <p className="mt-3 text-xs text-muted-foreground">Suggesties gebruiken alleen nieuwe inleg. Dit voorkomt onnodig verkopen en extra tax/kosten.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tax" className="space-y-4 mt-4">
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="pt-4 text-sm text-muted-foreground">
-              Indicatieve tax-laag, geen fiscaal advies. Controleer TOB, roerende voorheffing, Reynders-tax en buitenlandse rekeningen bij broker/FOD/boekhouder.
-            </CardContent>
-          </Card>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Transactiekosten & tax impact</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <TaxLine label="Betaalde dividenden netto" value={fmt(totalDividends)} />
-                <TaxLine label="Geregistreerde kosten/taksen" value={fmt(positions.reduce((s, p) => s + p.feesAndTaxes, 0))} />
-                <TaxLine label="Nieuwe DCA bruto" value={fmt(dcaAmount)} />
-                <TaxLine label="Geschatte TOB op voorgestelde DCA" value={fmt(rebalanceRows.reduce((s, row) => s + row.buySuggestion * ((taxProfiles[row.asset.tax_profile] || taxProfiles.etf_standard).tobRate), 0))} />
-              </CardContent>
-            </Card>
-            <Card className="border-border/50">
-              <CardHeader><CardTitle className="text-base">Waarschuwingen</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                {taxWarnings.length === 0 ? <p className="text-sm text-muted-foreground">Geen opvallende flags op basis van de huidige labels.</p> : taxWarnings.map((w, idx) => (
-                  <div key={idx} className={`rounded-lg border p-3 ${w.tone === 'warn' ? 'border-amber-500/30 bg-amber-500/5' : 'border-border/50 bg-muted/20'}`}>
-                    <div className="flex gap-2 font-medium text-sm"><ShieldAlert className="h-4 w-4 text-amber-600" /> {w.title}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">{w.detail}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="transactions" className="mt-4">
-          <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base">Laatste transacties</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Datum</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Symbool</TableHead>
-                    <TableHead className="text-right">Aantal</TableHead>
-                    <TableHead className="text-right">Bedrag</TableHead>
-                    <TableHead className="text-right">Kosten/taks</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.slice(0, 50).map(t => (
-                    <TableRow key={t.id}>
-                      <TableCell>{new Date(t.transaction_date).toLocaleDateString('nl-BE')}</TableCell>
-                      <TableCell><Badge variant="outline">{t.transaction_type}</Badge></TableCell>
-                      <TableCell className="font-medium">{t.symbol}</TableCell>
-                      <TableCell className="text-right font-mono">{t.quantity.toLocaleString('nl-BE', { maximumFractionDigits: 4 })}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(t.amount || t.quantity * t.price, t.currency)}</TableCell>
-                      <TableCell className="text-right font-mono">{fmt(t.fees + t.taxes, t.currency)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTransaction(t.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <AssetDialog open={assetOpen} onOpenChange={setAssetOpen} form={assetForm} setForm={setAssetForm} onSave={saveAsset} />
-      <TransactionDialog open={txOpen} onOpenChange={setTxOpen} assets={assets} form={txForm} setForm={setTxForm} onSave={saveTransaction} />
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} text={csvText} setText={setCsvText} onImport={importCsv} onFileImport={importBoleroFile} />
-    </div>
-  );
-}
-
-function MetricCard({ icon: Icon, label, value, sub, tone = 'neutral' }: { icon: LucideIcon; label: string; value: string; sub?: string; tone?: 'neutral' | 'good' | 'bad' | 'warn' }) {
-  const toneClass = tone === 'good' ? 'text-green-600' : tone === 'bad' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : 'text-primary';
-  return (
-    <div className="stat-card">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><Icon className={`h-5 w-5 ${toneClass}`} /></div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className={`text-2xl font-semibold ${toneClass}`}>{value}</p>
-          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyPortfolio({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="py-12 text-center text-muted-foreground space-y-3">
-      <PieIcon className="h-10 w-10 mx-auto opacity-40" />
-      <p>Nog geen portfolio-assets. Voeg een ETF, aandeel, cashpositie of obligatie toe.</p>
-      <Button variant="outline" onClick={onAdd}>Eerste asset toevoegen</Button>
-    </div>
-  );
-}
-
-function ChartCard({ title, data }: { title: string; data: { name: string; value: number }[] }) {
-  return (
-    <Card className="border-border/50">
-      <CardHeader><CardTitle className="text-base">{title}</CardTitle></CardHeader>
-      <CardContent>
-        {data.length === 0 ? <p className="py-12 text-center text-sm text-muted-foreground">Geen data.</p> : (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={data} innerRadius={58} outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v: number) => fmt(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TaxLine({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between gap-3 rounded-md border border-border/50 p-3"><span className="text-sm text-muted-foreground">{label}</span><span className="font-mono font-semibold">{value}</span></div>;
-}
-
-function CockpitLine({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 p-3">
-      <div>
-        <div className="text-sm font-medium">{label}</div>
-        {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
-      </div>
-      <div className="font-mono font-semibold text-right">{value}</div>
-    </div>
-  );
-}
-
-function AllocationTable({ data, total }: { data: { name: string; value: number }[]; total: number }) {
-  if (data.length === 0) return <p className="py-10 text-center text-sm text-muted-foreground">Geen data.</p>;
-  return (
-    <div className="space-y-2">
-      {data.map((row, idx) => {
-        const weight = total > 0 ? (row.value / total) * 100 : 0;
-        return (
-          <div key={row.name} className="space-y-1">
-            <div className="flex justify-between gap-3 text-sm">
-              <span className="font-medium">{row.name}</span>
-              <span className="font-mono">{fmt(row.value)} · {pct(weight)}</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${Math.min(100, weight)}%`, backgroundColor: COLORS[idx % COLORS.length] }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AssetDialog({ open, onOpenChange, form, setForm, onSave }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  form: ReturnType<typeof emptyAsset>;
-  setForm: React.Dispatch<React.SetStateAction<ReturnType<typeof emptyAsset>>>;
-  onSave: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Asset toevoegen</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Symbool" value={form.symbol} onChange={v => setForm(f => ({ ...f, symbol: v }))} />
-          <Field label="Naam" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
-          <Field label="ISIN" value={form.isin} onChange={v => setForm(f => ({ ...f, isin: v }))} />
-          <Field label="Broker" value={form.broker} onChange={v => setForm(f => ({ ...f, broker: v }))} />
-          <SelectField label="Activaklasse" value={form.asset_class} onChange={v => setForm(f => ({ ...f, asset_class: v }))} options={assetClassLabels} />
-          <SelectField label="Tax-profiel" value={form.tax_profile} onChange={v => setForm(f => ({ ...f, tax_profile: v }))} options={Object.fromEntries(Object.entries(taxProfiles).map(([k, v]) => [k, v.label]))} />
-          <Field label="Regio" value={form.region} onChange={v => setForm(f => ({ ...f, region: v }))} />
-          <Field label="Sector" value={form.sector} onChange={v => setForm(f => ({ ...f, sector: v }))} />
-          <Field label="Munt" value={form.currency} onChange={v => setForm(f => ({ ...f, currency: v }))} />
-          <Field label="Laatste prijs" value={form.current_price} onChange={v => setForm(f => ({ ...f, current_price: v }))} />
-          <Field label="Doelgewicht" value={form.target_weight} onChange={v => setForm(f => ({ ...f, target_weight: v }))} suffix="punten" />
-          <Field label="TER" value={form.expense_ratio} onChange={v => setForm(f => ({ ...f, expense_ratio: v }))} suffix="%" />
-          <SwitchField label="Accumulerend" checked={form.is_accumulating} onChange={v => setForm(f => ({ ...f, is_accumulating: v }))} />
-          <SwitchField label="UCITS/KID oké" checked={form.is_ucits} onChange={v => setForm(f => ({ ...f, is_ucits: v }))} />
-          <SwitchField label="Obligatiecomponent" checked={form.has_bond_component} onChange={v => setForm(f => ({ ...f, has_bond_component: v }))} />
-          <div className="md:col-span-2">
-            <Label className="text-xs">Notities</Label>
-            <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" />
-          </div>
-        </div>
-        <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>Annuleren</Button><Button onClick={onSave}>Opslaan</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TransactionDialog({ open, onOpenChange, assets, form, setForm, onSave }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  assets: PortfolioAsset[];
-  form: ReturnType<typeof emptyTx>;
-  setForm: React.Dispatch<React.SetStateAction<ReturnType<typeof emptyTx>>>;
-  onSave: () => void;
-}) {
-  const selected = assets.find(a => a.id === form.asset_id);
-  const gross = parseNum(form.amount) || parseNum(form.quantity) * parseNum(form.price);
-  const estimatedTax = selected && ['buy', 'sell'].includes(form.transaction_type) ? gross * ((taxProfiles[selected.tax_profile] || taxProfiles.etf_standard).tobRate) : 0;
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Transactie toevoegen</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs">Asset</Label>
-            <Select value={form.asset_id} onValueChange={v => setForm(f => ({ ...f, asset_id: v }))}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Kies asset" /></SelectTrigger>
-              <SelectContent>{assets.map(a => <SelectItem key={a.id} value={a.id}>{a.symbol} - {a.name}</SelectItem>)}</SelectContent>
+        <div className="flex flex-wrap gap-2">
+          {currencyGroups.length > 1 && (
+            <Select value={chartCurrency} onValueChange={setChartCurrency}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {currencyGroups.map((group) => <SelectItem key={group.currency} value={group.currency}>{group.currency}</SelectItem>)}
+              </SelectContent>
             </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Datum" type="date" value={form.transaction_date} onChange={v => setForm(f => ({ ...f, transaction_date: v }))} />
-            <SelectField label="Type" value={form.transaction_type} onChange={v => setForm(f => ({ ...f, transaction_type: v as TxType }))} options={{ buy: 'Koop', sell: 'Verkoop', dividend: 'Dividend', deposit: 'Storting', withdrawal: 'Opname', fee: 'Kost', tax: 'Tax' }} />
-            <Field label="Aantal" value={form.quantity} onChange={v => setForm(f => ({ ...f, quantity: v }))} />
-            <Field label="Prijs" value={form.price} onChange={v => setForm(f => ({ ...f, price: v }))} />
-            <Field label="Bedrag" value={form.amount} onChange={v => setForm(f => ({ ...f, amount: v }))} />
-            <Field label="Kosten" value={form.fees} onChange={v => setForm(f => ({ ...f, fees: v }))} />
-            <Field label="Taks" value={form.taxes} onChange={v => setForm(f => ({ ...f, taxes: v }))} placeholder={estimatedTax ? estimatedTax.toFixed(2) : '0'} />
-          </div>
-          {estimatedTax > 0 && <p className="text-xs text-muted-foreground flex gap-2"><AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> Indicatieve TOB: {fmt(estimatedTax, selected?.currency || 'EUR')}. Laat leeg om automatisch te gebruiken.</p>}
-          <div>
-            <Label className="text-xs">Notities</Label>
-            <Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="mt-1" />
-          </div>
-        </div>
-        <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>Annuleren</Button><Button onClick={onSave}>Opslaan</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ImportDialog({ open, onOpenChange, text, setText, onImport, onFileImport }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  text: string;
-  setText: (v: string) => void;
-  onImport: () => void;
-  onFileImport: (file: File) => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>Brokerbestand importeren</DialogTitle></DialogHeader>
-        <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-3">
-          <Label className="text-xs">Bolero Expert portfolio-export (.xlsx)</Label>
-          <Input
+          )}
+          <Input type="date" value={valuationDate} onChange={(e) => setValuationDate(e.target.value)} className="w-40" />
+          <Button variant="outline" onClick={refreshMarketData} disabled={marketLoading || assets.length === 0}>
+            {marketLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Ververs
+          </Button>
+          <input
+            ref={boleroInputRef}
             type="file"
             accept=".xlsx,.xls"
-            className="mt-2"
-            onChange={e => {
-              const file = e.target.files?.[0];
-              if (file) onFileImport(file);
-              e.currentTarget.value = '';
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importBoleroFile(file);
             }}
           />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Herkent de tabel “Portfolio Positions” en gebruikt de posities als huidige portefeuille.
-          </p>
+          <Button variant="outline" onClick={() => boleroInputRef.current?.click()} disabled={importingBolero}>
+            {importingBolero ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            Bolero import
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Of plak CSV-transacties van Bolero, DEGIRO, Saxo, Keytrade en Interactive Brokers via kolomnamen zoals datum/date, ISIN, ticker/symbol, buy/sell/type,
-          aantal/quantity, prijs/price, kosten/fees, TOB, dividend en roerende voorheffing/withholding tax.
-        </p>
-        <Textarea value={text} onChange={e => setText(e.target.value)} className="min-h-60 font-mono text-xs" placeholder="Datum;ISIN;Ticker;Type;Aantal;Prijs;Kosten;TOB;Dividend;Roerende voorheffing;Broker&#10;2026-07-01;IE00BK5BQT80;VWCE;BUY;3;110;2,5;0,4;;;Bolero" />
-        <DialogFooter><Button variant="ghost" onClick={() => onOpenChange(false)}>Annuleren</Button><Button onClick={onImport}>Importeren</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Field({ label, value, onChange, suffix, type = 'text', placeholder }: { label: string; value: string; onChange: (v: string) => void; suffix?: string; type?: string; placeholder?: string }) {
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <div className="mt-1 flex items-center gap-2">
-        <Input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
-        {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
       </div>
+
+      <section className="dashboard-hero">
+        <div className="dashboard-hero-main wealth-hero">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-primary-foreground/75">Totale waarde in EUR</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(eurTotals.value, 'EUR')}</p>
+              <p className={`mt-2 text-sm ${eurTotals.gain >= 0 ? 'text-emerald-100' : 'text-red-100'}`}>
+                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
+              </p>
+            </div>
+            <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
+              <PieChart className="h-7 w-7" />
+            </div>
+          </div>
+
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            <div className="dashboard-hero-pill">
+              <span>Ingelegd</span>
+              <strong>{money(eurTotals.cost, 'EUR')}</strong>
+            </div>
+            <div className="dashboard-hero-pill">
+              <span>Op datum</span>
+              <strong>{money(eurValueAtDate, 'EUR')}</strong>
+            </div>
+            <div className="dashboard-hero-pill">
+              <span>Posities</span>
+              <strong>{assets.length}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-hero-side">
+          <div className="dashboard-insight-card">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Wallet className="h-4 w-4 text-secondary" />
+              Toppositie
+            </div>
+            <p className="mt-2 text-2xl font-semibold">{topHolding?.asset.symbol || '-'}</p>
+            <p className="text-xs text-muted-foreground">{topHolding ? `${topHolding.allocation.toFixed(1)}% allocatie` : 'Nog geen actuele waarde'}</p>
+          </div>
+          <div className="dashboard-insight-card">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              {totalReturnPct >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+              Rendement
+            </div>
+            <p className={`mt-2 text-2xl font-semibold ${totalReturnPct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{pct(totalReturnPct)}</p>
+            <p className="text-xs text-muted-foreground">{money(eurTotals.gain, 'EUR')} totaal</p>
+          </div>
+          <div className="dashboard-insight-card md:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Beste performer</p>
+                <p className="mt-1 text-2xl font-semibold">{bestPerformer?.asset.symbol || '-'}</p>
+                <p className="text-xs text-muted-foreground">{bestPerformer ? `${bestPerformer.name} · ${pct(bestPerformer.gainPct)}` : 'Nog geen koersdata'}</p>
+              </div>
+              <div className="rounded-xl bg-secondary/10 px-3 py-2 text-right text-xs text-muted-foreground">
+                ECB{fxUpdated ? ` · ${fxUpdated}` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {currencyGroups.length === 0 ? (
+          <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
+        ) : currencyGroups.map((group) => (
+          <MetricCard
+            key={group.currency}
+            title={`Waarde ${group.currency}`}
+            value={money(group.value, group.currency)}
+            sub={`≈ ${money(toEur(group.value, group.currency), 'EUR')} · Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
+          />
+        ))}
+        <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
+        <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
+      </div>
+
+      <Card className="data-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
+          <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
+        </CardHeader>
+        <CardContent className="h-72">
+          {eurHistory.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische data beschikbaar.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={eurHistory}>
+                <defs>
+                  <linearGradient id="portfolioEur" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
+
+                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+
+      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+        <Card className="data-card">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Portefeuillewaarde</CardTitle>
+            <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+              <TabsList>
+                {rangeLabels.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent className="h-80">
+            {history.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische koersdata beschikbaar.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="portfolioValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(174, 50%, 40%)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="hsl(174, 50%, 40%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
+                  <Tooltip formatter={(value) => money(Number(value), chartCurrency)} />
+                  <Area type="monotone" dataKey="value" stroke="hsl(174, 50%, 40%)" fill="url(#portfolioValue)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="data-card">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> {editingId ? 'Positie bewerken' : 'Positie toevoegen'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative space-y-2">
+              <Label>Zoek ticker of naam</Label>
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bv. IWDA, Apple, VUSA" className="pl-9" />
+              </div>
+              {searching && <div className="text-xs text-muted-foreground">Zoeken...</div>}
+              {results.length > 0 && (
+                <div className="absolute z-20 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
+                  {results.map((result) => (
+                    <button key={`${result.symbol}-${result.description}`} type="button" className="w-full text-left px-3 py-2 hover:bg-muted text-sm" onClick={() => selectSymbol(result)}>
+                      <span className="font-medium">{result.displaySymbol || result.symbol}</span>
+                      <span className="text-muted-foreground"> · {result.description || result.type}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Ticker" value={form.symbol} onChange={(value) => setForm({ ...form, symbol: value.toUpperCase() })} />
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select value={form.asset_type} onValueChange={(value) => setForm({ ...form, asset_type: value as AssetType })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="etf">ETF</SelectItem>
+                    <SelectItem value="stock">Aandeel</SelectItem>
+                    <SelectItem value="fund">Fonds</SelectItem>
+                    <SelectItem value="bond">Obligatie</SelectItem>
+                    <SelectItem value="crypto">Crypto</SelectItem>
+                    <SelectItem value="other">Andere</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Field label="Naam" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Aankoopdatum" type="date" value={form.purchase_date} onChange={(value) => setForm({ ...form, purchase_date: value })} />
+              <Field label="Valuta" value={form.currency} onChange={(value) => setForm({ ...form, currency: value.toUpperCase() })} />
+              <Field label="Aantal" type="number" value={form.quantity} onChange={(value) => setForm({ ...form, quantity: value })} />
+              <Field label="Aankoopprijs" type="number" value={form.purchase_price} onChange={(value) => setForm({ ...form, purchase_price: value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Beurs" value={form.exchange} onChange={(value) => setForm({ ...form, exchange: value })} />
+              <Field label="MIC" value={form.mic} onChange={(value) => setForm({ ...form, mic: value })} />
+            </div>
+            <Field label="Notitie" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
+            <div className="flex gap-2">
+              <Button onClick={saveAsset} disabled={saving} className="flex-1">
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {editingId ? 'Bijwerken' : 'Toevoegen'}
+              </Button>
+              {editingId && <Button variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setQuery(''); }}>Annuleer</Button>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="data-card">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Portfolio</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticker</TableHead>
+                  <TableHead>Naam</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Aantal</TableHead>
+                  <TableHead className="text-right">Aankoop</TableHead>
+                  <TableHead className="text-right">Koers</TableHead>
+                  <TableHead className="text-right">Waarde</TableHead>
+                  <TableHead className="text-right">Resultaat</TableHead>
+                  <TableHead className="text-right">Marktinfo</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {portfolioRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-10">Nog geen posities toegevoegd.</TableCell></TableRow>
+                ) : portfolioRows.map((row) => (
+                  <TableRow key={row.asset.id} className="align-top">
+                    <TableCell className="min-w-40">
+                      <div className="font-semibold">{row.asset.symbol}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{row.exchange || row.asset.mic || 'Beurs onbekend'} · {row.quoteCurrency}</div>
+                      {row.isBoleroSnapshot && <div className="mt-1 text-xs font-medium text-secondary">Bolero snapshot</div>}
+                    </TableCell>
+                    <TableCell className="min-w-80">
+                      <div className="font-medium">{row.name}</div>
+                      <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        <InfoLine icon={<Building2 className="h-3.5 w-3.5" />} value={row.industry || row.asset.asset_type.toUpperCase()} />
+                        <InfoLine icon={<Clock3 className="h-3.5 w-3.5" />} value={row.updatedAt ? `Update ${row.updatedAt}` : 'Geen update'} />
+                      </div>
+                      {row.website && (
+                        <a
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          href={row.website}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Website <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </TableCell>
+                    <TableCell className="uppercase text-xs text-muted-foreground">{row.asset.asset_type}</TableCell>
+                    <TableCell className="text-right">{row.asset.quantity.toLocaleString('nl-BE')}</TableCell>
+                    <TableCell className="text-right">
+                      <div>{money(row.cost, row.asset.currency)}</div>
+                      <div className="text-xs text-muted-foreground">{money(row.asset.purchase_price, row.asset.currency)} / stuk</div>
+                    </TableCell>
+                    <TableCell className="min-w-52 text-right">
+                      <div className="font-semibold">{row.currentPrice ? money(row.currentPrice, row.quoteCurrency) : '-'}</div>
+                      <div className={`text-xs ${row.dayChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                        {row.currentPrice && !row.isBoleroSnapshot ? `${money(row.dayChangeAmount, row.quoteCurrency)} (${pct(row.dayChange)}) vandaag` : row.isBoleroSnapshot ? 'Waarde uit import' : 'Geen koers'}
+                      </div>
+                      <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                        <span>Open {row.open ? money(row.open, row.quoteCurrency) : '-'}</span>
+                        <span>Vorige slot {row.previousClose ? money(row.previousClose, row.quoteCurrency) : '-'}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div>{row.currentValue ? money(row.currentValue, row.quoteCurrency) : '-'}</div>
+                      <div className="text-xs text-muted-foreground">{row.allocation ? `${row.allocation.toFixed(1)}% allocatie` : '-'}</div>
+                    </TableCell>
+                    <TableCell className={`text-right ${row.gain >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      <div>{row.currentValue ? money(row.gain, row.quoteCurrency) : '-'}</div>
+                      <div className="text-xs">{row.currentValue ? pct(row.gainPct) : '-'}</div>
+                    </TableCell>
+                    <TableCell className="min-w-72 text-right">
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        <InfoLine align="right" icon={<Activity className="h-3.5 w-3.5" />} value={`Dag ${rangeText(row.dayLow, row.dayHigh, row.quoteCurrency)}`} />
+                        <InfoLine align="right" icon={<BarChart3 className="h-3.5 w-3.5" />} value={`52w ${rangeText(row.weekLow, row.weekHigh, row.quoteCurrency)}`} />
+                        <div>Volume {row.volume ? compactNumber(row.volume) : '-'}</div>
+                        <div>Gem. volume {row.averageVolume ? compactNumber(row.averageVolume) : '-'}</div>
+                        <div>Market cap {row.marketCap ? `${compactMoney(row.marketCap)} ${row.quoteCurrency}` : '-'}</div>
+                        <div>P/E {row.pe ? row.pe.toFixed(2) : '-'}</div>
+                        <div>Dividend {row.dividendYield ? `${row.dividendYield.toFixed(2)}%` : '-'}</div>
+                        <div>Beta {row.beta ? row.beta.toFixed(2) : '-'}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => editAsset(row.asset)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteAsset(row.asset.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: Record<string, string> }) {
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-        <SelectContent>{Object.entries(options).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function SwitchField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border/50 p-3">
-      <Label className="text-sm">{label}</Label>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
-function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const sep = lines[0].includes(';') ? ';' : ',';
-  const headers = lines[0].split(sep).map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const values = line.split(sep).map(v => v.trim());
-    return Object.fromEntries(headers.map((h, i) => [h, values[i] || '']));
-  });
-}
-
-function parseBoleroWorkbook(workbook: XLSX.WorkBook): BoleroPosition[] {
+function parseBoleroWorkbook(workbook: any, XLSX: any): BoleroPosition[] {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   if (!sheet) return [];
-  const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '', raw: false });
-  const headerIdx = rows.findIndex(row => row.some(cell => normalizeHeader(String(cell)) === 'portfoliopositions'));
-  const columnIdx = rows.findIndex((row, idx) => idx > headerIdx && row.some(cell => normalizeHeader(String(cell)) === 'isin') && row.some(cell => normalizeHeader(String(cell)) === 'huidigewaarde'));
+  const table = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false }) as string[][];
+  const headerIdx = table.findIndex((row) => row.some((cell) => normalizeHeader(String(cell)) === 'portfoliopositions'));
+  const columnIdx = table.findIndex((row, idx) =>
+    idx > headerIdx &&
+    row.some((cell) => normalizeHeader(String(cell)) === 'isin') &&
+    row.some((cell) => normalizeHeader(String(cell)) === 'huidigewaarde')
+  );
   if (columnIdx < 0) return [];
-  const header = rows[columnIdx].map(cell => normalizeHeader(String(cell)));
-  const idx = (name: string) => header.findIndex(h => h === normalizeHeader(name));
+
+  const header = table[columnIdx].map((cell) => normalizeHeader(String(cell)));
+  const idx = (name: string) => header.findIndex((h) => h === normalizeHeader(name));
   const typeIdx = idx('Type');
   const currencyIdx = idx('Munt');
   const quantityIdx = idx('Aantal');
@@ -1035,102 +910,81 @@ function parseBoleroWorkbook(workbook: XLSX.WorkBook): BoleroPosition[] {
   const returnValueIdx = idx('Rendement ( in munt)');
   const isinIdx = idx('ISIN');
 
-  return rows.slice(columnIdx + 1)
-    .map(row => ({
+  return table.slice(columnIdx + 1)
+    .map((row) => ({
       type: String(row[typeIdx] || '').trim(),
       currency: String(row[currencyIdx] || 'EUR').trim() || 'EUR',
-      quantity: parseNum(row[quantityIdx]),
+      quantity: parseBoleroNumber(row[quantityIdx]),
       name: String(row[nameIdx] || '').trim(),
-      avgPrice: parseNum(row[avgIdx]),
-      purchaseValue: parseNum(row[purchaseIdx]),
-      currentQuote: parseNum(row[quoteIdx]),
-      currentValue: parseNum(row[currentIdx]),
-      eurValue: parseNum(row[eurIdx]),
-      returnPct: parseNum(row[returnPctIdx]),
+      avgPrice: parseBoleroNumber(row[avgIdx]),
+      purchaseValue: parseBoleroNumber(row[purchaseIdx]),
+      currentQuote: parseBoleroNumber(row[quoteIdx]),
+      currentValue: parseBoleroNumber(row[currentIdx]),
+      eurValue: parseBoleroNumber(row[eurIdx]),
+      returnPct: parseBoleroNumber(row[returnPctIdx]),
       market: String(row[marketIdx] || '').trim(),
-      returnValue: parseNum(row[returnValueIdx]),
+      returnValue: parseBoleroNumber(row[returnValueIdx]),
       isin: String(row[isinIdx] || '').trim(),
     }))
-    .filter(row => {
-      const t = row.type.toLowerCase();
-      if (!t || t.startsWith('bolero') || t.startsWith('mail') || t.startsWith('web')) return false;
-      return row.eurValue !== 0 || row.quantity > 0 || t === 'cash';
+    .filter((row) => {
+      const type = row.type.toLowerCase();
+      if (!type || type.startsWith('bolero') || type.startsWith('mail') || type.startsWith('web')) return false;
+      return row.eurValue !== 0 || row.currentValue !== 0 || row.quantity > 0 || type === 'cash';
     });
+}
+
+function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string) {
+  const isCash = position.type.toLowerCase() === 'cash';
+  const quantity = isCash ? Math.max(Math.abs(position.eurValue || position.currentValue), 0.01) : Math.max(position.quantity, 0.0001);
+  const eurValue = Math.abs(position.eurValue || position.currentValue || position.purchaseValue);
+  const snapshotPrice = isCash ? 1 : eurValue / quantity;
+  const symbol = boleroSymbol(position);
+  return {
+    user_id: userId,
+    symbol,
+    name: isCash ? `Bolero cash ${position.currency || 'EUR'}` : position.name || symbol,
+    asset_type: boleroAssetType(position.type),
+    exchange: position.market || null,
+    mic: null,
+    currency: 'EUR',
+    purchase_date: new Date().toISOString().slice(0, 10),
+    quantity,
+    purchase_price: snapshotPrice,
+    notes: `Bolero Expert snapshot ${fileName}; ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; rendement ${position.returnPct || 0}%; originele koers ${position.currentQuote || position.currentValue || 0}.`,
+  };
 }
 
 function boleroSymbol(position: BoleroPosition) {
   if (position.isin) return position.isin.toUpperCase();
   if (position.type.toLowerCase() === 'cash') return `CASH-${position.currency || 'EUR'}`;
-  return position.name.slice(0, 20).replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+  return (position.name || 'BOLERO')
+    .slice(0, 20)
+    .replace(/[^A-Z0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
 }
 
-function boleroAssetClass(type: string) {
-  const t = type.toLowerCase();
-  if (t.includes('cash')) return 'cash';
-  if (t.includes('etf')) return 'equity_etf';
-  if (t.includes('oblig')) return 'bond';
-  if (t.includes('fonds')) return 'equity_etf';
-  if (t.includes('aandelen') || t.includes('aandeel')) return 'equity_stock';
+function boleroAssetType(type: string): AssetType {
+  const value = type.toLowerCase();
+  if (value.includes('etf')) return 'etf';
+  if (value.includes('fonds')) return 'fund';
+  if (value.includes('oblig')) return 'bond';
+  if (value.includes('aandeel') || value.includes('stock')) return 'stock';
+  if (value.includes('crypto')) return 'crypto';
   return 'other';
 }
 
-function boleroTaxProfile(position: BoleroPosition) {
-  const assetClass = boleroAssetClass(position.type);
-  if (assetClass === 'cash') return 'cash';
-  if (assetClass === 'bond') return 'bond_or_money_market';
-  if (assetClass === 'equity_stock') return 'stock';
-  return 'etf_standard';
-}
-
-function boleroRegion(market: string) {
-  const m = market.toLowerCase();
-  if (m.includes('usa') || m.includes('nasdaq') || m.includes('nyse')) return 'Verenigde Staten';
-  if (m.includes('amsterdam') || m.includes('frankfurt') || m.includes('euronext') || m.includes('xetra')) return 'Europa';
-  return market || 'Onbekend';
-}
-
-function boleroPositionToAsset(position: BoleroPosition, userId: string) {
-  const isCash = position.type.toLowerCase() === 'cash';
-  const currentPriceEur = isCash ? 1 : position.eurValue / Math.max(position.quantity, 1);
-  const name = isCash ? `Bolero cash ${position.currency}` : position.name;
-  return {
-    user_id: userId,
-    symbol: boleroSymbol(position),
-    isin: position.isin || null,
-    name,
-    asset_class: boleroAssetClass(position.type),
-    region: boleroRegion(position.market),
-    sector: position.type.toLowerCase().includes('etf') ? 'broad' : 'onbekend',
-    currency: 'EUR',
-    broker: 'Bolero',
-    current_price: currentPriceEur,
-    target_weight: 0,
-    expense_ratio: 0,
-    tax_profile: boleroTaxProfile(position),
-    is_accumulating: /\bACC\b|\(ACC\)|-K/i.test(position.name),
-    is_ucits: position.type.toLowerCase().includes('etf') ? position.isin.startsWith('IE') || position.isin.startsWith('LU') : true,
-    has_bond_component: boleroAssetClass(position.type) === 'bond',
-    notes: `Geïmporteerd uit Bolero Expert-export. Originele munt: ${position.currency}; markt: ${position.market || 'n.v.t.'}; originele koers: ${position.currentQuote || position.currentValue}.`,
-  };
-}
-
-function groupPositions(positions: Position[], keyFn: (p: Position) => string) {
-  const map = new Map<string, number>();
-  positions.forEach(p => {
-    const key = keyFn(p).trim() || 'Onbekend';
-    map.set(key, (map.get(key) || 0) + p.marketValue);
-  });
-  return Array.from(map.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-}
-
-function pick(row: Record<string, string>, keys: string[]) {
-  const normalizedEntries = Object.entries(row).map(([k, v]) => [normalizeHeader(k), v] as const);
-  const map = new Map(normalizedEntries);
-  for (const key of keys) {
-    const val = map.get(normalizeHeader(key));
-    if (val != null && String(val).trim() !== '') return String(val).trim();
-  }
-  return '';
+function parseBoleroNumber(value: unknown) {
+  const text = String(value ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[^\d,.\-]/g, '')
+    .trim();
+  if (!text) return 0;
+  const normalized = text.includes(',')
+    ? text.replace(/\./g, '').replace(',', '.')
+    : text;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function normalizeHeader(header: string) {
@@ -1141,59 +995,88 @@ function normalizeHeader(header: string) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function normalizeBrokerRow(row: Record<string, string>) {
-  const rawType = pick(row, ['type', 'transaction_type', 'actie', 'transactie', 'transaction', 'omschrijving', 'description']);
-  const dividend = parseNum(pick(row, ['dividend', 'gross dividend', 'bruto dividend', 'dividendbedrag']));
-  const withholding = parseNum(pick(row, ['roerende voorheffing', 'withholding tax', 'withholding', 'dividend tax', 'bronheffing']));
-  const fees = parseNum(pick(row, ['fees', 'fee', 'kosten', 'commissie', 'commission', 'brokerage fees']));
-  const tob = parseNum(pick(row, ['tob', 'beurstaks', 'taxe bourse', 'stock exchange tax']));
-  const amount = parseNum(pick(row, ['amount', 'bedrag', 'net amount', 'nettobedrag', 'waarde', 'total', 'totaal']));
-  const price = parseNum(pick(row, ['price', 'prijs', 'koers', 'execution price', 'trade price']));
-  const quantity = parseNum(pick(row, ['quantity', 'aantal', 'qty', 'units', 'effecten']));
-  const inferredType = dividend > 0 ? 'dividend' : normalizeTxType(rawType);
+function InfoLine({ icon, value, align = 'left' }: { icon: JSX.Element; value: string; align?: 'left' | 'right' }) {
+  return (
+    <span className={`flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+      {icon}
+      {value}
+    </span>
+  );
+}
+
+function Field({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} step={type === 'number' ? '0.0001' : undefined} />
+    </div>
+  );
+}
+
+function MetricCard({ title, value, sub }: { title: string; value: string; sub: string }) {
+  return (
+    <Card className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="pt-5">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-semibold mt-1">{value}</p>
+        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function normalizeAsset(asset: any): PortfolioAsset {
   return {
-    date: normalizeDate(pick(row, ['date', 'datum', 'trade date', 'transaction date', 'uitvoeringsdatum'])),
-    isin: pick(row, ['isin', 'isincode', 'instrument isin']),
-    symbol: pick(row, ['symbol', 'ticker', 'symbool', 'instrument', 'product', 'security', 'effect', 'naam']),
-    type: inferredType,
-    quantity,
-    price,
-    amount: dividend > 0 ? dividend : amount || quantity * price,
-    fees,
-    taxes: tob + withholding + parseNum(pick(row, ['taxes', 'tax', 'taks', 'belasting'])),
-    currency: pick(row, ['currency', 'munt', 'devies', 'ccy']) || 'EUR',
-    broker: pick(row, ['broker', 'platform']) || inferBroker(row),
-    notes: pick(row, ['notes', 'notitie', 'comment', 'memo', 'description', 'omschrijving']),
+    ...asset,
+    quantity: Number(asset.quantity) || 0,
+    purchase_price: Number(asset.purchase_price) || 0,
   };
 }
 
-function inferBroker(row: Record<string, string>) {
-  const joined = Object.values(row).join(' ').toLowerCase();
-  if (joined.includes('bolero')) return 'Bolero';
-  if (joined.includes('degiro') || joined.includes('de giro')) return 'DEGIRO';
-  if (joined.includes('saxo')) return 'Saxo';
-  if (joined.includes('keytrade')) return 'Keytrade';
-  if (joined.includes('interactive brokers') || joined.includes('ibkr')) return 'Interactive Brokers';
-  return '';
+function inferAssetType(type: string | undefined): AssetType {
+  const value = String(type || '').toLowerCase();
+  if (value.includes('etf')) return 'etf';
+  if (value.includes('fund')) return 'fund';
+  if (value.includes('crypto')) return 'crypto';
+  return 'stock';
 }
 
-function normalizeDate(value: string) {
-  if (!value) return '';
-  const trimmed = value.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const m = trimmed.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+function getRange(range: RangeKey): { from: number; to: number; interval: string } {
+  const to = Math.floor(Date.now() / 1000);
+  const now = new Date();
+  const fromDate = new Date(now);
+  let interval = '1d';
+  if (range === '1D') {
+    fromDate.setDate(now.getDate() - 1);
+    interval = '5m';
+    return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
+  }
+  if (range === '1W') fromDate.setDate(now.getDate() - 7);
+  if (range === '1M') fromDate.setMonth(now.getMonth() - 1);
+  if (range === '6M') fromDate.setMonth(now.getMonth() - 6);
+  if (range === '1Y') fromDate.setFullYear(now.getFullYear() - 1);
+  if (range === 'YTD') fromDate.setMonth(0, 1);
+  fromDate.setHours(0, 0, 0, 0);
+  return { from: Math.floor(fromDate.getTime() / 1000), to, interval };
 }
 
-function normalizeTxType(v: string): TxType {
-  const s = v.toLowerCase();
-  if (['sell', 'verkoop', 'sale'].includes(s)) return 'sell';
-  if (['dividend', 'div'].includes(s)) return 'dividend';
-  if (['deposit', 'storting'].includes(s)) return 'deposit';
-  if (['withdrawal', 'opname'].includes(s)) return 'withdrawal';
-  if (['fee', 'kost', 'kosten'].includes(s)) return 'fee';
-  if (['tax', 'taks', 'belasting', 'tob'].includes(s)) return 'tax';
-  return 'buy';
+function money(value: number, currency: string) {
+  return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: currency || 'EUR', maximumFractionDigits: 2 }).format(value || 0);
+}
+
+function compactMoney(value: number) {
+  return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
+}
+
+function compactNumber(value: number) {
+  return new Intl.NumberFormat('nl-BE', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
+}
+
+function pct(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+}
+
+function rangeText(low: number, high: number, currency: string) {
+  if (!low || !high) return '-';
+  return `${money(low, currency)} - ${money(high, currency)}`;
 }

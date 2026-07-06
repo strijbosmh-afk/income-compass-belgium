@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MedIncome</title>
+    <style>
+      :root {
+        --primary: #1e3a5f;
+        --primary-2: #2a5081;
+        --accent: #26a69a;
+        --fg: #0f172a;
+        --muted: #64748b;
+        --bg: #f4f6fa;
+        --card: #ffffff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        width: 300px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      .hero {
+        background: linear-gradient(135deg, var(--primary), var(--primary-2) 60%, var(--accent));
+        color: #fff;
+        padding: 18px 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .hero img { width: 42px; height: 42px; border-radius: 10px; background: #fff; padding: 3px; }
+      .hero h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+      .hero p { margin: 2px 0 0; font-size: 12px; opacity: 0.85; }
+      .body { padding: 14px; display: grid; gap: 8px; }
+      .btn {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 10px;
+        background: var(--card);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 11px 13px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fg);
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.15s ease;
+      }
+      .btn:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15,23,42,0.06); }
+      .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .btn.primary:hover { background: var(--primary-2); border-color: var(--primary-2); }
+      .chev { opacity: 0.6; font-size: 14px; }
+      .foot { padding: 0 14px 14px; font-size: 11px; color: var(--muted); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="hero">
+      <img src="icon.png" alt="" />
+      <div>
+        <h1>MedIncome</h1>
+        <p>Inkomsten tracker</p>
+      </div>
+    </div>
+    <div class="body">
+      <button class="btn primary" data-path="/">Dashboard <span class="chev">›</span></button>
+      <button class="btn" data-path="/upload">Nieuwe upload <span class="chev">›</span></button>
+      <button class="btn" data-path="/records">Overzicht <span class="chev">›</span></button>
+      <button class="btn" data-path="/statistics">Statistieken <span class="chev">›</span></button>
+      <button class="btn" data-path="/aandelen">Portfolio <span class="chev">›</span></button>
+    </div>
+    <div class="foot">v1.0.0 · MedIncome</div>
+    <script src="popup.js"></script>
+  </body>
+</html>

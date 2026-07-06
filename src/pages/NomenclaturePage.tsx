@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Loader2, Pencil, Tag, X, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -171,17 +171,17 @@ export default function NomenclaturePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Nomenclatuurbeheer</h1>
           <p className="text-muted-foreground mt-1">Beheer je RIZIV nomenclatuurcodes en categorieën.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV} disabled={codes.length === 0}>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={exportCSV} disabled={codes.length === 0}>
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
-          <Button variant="outline" onClick={() => setCategoryDialogOpen(true)}>
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCategoryDialogOpen(true)}>
             <Tag className="h-4 w-4 mr-2" />
             Categorieën Beheren
           </Button>
@@ -280,7 +280,10 @@ export default function NomenclaturePage() {
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Code Bewerken</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Code Bewerken</DialogTitle>
+            <DialogDescription>Pas de code, omschrijving, categorie en het netto bedrag aan.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>RIZIV Code</Label>
@@ -317,7 +320,10 @@ export default function NomenclaturePage() {
 
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Categorieën Beheren</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Categorieën Beheren</DialogTitle>
+            <DialogDescription>Bekijk standaardcategorieën en voeg eigen categorieën toe.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block">Standaard categorieën</Label>
