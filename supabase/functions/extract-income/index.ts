@@ -202,13 +202,34 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
       };
 
       // ─────────────────────────────────────────────────────────────
+      // STAP A0: FILTER op rekeningnummer-kolom VÓÓR aggregatie.
+      // Moet vóór stap A gebeuren, anders worden rek-0 (eigen) en rek-9
+      // (pool) rijen voor dezelfde code samengevoegd en telt de pool mee
+      // in de eigen hospitalisatie-totalen (of omgekeerd voor associatie).
+      // - 'hospitalized' (eigen): bewaar rek 0, verwerp rek 9 (= pool).
+      // - 'associatie' (gepoold met dr. Schrevens): bewaar rek 9, verwerp rek 0.
+      // - geen rekening-kolom of andere stroom: niet filteren.
+      // ─────────────────────────────────────────────────────────────
+      const accountFiltered = rawRecords.filter((r: any) => {
+        const acct = String(r?.account_number ?? '').trim();
+        if (acct !== '0' && acct !== '9') return true;
+        if (userIncomeType === 'associatie') {
+          if (acct === '0') { skippedAccount0++; return false; }
+          return true; // keep '9'
+        }
+        // default / hospitalized gedrag
+        if (acct === '9') { skippedAccount9++; return false; }
+        return true;
+      });
+
+      // ─────────────────────────────────────────────────────────────
       // STAP A: AGGREGEER per (nomenclature_code + income_type).
       // Kostenplaats wordt volledig genegeerd — alle rijen met dezelfde
       // code+type worden samengevoegd tot één rij (sommatie van bedragen
       // en quantity). Dit voorkomt dubbele rijen door kostenplaats-splits.
       // ─────────────────────────────────────────────────────────────
       const aggMap = new Map<string, any>();
-      for (const r of rawRecords) {
+      for (const r of accountFiltered) {
         const code = String(r.nomenclature_code || '').trim();
         if (!code) continue;
         const type = String(r.income_type || '').trim() || 'ambulatory';
@@ -236,14 +257,13 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
           existing.bouwfonds += num(r.bouwfonds);
           existing.mif += num(r.mif);
           existing.netto += num(r.netto);
-          // unit_amount: behoud de eerste >0 waarde (per-act prijs is constant).
           if (existing.unit_amount <= 0 && num(r.unit_amount) > 0) {
             existing.unit_amount = num(r.unit_amount);
           }
           existing._merged_rows += 1;
         }
       }
-      const aggregated = Array.from(aggMap.values()).map((r) => ({
+      const filteredForAccount = Array.from(aggMap.values()).map((r) => ({
         ...r,
         total_amount: Math.round(r.total_amount * 100) / 100,
         aandeel_arts: Math.round(r.aandeel_arts * 100) / 100,
@@ -252,23 +272,6 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
         netto: Math.round(r.netto * 100) / 100,
       }));
 
-      // ─────────────────────────────────────────────────────────────
-      // STAP A2: FILTER op rekeningnummer-kolom afhankelijk van de gekozen stroom.
-      // - 'hospitalized' (eigen): bewaar rek 0, verwerp rek 9 (= pool).
-      // - 'associatie' (gepoold met dr. Schrevens): bewaar rek 9, verwerp rek 0.
-      // - geen rekening-kolom of andere stroom: niet filteren.
-      // ─────────────────────────────────────────────────────────────
-      const filteredForAccount = aggregated.filter((r) => {
-        const acct = String(r.account_number ?? '').trim();
-        if (acct !== '0' && acct !== '9') return true;
-        if (userIncomeType === 'associatie') {
-          if (acct === '0') { skippedAccount0++; return false; }
-          return true; // keep '9'
-        }
-        // default / hospitalized gedrag
-        if (acct === '9') { skippedAccount9++; return false; }
-        return true;
-      });
 
       // ─────────────────────────────────────────────────────────────
       // STAP B: Bepaal per code de fallback unit_amount uit de geëxtraheerde
