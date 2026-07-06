@@ -50,17 +50,18 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
     Promise.all([
       supabase.from('income_records').select('month, year, income_type, netto, total_amount, aandeel_arts, bouwfonds, mif').eq('user_id', user.id).eq('year', year),
       supabase.from('month_closures').select('month, year').eq('user_id', user.id).eq('year', year),
-      supabase.from('pension_records').select('snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
       supabase.from('pension_ipt_records').select('snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
+      (supabase as any).from('vapz_records').select('snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
+      (supabase as any).from('vapz_riziv_records').select('snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
+      (supabase as any).from('pensioensparen_records').select('snapshot_date').eq('user_id', user.id).order('snapshot_date', { ascending: false }).limit(1),
       (supabase as any).from('portfolio_assets').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-    ]).then(([incomeRes, closureRes, pensionRes, iptRes, portfolioRes]) => {
+    ]).then(([incomeRes, closureRes, iptRes, vapzRes, rizivRes, sparenRes, portfolioRes]) => {
       if (cancelled) return;
       setIncomeRows((((incomeRes.data as any[]) || []).map((row) => applyShare(row))) as IncomeRow[]);
       setClosures((closureRes.data as ClosureRow[]) || []);
-      const dates = [
-        ...(((pensionRes.data as any[]) || []).map((row) => row.snapshot_date)),
-        ...(((iptRes.data as any[]) || []).map((row) => row.snapshot_date)),
-      ].filter(Boolean).sort();
+      const dates = [iptRes, vapzRes, rizivRes, sparenRes]
+        .flatMap((r) => ((r.data as any[]) || []).map((row) => row.snapshot_date))
+        .filter(Boolean).sort();
       setLatestPensionDate(dates.at(-1) || null);
       setPortfolioCount(portfolioRes.count || 0);
       setLoading(false);

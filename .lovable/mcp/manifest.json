@@ -172,7 +172,7 @@
       {
         "name": "list_pension_records",
         "title": "Lijst pensioen-snapshots",
-        "description": "Haal pensioen- en IPT-snapshots op. Kies bron 'pension' (VAPZ/hoofdcontract) of 'ipt' (IPT).",
+        "description": "Haal pensioen-snapshots op. Kies bron: 'ipt' (Individuele Pensioentoezegging), 'vapz', 'vapz_riziv' (RIZIV sociaal statuut) of 'pensioensparen' (3de pijler).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -184,10 +184,12 @@
             "source": {
               "type": "string",
               "enum": [
-                "pension",
-                "ipt"
+                "ipt",
+                "vapz",
+                "vapz_riziv",
+                "pensioensparen"
               ],
-              "default": "pension"
+              "default": "ipt"
             },
             "year": {
               "type": "integer",

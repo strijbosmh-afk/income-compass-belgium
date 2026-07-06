@@ -3,10 +3,16 @@ project_id = "ftsgbacnewhpzasrjmrs"
 [functions.extract-income]
 verify_jwt = true
 
-[functions.extract-pension]
+[functions.extract-pension-ipt]
 verify_jwt = true
 
-[functions.extract-pension-ipt]
+[functions.extract-vapz]
+verify_jwt = true
+
+[functions.extract-vapz-riziv]
+verify_jwt = true
+
+[functions.extract-pensioensparen]
 verify_jwt = true
 
 [functions.market-data]
