@@ -30,6 +30,7 @@ type ScoreBreakdown = {
 };
 
 const fmt = (value: number) => `€${value.toLocaleString('nl-BE', { maximumFractionDigits: 0 })}`;
+const OWNER_BIRTH_DATE = '1976-04-14';
 
 export function FinancialFutureScoreWidget() {
   const { user } = useAuth();
@@ -251,7 +252,12 @@ function inferAge(metadata: Record<string, any>) {
       if (age > 18 && age < 90) return { age, isKnown: true };
     }
   }
-  return { age: 45, isKnown: false };
+  const ownerBirthDate = new Date(OWNER_BIRTH_DATE);
+  const now = new Date();
+  let age = now.getFullYear() - ownerBirthDate.getFullYear();
+  const hasHadBirthday = now.getMonth() > ownerBirthDate.getMonth() || (now.getMonth() === ownerBirthDate.getMonth() && now.getDate() >= ownerBirthDate.getDate());
+  if (!hasHadBirthday) age -= 1;
+  return { age, isKnown: true };
 }
 
 function retirementTargetMultiple(age: number) {
