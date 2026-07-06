@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion, bumpDataVersion } from '@/hooks/useDataVersion';
@@ -7,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, Scale } from 'lucide-react';
+import { Trash2, Loader2, ChevronDown, ChevronRight, Image as ImageIcon, ArrowUp, ArrowDown, ArrowUpDown, Scale, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ScreenshotsDialog } from '@/components/ScreenshotsDialog';
 import { applyShare, incomeTypeLabel } from '@/lib/incomeTypes';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type IncomeRecord = {
   id: string;
