@@ -180,6 +180,7 @@ export default function PensionUploadPage() {
           year: extracted.year,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
+          file_hash: item.fileHash || null,
         };
         if (category === 'ipt') {
           const ipt = extracted as IptSnapshot;
