@@ -236,6 +236,33 @@ export default function RecordsPage() {
     setCompareLoading(false);
   };
 
+  const monthNames = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+  const canReset = filterYear !== 'all' && filterMonth !== 'all' && filterType !== 'all';
+  const resetLabel = canReset
+    ? `${monthNames[parseInt(filterMonth) - 1]} ${filterYear} — ${incomeTypeLabel[filterType] || filterType}`
+    : '';
+
+  const resetMonthType = async () => {
+    if (!user || !canReset) return;
+    setResetting(true);
+    const { error, count } = await supabase
+      .from('income_records')
+      .delete({ count: 'exact' })
+      .eq('user_id', user.id)
+      .eq('year', parseInt(filterYear))
+      .eq('month', parseInt(filterMonth))
+      .eq('income_type', filterType);
+    setResetting(false);
+    setResetOpen(false);
+    if (error) {
+      toast({ title: 'Fout bij verwijderen', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Records verwijderd', description: `${count ?? 0} records gewist. Je kan nu opnieuw uploaden.` });
+    bumpDataVersion();
+    navigate('/upload');
+  };
+
   const years = [...new Set(records.map(r => r.year))].sort((a, b) => b - a);
   const netto = records.reduce((sum, r) => sum + r.netto, 0);
   const bruto = records.reduce((sum, r) => sum + r.total_amount, 0);
