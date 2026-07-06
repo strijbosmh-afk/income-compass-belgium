@@ -327,6 +327,26 @@ export default function PensionUploadPage() {
                 <CollapsibleContent>
                   {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
                     <CardContent className="space-y-4">
+                      {item.mismatch && !item.mismatchAcknowledged && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="font-medium text-amber-900 dark:text-amber-200">
+                              Mogelijk verkeerde categorie: dit lijkt <strong>{pensionCategoryLabel(item.detectedCategory as PensionCategory)}</strong>, geen <strong>{catConfig.label}</strong>.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">Wissel de categorie bovenaan en upload opnieuw voor de juiste extractie, of houd deze indeling.</p>
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" onClick={() => {
+                                if (item.detectedCategory && item.detectedCategory !== 'unknown') {
+                                  setCategory(item.detectedCategory as PensionCategory);
+                                  removeItem(item.id);
+                                }
+                              }}>Wissel + verwijder</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, mismatchAcknowledged: true } : i))}>Behouden</Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs">Referentiedatum</Label>
