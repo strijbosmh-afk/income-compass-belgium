@@ -55,7 +55,11 @@ STAP 1 — Detecteer type (detected_category):
 STAP 2 — Extraheer:
 1. snapshot_date + year — "op datum" / einde overzichtsjaar.
 2. pensioenreserve — TOTAAL gespaard bedrag / spaartegoed / opgebouwde reserve / netto inventariswaarde op die einddatum (EUR). Neem het totaal, niet de aangroei of storting.
-3. overlijdensdekking — kapitaal bij overlijden op die datum (EUR). Synoniemen: "Overlijdenskapitaal", "Kapitaal bij overlijden", "Uitkering bij overlijden", "Prestatie bij overlijden". 0 indien onbekend of niet-verzekerd fonds.
+3. overlijdensdekking — KAPITAAL BIJ OVERLIJDEN op die datum (EUR). Zoek expliciet naar een aparte sectie/label:
+   - "Kapitaal bij overlijden", "Overlijdenskapitaal", "Prestatie bij overlijden", "Uitkering bij overlijden", "Verzekerd overlijdenskapitaal", "Overlijdensdekking".
+   - Bij Amonis-overzichten: zoek in de sectie "Waarborgen" of "Overlijdensdekking" — dit is vaak een VAST verzekerd bedrag (bv. 200.000 €), NIET gelijk aan de reserve.
+   - BELANGRIJK: kopieer NOOIT gewoon de pensioenreserve als overlijdensdekking, tenzij de PDF expliciet zegt "overlijdenskapitaal = opgebouwde reserve" of "waarde van de deelbewijzen". Bij een pensioenspaarFONDS zonder verzekering is dat wél zo — dan mag je de reserve overnemen.
+   - Als er GEEN aparte overlijdenswaarborg vermeld staat en het is duidelijk een fonds zonder dekking → 0.
 4. jaarpremie — jaarlijkse storting pensioensparen (EUR); 0 indien niet zichtbaar.
 
 REGELS:
