@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, TrendingUp, TrendingDown, Briefcase } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Briefcase, Shield } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ComposedChart } from 'recharts';
 import { SIMPLE_CATEGORIES, IPT_CONFIG, type PensionCategory } from '@/lib/pensionCategories';
 
