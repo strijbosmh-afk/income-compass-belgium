@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, TrendingUp, TrendingDown, Briefcase } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Briefcase, Shield } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ComposedChart } from 'recharts';
 import { SIMPLE_CATEGORIES, IPT_CONFIG, type PensionCategory } from '@/lib/pensionCategories';
 
@@ -110,6 +110,11 @@ export default function PensionDashboardPage() {
   }, 0);
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
+  const totalDekking = cats.reduce((s, c) => {
+    const l = latestByCat[c.key];
+    if (!l) return s;
+    return s + ('overlijdenskapitaal' in l ? (l.overlijdenskapitaal || 0) : (l.overlijdensdekking || 0));
+  }, 0);
 
   const anyData = cats.some(c => latestByCat[c.key]);
   if (!anyData) {
@@ -141,6 +146,15 @@ export default function PensionDashboardPage() {
                 <div className="text-sm">
                   <div className="font-semibold">{diff >= 0 ? '+' : ''}{fmt(diff)}</div>
                   <div className="text-xs opacity-80">{diffPct.toFixed(1)}% vs vorige snapshot</div>
+                </div>
+              </div>
+            )}
+            {totalDekking > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary">
+                <Shield className="h-4 w-4" />
+                <div className="text-sm">
+                  <div className="font-semibold">{fmt(totalDekking)}</div>
+                  <div className="text-xs opacity-80">Totale overlijdensdekking</div>
                 </div>
               </div>
             )}
@@ -192,10 +206,14 @@ export default function PensionDashboardPage() {
 
       {iptYearly.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> IPT-reserve</div>
               <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.opgebouwde_reserve || 0)}</p>
+            </CardContent></Card>
+            <Card className="border-border/50"><CardContent className="pt-6">
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> IPT-overlijdensdekking</div>
+              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.overlijdenskapitaal || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst beleggingen</div>
@@ -208,7 +226,7 @@ export default function PensionDashboardPage() {
           </div>
 
           <Card className="border-border/50">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> IPT — winst & rendement per jaar</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> IPT — winst, rendement & overlijdensdekking per jaar</CardTitle></CardHeader>
             <CardContent>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -220,6 +238,7 @@ export default function PensionDashboardPage() {
                     <Tooltip formatter={(v: number, name: string) => name === 'Rendement' ? `${(v ?? 0).toFixed(2)}%` : fmtFull(v)} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
                     <Legend />
                     <Bar yAxisId="left" dataKey="Winst" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                    <Line yAxisId="left" type="monotone" dataKey="Overlijdenskapitaal" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                     <Line yAxisId="right" type="monotone" dataKey="Rendement" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
