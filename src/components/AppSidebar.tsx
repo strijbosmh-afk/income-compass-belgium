@@ -1,4 +1,5 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,7 @@ const incomeMain = [
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
   { title: 'Doelstellingen', url: '/goals', icon: Target },
+  { title: 'Portfolio', url: '/portfolio', icon: BriefcaseBusiness },
 ];
 
 const incomeTools = [
@@ -39,6 +41,8 @@ const pensionItems = [
   { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
 ];
 
+type SidebarItem = { title: string; url: string; icon: LucideIcon };
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -46,7 +50,7 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const issueCount = useControleIssues();
 
-  const renderItem = (item: { title: string; url: string; icon: any }) => (
+  const renderItem = (item: SidebarItem) => (
     <SidebarMenuItem key={item.title}>
       <SidebarMenuButton asChild isActive={location.pathname === item.url}>
         <NavLink to={item.url} end className="text-sidebar-foreground hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">

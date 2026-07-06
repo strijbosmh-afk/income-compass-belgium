@@ -305,6 +305,132 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_assets: {
+        Row: {
+          asset_class: string
+          broker: string
+          created_at: string
+          currency: string
+          current_price: number
+          expense_ratio: number
+          has_bond_component: boolean
+          id: string
+          is_accumulating: boolean
+          is_ucits: boolean
+          isin: string | null
+          name: string
+          notes: string | null
+          region: string
+          sector: string
+          symbol: string
+          target_weight: number
+          tax_profile: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_class?: string
+          broker?: string
+          created_at?: string
+          currency?: string
+          current_price?: number
+          expense_ratio?: number
+          has_bond_component?: boolean
+          id?: string
+          is_accumulating?: boolean
+          is_ucits?: boolean
+          isin?: string | null
+          name?: string
+          notes?: string | null
+          region?: string
+          sector?: string
+          symbol: string
+          target_weight?: number
+          tax_profile?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_class?: string
+          broker?: string
+          created_at?: string
+          currency?: string
+          current_price?: number
+          expense_ratio?: number
+          has_bond_component?: boolean
+          id?: string
+          is_accumulating?: boolean
+          is_ucits?: boolean
+          isin?: string | null
+          name?: string
+          notes?: string | null
+          region?: string
+          sector?: string
+          symbol?: string
+          target_weight?: number
+          tax_profile?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      portfolio_transactions: {
+        Row: {
+          amount: number
+          asset_id: string | null
+          broker: string
+          created_at: string
+          currency: string
+          fees: number
+          id: string
+          notes: string | null
+          price: number
+          quantity: number
+          symbol: string
+          taxes: number
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          asset_id?: string | null
+          broker?: string
+          created_at?: string
+          currency?: string
+          fees?: number
+          id?: string
+          notes?: string | null
+          price?: number
+          quantity?: number
+          symbol?: string
+          taxes?: number
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          asset_id?: string | null
+          broker?: string
+          created_at?: string
+          currency?: string
+          fees?: number
+          id?: string
+          notes?: string | null
+          price?: number
+          quantity?: number
+          symbol?: string
+          taxes?: number
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

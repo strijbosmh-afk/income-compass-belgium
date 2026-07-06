@@ -4,10 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react';
+import { Loader2, Image, Activity, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
-import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
+import { type IncomeType } from '@/lib/incomeTypes';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CameraIcon, Images, ShieldCheck } from 'lucide-react';
 
 export interface ExtractedRecord {
   record_date: string;
@@ -39,6 +42,7 @@ export default function UploadPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const [unitNettoByCode, setUnitNettoByCode] = useState<Record<string, number>>({});
+  const isNative = Capacitor.isNativePlatform();
 
   const processFile = useCallback(async (file: File) => {
     if (!user) return;
@@ -63,11 +67,6 @@ export default function UploadPage() {
       reader.onload = (e) => setPreviewUrl(e.target?.result as string);
       reader.readAsDataURL(file);
 
-      const safeName = file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_');
-      const filePath = `${user.id}/${Date.now()}_${safeName}`;
-      const { error: uploadError } = await supabase.storage.from('screenshots').upload(filePath, file);
-      if (uploadError) throw uploadError;
-
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke('extract-income', {
         body: { image: base64, mimeType: file.type, unitNettoByCode, incomeType },
@@ -84,7 +83,7 @@ export default function UploadPage() {
           month,
           year,
           record_date: recordDate,
-          source_image_url: filePath,
+          source_image_url: null,
           // netto blijft EXACT zoals geëxtraheerd uit de screenshot — niet herberekenen.
         }));
         setExtractedData(records);
@@ -132,6 +131,25 @@ export default function UploadPage() {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processFile(file);
+  };
+
+  const captureImage = async (source: CameraSource) => {
+    try {
+      const image = await Camera.getPhoto({
+        source,
+        resultType: CameraResultType.DataUrl,
+        quality: 92,
+        correctOrientation: true,
+        allowEditing: false,
+      });
+      if (!image.dataUrl) throw new Error('De afbeelding kon niet worden gelezen.');
+      const file = dataUrlToFile(image.dataUrl, `medincome-${Date.now()}.${image.format || 'jpeg'}`);
+      await processFile(file);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'De afbeelding kon niet worden gekozen.';
+      if (message.toLowerCase().includes('cancel')) return;
+      toast({ title: 'Afbeelding kiezen mislukt', description: message, variant: 'destructive' });
+    }
   };
 
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
@@ -225,10 +243,10 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Screenshot Uploaden</h1>
-        <p className="text-muted-foreground mt-1">Upload een screenshot van je inkomstenoverzicht om data te extraheren en op te slaan.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Inkomsten scannen</h1>
+        <p className="text-muted-foreground mt-1">Neem een foto of kies een screenshot. Alleen de gecontroleerde cijfers worden bewaard.</p>
       </div>
 
       {/* Type inkomen selectie */}
@@ -316,14 +334,20 @@ export default function UploadPage() {
         </CardContent>
       </Card>
 
-      {/* Upload zone */}
+      {/* Scan zone */}
       <Card className={`border-border/50 ${!incomeType || !selectedMonth ? 'opacity-50 pointer-events-none' : ''}`}>
         <CardContent className="pt-6">
+          <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-3 text-sm text-muted-foreground">
+            <div className="flex gap-2">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+              <p>De afbeelding wordt tijdelijk doorgestuurd voor analyse en niet opgeslagen als bestand. De preview verdwijnt na opslaan of annuleren.</p>
+            </div>
+          </div>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
+            className={`relative mt-4 rounded-xl border-2 border-dashed p-6 text-center transition-colors sm:p-12 ${
               dragActive ? 'border-secondary bg-secondary/5' : 'border-border hover:border-muted-foreground/30'
             }`}
           >
@@ -335,13 +359,26 @@ export default function UploadPage() {
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center">
-                  <Upload className="h-6 w-6 text-muted-foreground" />
+                  <CameraIcon className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">Sleep je screenshot hierheen</p>
-                  <p className="text-sm text-muted-foreground mt-1">of klik om te bladeren</p>
+                  <p className="font-medium text-foreground">{isNative ? 'Voeg een duidelijk beeld toe' : 'Sleep je screenshot hierheen'}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{isNative ? 'Kies een bestaande screenshot of maak een foto' : 'of klik om te bladeren'}</p>
                 </div>
-                <input type="file" accept="image/*" onChange={handleFileInput} className="absolute inset-0 opacity-0 cursor-pointer" />
+                {isNative ? (
+                  <div className="mt-2 grid w-full max-w-sm grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Button className="h-12 rounded-xl" onClick={() => captureImage(CameraSource.Photos)}>
+                      <Images />
+                      Kies screenshot
+                    </Button>
+                    <Button variant="outline" className="h-12 rounded-xl bg-card" onClick={() => captureImage(CameraSource.Camera)}>
+                      <CameraIcon />
+                      Maak foto
+                    </Button>
+                  </div>
+                ) : (
+                  <input type="file" accept="image/*" onChange={handleFileInput} className="absolute inset-0 opacity-0 cursor-pointer" />
+                )}
               </div>
             )}
           </div>
@@ -379,4 +416,13 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function dataUrlToFile(dataUrl: string, filename: string): File {
+  const [metadata, data] = dataUrl.split(',');
+  const mimeType = metadata.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+  const bytes = atob(data);
+  const buffer = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) buffer[i] = bytes.charCodeAt(i);
+  return new File([buffer], filename, { type: mimeType });
 }

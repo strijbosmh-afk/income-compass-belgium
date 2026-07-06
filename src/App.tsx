@@ -15,12 +15,14 @@ import ExportPage from "./pages/ExportPage";
 import SimulationsPage from "./pages/SimulationsPage";
 import ControlePage from "./pages/ControlePage";
 import GoalsPage from "./pages/GoalsPage";
+import PortfolioPage from "./pages/PortfolioPage";
 import PensionUploadPage from "./pages/PensionUploadPage";
 import PensionIptUploadPage from "./pages/PensionIptUploadPage";
 import PensionRecordsPage from "./pages/PensionRecordsPage";
 import PensionDashboardPage from "./pages/PensionDashboardPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+import { NativeSecurityGate } from "@/components/NativeSecurityGate";
 
 const queryClient = new QueryClient();
 
@@ -44,8 +46,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
+        <NativeSecurityGate>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
             <Route path="/" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
             <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
@@ -56,13 +59,15 @@ const App = () => (
             <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
             <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
             <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+            <Route path="/portfolio" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
             <Route path="/pensioen/upload" element={<ProtectedRoute><PensionUploadPage /></ProtectedRoute>} />
             <Route path="/pensioen/upload-ipt" element={<ProtectedRoute><PensionIptUploadPage /></ProtectedRoute>} />
             <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
             <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </NativeSecurityGate>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
