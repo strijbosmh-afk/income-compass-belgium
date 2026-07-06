@@ -41,6 +41,10 @@ interface BatchItem {
   extracted?: Snapshot;
   note: string;
   fileHash?: string;
+  detectedCategory?: PensionCategory | 'unknown';
+  detectionConfidence?: number;
+  mismatch?: boolean;
+  mismatchAcknowledged?: boolean;
 }
 
 const CATEGORY_OPTIONS: { value: PensionCategory; label: string; description: string }[] = [
