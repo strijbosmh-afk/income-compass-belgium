@@ -60,7 +60,7 @@ REGELS:
           { role: "system", content: systemPrompt },
           { role: "user", content: [
             { type: "text", text: "Extraheer de VAP RIZIV-waarden en referentiedatum uit deze PDF." },
-            { type: "image_url", image_url: { url: `data:${mimeType};base64,${pdf}` } },
+            { type: "file", file: { filename: "vapz-riziv.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
           ]},
         ],
         tools: [TOOL_SCHEMA],
@@ -73,7 +73,9 @@ REGELS:
       console.error("AI Gateway error:", res.status, errorText);
       if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limited." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (res.status === 402) return new Response(JSON.stringify({ error: "Krediet opgebruikt." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI gateway error: ${res.status}`);
+      let upstreamMsg = `AI gateway error: ${res.status}`;
+      try { const j = JSON.parse(errorText); upstreamMsg = j?.error?.metadata?.raw ? `PDF kon niet verwerkt worden door AI (${JSON.parse(j.error.metadata.raw)?.error?.message || 'onbekende fout'}). Controleer of de PDF geldig is en tekst bevat.` : (j?.error?.message || upstreamMsg); } catch { /* keep default */ }
+      return new Response(JSON.stringify({ error: upstreamMsg }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await res.json();

@@ -83,7 +83,7 @@ REGELS:
             role: "user",
             content: [
               { type: "text", text: "Extraheer de IPT-waarden en de referentiedatum uit deze PDF." },
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${pdf}` } },
+              { type: "file", file: { filename: "ipt.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
             ],
           },
         ],
