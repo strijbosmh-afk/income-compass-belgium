@@ -512,11 +512,11 @@ export default function PortfolioPage() {
         return;
       }
 
+      // Wis alle bestaande portfolio-posities bij een nieuwe import
       const { error: deleteError } = await (supabase as any)
         .from('portfolio_assets')
         .delete()
-        .eq('user_id', user.id)
-        .ilike('notes', 'Bolero Expert snapshot%');
+        .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
       const payload = positions.map((position) => boleroPositionToAsset(position, user.id, file.name));
