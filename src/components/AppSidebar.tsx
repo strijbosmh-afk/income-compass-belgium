@@ -40,6 +40,9 @@ const incomeAll = [...incomePrimary, ...incomeSecondary];
 
 const pensionItems = [
   { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
+  { title: 'Uploaden', url: '/pensioen/upload', icon: Upload },
+  { title: 'Snapshots', url: '/pensioen/overzicht', icon: FileText },
+  { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
 ];
 
 const wealthItems = [
@@ -55,7 +58,7 @@ export function AppSidebar() {
   const secondaryActive = incomeSecondary.some((item) => location.pathname === item.url);
 
   const isItemActive = (url: string) => (
-    url === '/pensioen' ? location.pathname.startsWith('/pensioen') : location.pathname === url
+    url === '/pensioen' ? location.pathname === '/pensioen' : location.pathname === url
   );
 
   const renderItem = (item: { title: string; url: string; icon: any }) => (
