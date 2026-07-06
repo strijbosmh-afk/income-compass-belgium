@@ -191,8 +191,8 @@ var list_portfolio_default = defineTool5({
 });
 
 // src/lib/mcp/tools/list-pension.ts
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.99.2";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.99.2";
 import { z as z6 } from "npm:zod@^3.25.76";
 function client6(ctx) {
   return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
@@ -200,12 +200,18 @@ function client6(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
+var TABLES = {
+  ipt: "pension_ipt_records",
+  vapz: "vapz_records",
+  vapz_riziv: "vapz_riziv_records",
+  pensioensparen: "pensioensparen_records"
+};
 var list_pension_default = defineTool6({
   name: "list_pension_records",
   title: "Lijst pensioen-snapshots",
-  description: "Haal pensioen- en IPT-snapshots op. Kies bron 'pension' (VAPZ/hoofdcontract) of 'ipt' (IPT).",
+  description: "Haal pensioen-snapshots op. Kies bron: 'ipt' (Individuele Pensioentoezegging), 'vapz', 'vapz_riziv' (RIZIV sociaal statuut) of 'pensioensparen' (3de pijler).",
   inputSchema: {
-    source: z6.enum(["pension", "ipt"]).default("pension"),
+    source: z6.enum(["ipt", "vapz", "vapz_riziv", "pensioensparen"]).default("ipt"),
     year: z6.number().int().min(1990).max(2100).optional()
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -214,8 +220,7 @@ var list_pension_default = defineTool6({
       return { content: [{ type: "text", text: "Niet geauthenticeerd" }], isError: true };
     }
     const sb = client6(ctx);
-    const table = source === "ipt" ? "pension_ipt_records" : "pension_records";
-    let q = sb.from(table).select("*").order("snapshot_date", { ascending: false });
+    let q = sb.from(TABLES[source]).select("*").order("snapshot_date", { ascending: false });
     if (year != null) q = q.eq("year", year);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
