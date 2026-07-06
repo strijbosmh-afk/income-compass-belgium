@@ -347,13 +347,41 @@ export default function PortfolioPage() {
     const purchaseGate = (assetDate: string, pointKey: string) =>
       intraday ? pointKey.slice(0, 10) >= assetDate : pointKey >= assetDate;
 
+    // Union of all timeline keys across every symbol → shared x-axis
+    const allDates = new Set<string>();
+    for (const item of series) {
+      for (const point of item.points) {
+        if (point.close > 0) allDates.add(point.date);
+      }
+    }
+    const timeline = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+
+    // For each asset, carry the last known close forward over the timeline so a
+    // missing candle (weekend, holiday, delayed provider update) doesn't drop the
+    // asset out of the cumulative sum.
+    const buildAssetSeries = (asset: PortfolioAsset) => {
+      const symbolPoints = series.find((item) => item.symbol === asset.symbol)?.points || [];
+      const closeByDate = new Map<string, number>();
+      for (const point of symbolPoints) {
+        if (point.close > 0) closeByDate.set(point.date, point.close);
+      }
+      const values = new Map<string, number>();
+      let last = 0;
+      for (const date of timeline) {
+        const next = closeByDate.get(date);
+        if (next !== undefined) last = next;
+        if (last <= 0) continue;
+        if (!purchaseGate(asset.purchase_date, date)) continue;
+        values.set(date, last * asset.quantity);
+      }
+      return values;
+    };
+
     const byDate = new Map<string, number>();
     const chartAssets = assets.filter((asset) => asset.currency === chartCurrency);
     for (const asset of chartAssets) {
-      const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
-      for (const point of symbolSeries) {
-        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
-        byDate.set(point.date, (byDate.get(point.date) || 0) + point.close * asset.quantity);
+      for (const [date, value] of buildAssetSeries(asset)) {
+        byDate.set(date, (byDate.get(date) || 0) + value);
       }
     }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
@@ -361,12 +389,8 @@ export default function PortfolioPage() {
     // Cumulative EUR history across ALL currencies (using latest FX rate)
     const eurByDate = new Map<string, number>();
     for (const asset of assets) {
-      const symbolSeries = series.find((item) => item.symbol === asset.symbol)?.points || [];
-      for (const point of symbolSeries) {
-        if (!purchaseGate(asset.purchase_date, point.date) || point.close <= 0) continue;
-        const localValue = point.close * asset.quantity;
-        const eurValue = toEur(localValue, asset.currency);
-        eurByDate.set(point.date, (eurByDate.get(point.date) || 0) + eurValue);
+      for (const [date, value] of buildAssetSeries(asset)) {
+        eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(value, asset.currency));
       }
     }
     setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
