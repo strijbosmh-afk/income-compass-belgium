@@ -44,17 +44,39 @@ export default function PensionDashboardPage() {
     })();
   }, [user, version]);
 
-  const { latestByCat, previousByCat, iptYearly, iptStats, evolution } = useMemo(() => {
+  const { catTotals, iptLatest, iptYearly, iptStats, evolution } = useMemo(() => {
     const cats: { key: PensionCategory; rows: (SimpleRow | IptRow)[] }[] = [
       { key: 'ipt', rows: iptRecords },
       ...SIMPLE_CATEGORIES.map(c => ({ key: c.key as PensionCategory, rows: simpleData[c.key] as (SimpleRow | IptRow)[] })),
     ];
-    const latest: Record<string, any> = {}; const previous: Record<string, any> = {};
+    const getReserve = (r: any) => 'opgebouwde_reserve' in r ? (r.opgebouwde_reserve || 0) : (r.pensioenreserve || 0);
+    const getDekking = (r: any) => 'overlijdenskapitaal' in r ? (r.overlijdenskapitaal || 0) : (r.overlijdensdekking || 0);
+    const policyKey = (r: any) => (r.note || '__default__') as string;
+
+    // Per categorie: sommeer laatste snapshot per polis (note).
+    const catTotals: Record<string, { reserve: number; prevReserve: number; dekking: number; policyCount: number }> = {};
     for (const c of cats) {
       const sorted = [...c.rows].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
-      latest[c.key] = sorted[sorted.length - 1] || null;
-      previous[c.key] = sorted[sorted.length - 2] || null;
+      const byPolicy = new Map<string, any[]>();
+      for (const r of sorted) {
+        const k = policyKey(r);
+        const arr = byPolicy.get(k) || [];
+        arr.push(r); byPolicy.set(k, arr);
+      }
+      let reserve = 0, dekking = 0, prevReserve = 0;
+      for (const arr of byPolicy.values()) {
+        const latest = arr[arr.length - 1];
+        const prev = arr.length >= 2 ? arr[arr.length - 2] : null;
+        reserve += getReserve(latest);
+        dekking += getDekking(latest);
+        if (prev) prevReserve += getReserve(prev);
+      }
+      catTotals[c.key] = { reserve, prevReserve, dekking, policyCount: byPolicy.size };
     }
+
+    const iptSorted = [...iptRecords].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const iptLatest = iptSorted[iptSorted.length - 1] || null;
+
     const byYear = new Map<number, IptRow>();
     for (const r of iptRecords) byYear.set(r.year, r);
     const years = [...byYear.keys()].sort((a, b) => a - b);
@@ -69,18 +91,19 @@ export default function PensionDashboardPage() {
     const rends = iptYearly.map(y => y.Rendement).filter((v): v is number => v !== null);
     const avgRend = rends.length ? rends.reduce((a, b) => a + b, 0) / rends.length : null;
 
+    // Evolutie: per jaar de som van (laatste snapshot per polis t/m dat jaar) per categorie.
     const allYears = new Set<number>();
     cats.forEach(c => c.rows.forEach(r => allYears.add(r.year)));
     const evolution = [...allYears].sort((a, b) => a - b).map(y => {
       const row: any = { year: String(y) };
       let totaal = 0;
       cats.forEach(c => {
-        const byYearMap = new Map<number, number>();
-        for (const r of c.rows) {
-          const reserve = 'opgebouwde_reserve' in r ? (r as IptRow).opgebouwde_reserve : (r as SimpleRow).pensioenreserve;
-          byYearMap.set(r.year, reserve);
+        const sorted = [...c.rows].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+        const latestPerPolicy = new Map<string, number>();
+        for (const r of sorted) {
+          if (r.year <= y) latestPerPolicy.set(policyKey(r), getReserve(r));
         }
-        const v = byYearMap.get(y) || 0;
+        const v = [...latestPerPolicy.values()].reduce((s, x) => s + x, 0);
         row[c.key] = v;
         totaal += v;
       });
@@ -88,7 +111,7 @@ export default function PensionDashboardPage() {
       return row;
     });
 
-    return { latestByCat: latest, previousByCat: previous, iptYearly, iptStats: { totalWinst, avgRend }, evolution };
+    return { catTotals, iptLatest, iptYearly, iptStats: { totalWinst, avgRend }, evolution };
   }, [iptRecords, simpleData]);
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -98,25 +121,13 @@ export default function PensionDashboardPage() {
     ...SIMPLE_CATEGORIES.map(c => ({ key: c.key as PensionCategory, label: c.label, icon: c.icon })),
   ];
 
-  const totalLatest = cats.reduce((s, c) => {
-    const l = latestByCat[c.key];
-    if (!l) return s;
-    return s + ('opgebouwde_reserve' in l ? l.opgebouwde_reserve : l.pensioenreserve);
-  }, 0);
-  const totalPrev = cats.reduce((s, c) => {
-    const p = previousByCat[c.key];
-    if (!p) return s;
-    return s + ('opgebouwde_reserve' in p ? p.opgebouwde_reserve : p.pensioenreserve);
-  }, 0);
+  const totalLatest = cats.reduce((s, c) => s + (catTotals[c.key]?.reserve || 0), 0);
+  const totalPrev = cats.reduce((s, c) => s + (catTotals[c.key]?.prevReserve || 0), 0);
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
-  const totalDekking = cats.reduce((s, c) => {
-    const l = latestByCat[c.key];
-    if (!l) return s;
-    return s + ('overlijdenskapitaal' in l ? (l.overlijdenskapitaal || 0) : (l.overlijdensdekking || 0));
-  }, 0);
+  const totalDekking = cats.reduce((s, c) => s + (catTotals[c.key]?.dekking || 0), 0);
 
-  const anyData = cats.some(c => latestByCat[c.key]);
+  const anyData = cats.some(c => (catTotals[c.key]?.policyCount || 0) > 0);
   if (!anyData) {
     return (
       <div className="max-w-4xl mx-auto animate-fade-in">
@@ -164,16 +175,15 @@ export default function PensionDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cats.map(c => {
-          const l = latestByCat[c.key]; const p = previousByCat[c.key];
-          const value = l ? ('opgebouwde_reserve' in l ? l.opgebouwde_reserve : l.pensioenreserve) : 0;
-          const prev = p ? ('opgebouwde_reserve' in p ? p.opgebouwde_reserve : p.pensioenreserve) : 0;
-          const d = value - prev;
+          const t = catTotals[c.key] || { reserve: 0, prevReserve: 0, dekking: 0, policyCount: 0 };
+          const d = t.reserve - t.prevReserve;
           return (
             <Card key={c.key} className="border-border/50">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 text-muted-foreground text-xs"><c.icon className="h-4 w-4" />{c.label}</div>
-                <p className="text-2xl font-semibold mt-2">{fmt(value)}</p>
-                {prev > 0 && <p className={`text-xs mt-1 ${d >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{d >= 0 ? '+' : ''}{fmt(d)} vs vorig</p>}
+                <p className="text-2xl font-semibold mt-2">{fmt(t.reserve)}</p>
+                {t.prevReserve > 0 && <p className={`text-xs mt-1 ${d >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{d >= 0 ? '+' : ''}{fmt(d)} vs vorig</p>}
+                {t.policyCount > 1 && <p className="text-[10px] text-muted-foreground mt-0.5">{t.policyCount} polissen</p>}
               </CardContent>
             </Card>
           );
@@ -209,11 +219,11 @@ export default function PensionDashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> IPT-reserve</div>
-              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.opgebouwde_reserve || 0)}</p>
+              <p className="text-2xl font-semibold mt-2">{fmt(iptLatest?.opgebouwde_reserve || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> IPT-overlijdensdekking</div>
-              <p className="text-2xl font-semibold mt-2">{fmt(latestByCat.ipt?.overlijdenskapitaal || 0)}</p>
+              <p className="text-2xl font-semibold mt-2">{fmt(iptLatest?.overlijdenskapitaal || 0)}</p>
             </CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-6">
               <div className="text-xs text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Totale winst beleggingen</div>
