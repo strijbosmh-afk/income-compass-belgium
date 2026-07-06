@@ -26,3 +26,8 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Native iOS generated files
+ios/App/Pods
+ios/App/App/public
+ios/App/DerivedData
