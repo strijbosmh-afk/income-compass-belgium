@@ -194,6 +194,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pensioensparen_records: {
+        Row: {
+          created_at: string
+          id: string
+          jaarpremie: number
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       pension_ipt_records: {
         Row: {
           beginkapitaal: number
@@ -260,51 +302,6 @@ export type Database = {
         }
         Relationships: []
       }
-      pension_records: {
-        Row: {
-          created_at: string
-          id: string
-          note: string | null
-          overlijdensdekking: number
-          pensioenreserve: number
-          pensioenreserve_vapz: number
-          snapshot_date: string
-          source_pdf_url: string | null
-          updated_at: string
-          user_id: string
-          vap_riziv_toelage: number
-          year: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          note?: string | null
-          overlijdensdekking?: number
-          pensioenreserve?: number
-          pensioenreserve_vapz?: number
-          snapshot_date: string
-          source_pdf_url?: string | null
-          updated_at?: string
-          user_id: string
-          vap_riziv_toelage?: number
-          year: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          note?: string | null
-          overlijdensdekking?: number
-          pensioenreserve?: number
-          pensioenreserve_vapz?: number
-          snapshot_date?: string
-          source_pdf_url?: string | null
-          updated_at?: string
-          user_id?: string
-          vap_riziv_toelage?: number
-          year?: number
-        }
-        Relationships: []
-      }
       portfolio_assets: {
         Row: {
           asset_type: string
@@ -353,6 +350,90 @@ export type Database = {
           symbol?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      vapz_records: {
+        Row: {
+          created_at: string
+          id: string
+          jaarpremie: number
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      vapz_riziv_records: {
+        Row: {
+          created_at: string
+          id: string
+          jaarpremie: number
+          note: string | null
+          overlijdensdekking: number
+          pensioenreserve: number
+          snapshot_date: string
+          source_pdf_url: string | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          jaarpremie?: number
+          note?: string | null
+          overlijdensdekking?: number
+          pensioenreserve?: number
+          snapshot_date?: string
+          source_pdf_url?: string | null
+          updated_at?: string
+          user_id?: string
+          year?: number
         }
         Relationships: []
       }
