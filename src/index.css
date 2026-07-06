@@ -427,3 +427,30 @@
     min-height: 260px;
   }
 }
+
+@media (min-width: 1536px) {
+  .app-main {
+    @apply p-8;
+  }
+
+  .app-main > .max-w-7xl {
+    max-width: min(100%, 1800px);
+  }
+
+  .app-main > .max-w-6xl {
+    max-width: min(100%, 1600px);
+  }
+
+  .app-main > .max-w-5xl,
+  .app-main > .max-w-4xl {
+    max-width: min(100%, 1440px);
+  }
+
+  .dashboard-hero {
+    grid-template-columns: minmax(0, 1.45fr) minmax(420px, 0.55fr);
+  }
+
+  .data-card .recharts-responsive-container {
+    min-height: 320px;
+  }
+}
