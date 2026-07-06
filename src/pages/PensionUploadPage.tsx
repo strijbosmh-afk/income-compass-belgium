@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, CheckCircle2, AlertCircle, Trash2, ChevronDown } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, CheckCircle2, AlertCircle, AlertTriangle, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { bumpDataVersion } from '@/hooks/useDataVersion';
 import { PDF_UPLOAD_RULES, validateBatchForUpload } from '@/lib/fileValidation';
-import { SIMPLE_CATEGORIES, IPT_CONFIG, PENSION_BUCKETS, type PensionCategory, type SimplePensionCategory, type SimpleSnapshot } from '@/lib/pensionCategories';
+import { SIMPLE_CATEGORIES, IPT_CONFIG, PENSION_BUCKETS, pensionCategoryLabel, type PensionCategory, type SimplePensionCategory, type SimpleSnapshot } from '@/lib/pensionCategories';
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
 
