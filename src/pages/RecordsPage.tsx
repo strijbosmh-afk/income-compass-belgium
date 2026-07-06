@@ -55,6 +55,7 @@ type GroupedRecord = {
 export default function RecordsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [records, setRecords] = useState<IncomeRecord[]>([]);
   const [nomenclatureCodes, setNomenclatureCodes] = useState<NomenclatureCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,8 +72,9 @@ export default function RecordsPage() {
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
-  const fetchRecords = async () => {
     if (!user) return;
     setLoading(true);
     let query = supabase.from('income_records').select('*').eq('user_id', user.id).order('record_date', { ascending: false });
