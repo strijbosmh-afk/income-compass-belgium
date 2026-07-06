@@ -39,6 +39,8 @@ interface BatchItem {
   pdfPath?: string;
   extracted?: Snapshot;
   note: string;
+  note: string;
+  fileHash?: string;
 }
 
 const CATEGORY_OPTIONS: { value: PensionCategory; label: string; description: string }[] = [
