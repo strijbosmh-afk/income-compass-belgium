@@ -110,6 +110,11 @@ export default function PensionDashboardPage() {
   }, 0);
   const diff = totalLatest - totalPrev;
   const diffPct = totalPrev > 0 ? (diff / totalPrev) * 100 : 0;
+  const totalDekking = cats.reduce((s, c) => {
+    const l = latestByCat[c.key];
+    if (!l) return s;
+    return s + ('overlijdenskapitaal' in l ? (l.overlijdenskapitaal || 0) : (l.overlijdensdekking || 0));
+  }, 0);
 
   const anyData = cats.some(c => latestByCat[c.key]);
   if (!anyData) {
