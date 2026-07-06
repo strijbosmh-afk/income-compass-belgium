@@ -14,13 +14,19 @@ const TOOL_SCHEMA = {
     parameters: {
       type: "object",
       properties: {
+        detected_category: {
+          type: "string",
+          enum: ["vapz", "vapz_riziv", "pensioensparen", "ipt", "unknown"],
+          description: "Type pensioenproduct dat je herkent.",
+        },
+        detection_confidence: { type: "number", description: "0-1 vertrouwen in detected_category" },
         snapshot_date: { type: "string", description: "Referentiedatum YYYY-MM-DD" },
         year: { type: "integer", description: "Kalenderjaar" },
-        pensioenreserve: { type: "number", description: "Opgebouwde spaartegoed / reserve pensioensparen op datum (EUR)" },
+        pensioenreserve: { type: "number", description: "Opgebouwde spaartegoed / totaal gespaard bedrag / reserve pensioensparen op datum (EUR)" },
         overlijdensdekking: { type: "number", description: "Overlijdenskapitaal op datum (EUR). 0 indien niet zichtbaar." },
         jaarpremie: { type: "number", description: "Jaarlijkse storting pensioensparen dit jaar (EUR). 0 indien niet zichtbaar." },
       },
-      required: ["snapshot_date", "year", "pensioenreserve", "overlijdensdekking", "jaarpremie"],
+      required: ["detected_category", "detection_confidence", "snapshot_date", "year", "pensioenreserve", "overlijdensdekking", "jaarpremie"],
     },
   },
 };
@@ -39,15 +45,23 @@ serve(async (req) => {
     const systemPrompt = `Je bent een data-extractie-assistent voor Belgische pensioensparen-jaaroverzichten (3de pijler, Nederlands).
 Dit kan een pensioenspaarfonds of pensioenspaarverzekering zijn.
 
-Extraheer:
+STAP 1 — Detecteer type (detected_category):
+- 'pensioensparen' voor 'pensioensparen', 'pensioenspaarfonds', 'pensioenspaarverzekering', '3de pijler'.
+- 'vapz_riziv' als je 'RIZIV' / 'sociaal statuut' ziet.
+- 'vapz' voor VAPZ zonder RIZIV.
+- 'ipt' voor Individuele Pensioentoezegging / groepsverzekering (werkgever).
+- 'unknown' bij twijfel.
+
+STAP 2 — Extraheer:
 1. snapshot_date + year — "op datum" / einde overzichtsjaar.
-2. pensioenreserve — spaartegoed / opgebouwde reserve op die datum (EUR).
-3. overlijdensdekking — kapitaal bij overlijden op die datum (EUR). 0 indien onbekend.
+2. pensioenreserve — TOTAAL gespaard bedrag / spaartegoed / opgebouwde reserve / netto inventariswaarde op die einddatum (EUR). Neem het totaal, niet de aangroei of storting.
+3. overlijdensdekking — kapitaal bij overlijden op die datum (EUR). Synoniemen: "Overlijdenskapitaal", "Kapitaal bij overlijden", "Uitkering bij overlijden", "Prestatie bij overlijden". 0 indien onbekend of niet-verzekerd fonds.
 4. jaarpremie — jaarlijkse storting pensioensparen (EUR); 0 indien niet zichtbaar.
 
 REGELS:
-- "1.234,56" → 1234.56. Niet afronden.
+- "1.234,56 €" → 1234.56. Niet afronden.
 - Niet zichtbaar → 0.
+- Meest recente jaar bij meerdere jaren.
 - Antwoord ALTIJD via de tool call.`;
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -58,7 +72,7 @@ REGELS:
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: [
-            { type: "text", text: "Extraheer de pensioensparen-waarden en referentiedatum uit deze PDF." },
+            { type: "text", text: "Detecteer het product en extraheer de waarden uit deze PDF." },
             { type: "file", file: { filename: "pensioensparen.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
           ]},
         ],
@@ -70,17 +84,19 @@ REGELS:
     if (!res.ok) {
       const errorText = await res.text();
       console.error("AI Gateway error:", res.status, errorText);
-      if (res.status === 429) return new Response(JSON.stringify({ error: "Rate limited." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (res.status === 402) return new Response(JSON.stringify({ error: "Krediet opgebruikt." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI gateway error: ${res.status}`);
+      if (res.status === 429) return new Response(JSON.stringify({ error: "AI is momenteel druk. Probeer over enkele seconden opnieuw." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (res.status === 402) return new Response(JSON.stringify({ error: "AI-krediet opgebruikt." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `AI-verwerking mislukt (${res.status}). Controleer of de PDF leesbaar is.` }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await res.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren." }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren uit deze PDF." }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const parsed = JSON.parse(toolCall.function.arguments);
+    let parsed: any;
+    try { parsed = JSON.parse(toolCall.function.arguments); }
+    catch { return new Response(JSON.stringify({ error: "AI-antwoord kon niet gelezen worden." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: unknown) {
     console.error("extract-pensioensparen error:", err);
