@@ -1,6 +1,6 @@
 # iOS Handoff
 
-Laatste update: 14 juni 2026
+Laatste update: 6 juli 2026
 
 ## Doel
 
@@ -13,6 +13,10 @@ De bestaande React/Vite-webapp is voorbereid als standalone iOS-app met:
 - Mobiele iOS-tabbar en safe-area-ondersteuning.
 - Portrait-modus op iPhone.
 - Geen permanente opslag van nieuwe salarisafbeeldingen in Supabase Storage.
+
+Voor de volledige Codex-chatcontext, inclusief portfolio-cash, Bolero-import,
+BVBA-cashsnapshots en de pensioen/BVBA-simulator, zie
+`CODEX_CHAT_HANDOFF.md`.
 
 ## Privacygedrag
 
@@ -38,6 +42,8 @@ on-device OCR-proces: de afbeelding gaat tijdelijk naar de extractiefunctie.
 - `src/pages/UploadPage.tsx`: native camera/screenshotflow zonder Storage-upload.
 - `src/index.css`: mobiele en safe-area-styling.
 - `README.md`: buildinstructies.
+- `CODEX_CHAT_HANDOFF.md`: samenvatting van de recente Codex-sessie en Mac/Xcode
+  vervolgcontext.
 
 ## Op macOS
 
@@ -74,7 +80,6 @@ uitgevoerd voordat Xcode wordt geopend.
 
 ## Bekende aandachtspunten
 
-- De repository bevat momenteel on-gecommitte wijzigingen.
 - De productie-bundle is groot; Vite toont een chunk-size-waarschuwing.
 - `npm install` rapporteerde 18 bestaande dependencykwetsbaarheden.
 - Bestaande historische screenshots in Supabase Storage worden niet automatisch verwijderd.
