@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, CheckCircle2, AlertCircle, Trash2, ChevronDown } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Upload, Loader2, FileText, PiggyBank, Shield, Wallet, CheckCircle2, AlertCircle, AlertTriangle, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { bumpDataVersion } from '@/hooks/useDataVersion';
 import { PDF_UPLOAD_RULES, validateBatchForUpload } from '@/lib/fileValidation';
-import { SIMPLE_CATEGORIES, IPT_CONFIG, PENSION_BUCKETS, type PensionCategory, type SimplePensionCategory, type SimpleSnapshot } from '@/lib/pensionCategories';
+import { SIMPLE_CATEGORIES, IPT_CONFIG, PENSION_BUCKETS, pensionCategoryLabel, type PensionCategory, type SimplePensionCategory, type SimpleSnapshot } from '@/lib/pensionCategories';
 
 type ItemStatus = 'pending' | 'uploading' | 'extracting' | 'ready' | 'saving' | 'saved' | 'error';
 
@@ -40,6 +41,10 @@ interface BatchItem {
   extracted?: Snapshot;
   note: string;
   fileHash?: string;
+  detectedCategory?: PensionCategory | 'unknown';
+  detectionConfidence?: number;
+  mismatch?: boolean;
+  mismatchAcknowledged?: boolean;
 }
 
 const CATEGORY_OPTIONS: { value: PensionCategory; label: string; description: string }[] = [
@@ -55,6 +60,7 @@ export default function PensionUploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [items, setItems] = useState<BatchItem[]>([]);
   const [savingAll, setSavingAll] = useState(false);
+  const [mismatchDialog, setMismatchDialog] = useState<{ itemId: string; detected: PensionCategory | 'unknown'; selected: PensionCategory } | null>(null);
 
   const catConfig = useMemo(() => {
     if (category === 'ipt') return { functionName: IPT_CONFIG.functionName, table: IPT_CONFIG.table, bucket: PENSION_BUCKETS.ipt, label: IPT_CONFIG.label };
@@ -134,7 +140,31 @@ export default function PensionUploadPage() {
             jaarpremie: Number(data.jaarpremie) || 0,
           };
         }
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
+
+        // Basisvalidatie
+        if (!extracted.snapshot_date || !/^\d{4}-\d{2}-\d{2}$/.test(extracted.snapshot_date)) {
+          throw new Error('AI kon geen geldige referentiedatum vinden in deze PDF.');
+        }
+        if (!extracted.year || extracted.year < 1950 || extracted.year > 2100) {
+          throw new Error('AI kon geen geldig jaartal vinden in deze PDF.');
+        }
+        if (extracted.pensioenreserve <= 0 && extracted.overlijdensdekking <= 0 && extracted.jaarpremie <= 0) {
+          throw new Error('Geen bedragen kunnen extraheren. Controleer of dit een geldig jaaroverzicht is.');
+        }
+
+        // Categorie-detectie
+        const detected = (data.detected_category as PensionCategory | 'unknown') || 'unknown';
+        const confidence = Number(data.detection_confidence) || 0;
+        const isMismatch = detected !== 'unknown' && detected !== category && confidence >= 0.6;
+
+        setItems(prev => prev.map(i => i.id === item.id ? {
+          ...i, status: 'ready', extracted,
+          detectedCategory: detected, detectionConfidence: confidence, mismatch: isMismatch,
+        } : i));
+
+        if (isMismatch) {
+          setMismatchDialog(prev => prev ?? { itemId: item.id, detected, selected: category });
+        }
       } catch (err: any) {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: err.message || 'Verwerking mislukt' } : i));
       }
@@ -297,6 +327,26 @@ export default function PensionUploadPage() {
                 <CollapsibleContent>
                   {item.extracted && (item.status === 'ready' || item.status === 'saving' || item.status === 'saved') && (
                     <CardContent className="space-y-4">
+                      {item.mismatch && !item.mismatchAcknowledged && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="font-medium text-amber-900 dark:text-amber-200">
+                              Mogelijk verkeerde categorie: dit lijkt <strong>{pensionCategoryLabel(item.detectedCategory as PensionCategory)}</strong>, geen <strong>{catConfig.label}</strong>.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">Wissel de categorie bovenaan en upload opnieuw voor de juiste extractie, of houd deze indeling.</p>
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" onClick={() => {
+                                if (item.detectedCategory && item.detectedCategory !== 'unknown') {
+                                  setCategory(item.detectedCategory as PensionCategory);
+                                  removeItem(item.id);
+                                }
+                              }}>Wissel + verwijder</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setItems(prev => prev.map(i => i.id === item.id ? { ...i, mismatchAcknowledged: true } : i))}>Behouden</Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs">Referentiedatum</Label>
@@ -327,9 +377,39 @@ export default function PensionUploadPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!mismatchDialog} onOpenChange={(o) => !o && setMismatchDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Verkeerde categorie gedetecteerd?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Je hebt <strong>{mismatchDialog ? pensionCategoryLabel(mismatchDialog.selected) : ''}</strong> geselecteerd, maar de PDF lijkt een{' '}
+              <strong>{mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</strong>-overzicht te zijn.
+              Wissel van categorie en upload opnieuw voor de juiste extractie, of behoud je huidige keuze.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              if (mismatchDialog) setItems(prev => prev.map(i => i.id === mismatchDialog.itemId ? { ...i, mismatchAcknowledged: true } : i));
+              setMismatchDialog(null);
+            }}>Behouden</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (mismatchDialog && mismatchDialog.detected !== 'unknown') {
+                setCategory(mismatchDialog.detected as PensionCategory);
+                setItems(prev => prev.filter(i => i.id !== mismatchDialog.itemId));
+              }
+              setMismatchDialog(null);
+            }}>Wissel naar {mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 
 function StatusBadge({ status }: { status: ItemStatus }) {
   const map: Record<ItemStatus, { label: string; cls: string; icon?: any }> = {
