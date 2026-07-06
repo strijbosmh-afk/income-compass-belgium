@@ -78,12 +78,29 @@ export default function PensionUploadPage() {
     for (const item of newItems) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
+
+        // Duplicate check via SHA-256 hash of the file
+        const fileHash = await computeSha256(item.file);
+        const { data: existing, error: dupErr } = await (supabase as any)
+          .from(catConfig.table)
+          .select('id, snapshot_date, year')
+          .eq('user_id', user.id)
+          .eq('file_hash', fileHash)
+          .maybeSingle();
+        if (dupErr) throw dupErr;
+        if (existing) {
+          setItems(prev => prev.map(i => i.id === item.id
+            ? { ...i, status: 'error', error: `Duplicaat — dezelfde PDF is al opgeslagen (${existing.snapshot_date || existing.year}).` }
+            : i));
+          continue;
+        }
+
         const safeName = item.file.name.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_');
         const filePath = `${user.id}/${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from(catConfig.bucket).upload(filePath, item.file, { contentType: item.file.type });
         if (upErr) throw upErr;
 
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath } : i));
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath, fileHash } : i));
         const base64 = await fileToBase64(item.file);
         const { data, error } = await supabase.functions.invoke(catConfig.functionName, { body: { pdf: base64, mimeType: item.file.type } });
         if (error) throw error;
