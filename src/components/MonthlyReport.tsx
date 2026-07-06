@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataVersion } from '@/hooks/useDataVersion';
@@ -67,6 +68,26 @@ export function MonthlyReport() {
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
   const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = searchParams.get('close');
+    if (!close) return;
+    const m = close.match(/^(\d{4})-(\d{1,2})$/);
+    if (!m) return;
+    setYear(m[1]);
+    setMonth(String(parseInt(m[2], 10)));
+    // Scroll after render
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setDetailsOpen(true);
+    }, 100);
+    // Clear the param so it doesn't retrigger
+    const next = new URLSearchParams(searchParams);
+    next.delete('close');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -429,7 +450,7 @@ export function MonthlyReport() {
   const monthHasData = currentRecs.length > 0;
 
   return (
-    <Card className="ios-card border-border/50">
+    <Card ref={cardRef} id="maandafsluiting" className="ios-card border-border/50 scroll-mt-20">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
