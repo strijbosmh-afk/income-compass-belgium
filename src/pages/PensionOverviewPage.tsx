@@ -217,9 +217,10 @@ export default function PensionOverviewPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {overview.perCat.map(c => {
-              const delta = c.previous ? (c.latest?.pensioenreserve || 0) - c.previous.pensioenreserve : null;
-              const pct = delta !== null && c.previous && c.previous.pensioenreserve > 0 ? (delta / c.previous.pensioenreserve) * 100 : null;
+              const delta = c.catPrevReserve > 0 ? c.catReserve - c.catPrevReserve : null;
+              const pct = delta !== null && c.catPrevReserve > 0 ? (delta / c.catPrevReserve) * 100 : null;
               const positive = (delta || 0) >= 0;
+              const polisCount = c.policies.length;
               return (
                 <Card key={c.key} className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <CardContent className="pt-5">
@@ -228,7 +229,7 @@ export default function PensionOverviewPage() {
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <c.icon className="h-4 w-4" /><span>{c.label}</span>
                         </div>
-                        <div className="text-2xl font-semibold tracking-tight">{fmt(c.latest?.pensioenreserve || 0)}</div>
+                        <div className="text-2xl font-semibold tracking-tight">{fmt(c.catReserve)}</div>
                       </div>
                       {delta !== null && (
                         <div className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${positive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
@@ -238,7 +239,7 @@ export default function PensionOverviewPage() {
                       )}
                     </div>
                     <p className="mt-3 text-xs text-muted-foreground">
-                      {c.rows.length === 0 ? 'Nog geen snapshot' : `${c.rows.length} snapshot${c.rows.length === 1 ? '' : 's'} · dekking ${fmt(c.latest?.overlijdensdekking || 0)}`}
+                      {c.rows.length === 0 ? 'Nog geen snapshot' : `${polisCount} polis${polisCount === 1 ? '' : 'sen'} · dekking ${fmt(c.catDekking)}`}
                     </p>
                   </CardContent>
                 </Card>
