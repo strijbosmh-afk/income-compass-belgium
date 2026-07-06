@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash2, Loader2, Copy, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { applyShare } from '@/lib/incomeTypes';
+import { RetirementBvbaSimulator } from '@/components/RetirementBvbaSimulator';
 
 type NomenclatureCode = {
   id: string;
@@ -47,6 +49,13 @@ type MonthRecord = {
   totalQuantity: number;
 };
 
+type IncomeRecordRow = {
+  income_type: string;
+  nomenclature_code: string;
+  netto: number;
+  quantity: number;
+};
+
 const MONTHS = [
   'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
   'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December',
@@ -70,7 +79,7 @@ export default function SimulationsPage() {
     const fetchCodes = async () => {
       const { data } = await supabase.from('nomenclature_codes').select('*').eq('user_id', user.id).order('code');
       if (data) {
-        setCodes(data.map(d => ({ ...d, netto_amount: (d as any).netto_amount ?? 0 })));
+        setCodes(data.map(d => ({ ...d, netto_amount: d.netto_amount ?? 0 })));
       }
       setLoading(false);
     };
@@ -88,10 +97,11 @@ export default function SimulationsPage() {
 
   // Fetch month data when a scenario's monthBase changes
   const currentScenario = scenarios[activeScenario] || scenarios[0];
+  const currentMonthBase = currentScenario.monthBase;
 
   useEffect(() => {
-    if (!user || !currentScenario.monthBase.enabled) return;
-    const { month, year } = currentScenario.monthBase;
+    if (!user || !currentMonthBase.enabled) return;
+    const { month, year } = currentMonthBase;
     const key = `${year}-${month}`;
     if (monthRecords[key]) return; // already fetched
 
@@ -105,7 +115,7 @@ export default function SimulationsPage() {
 
       if (data) {
         const grouped: Record<string, MonthRecord> = {};
-        data.map((r: any) => applyShare(r)).forEach(r => {
+        (data as IncomeRecordRow[]).map((r) => applyShare(r)).forEach(r => {
           if (!grouped[r.nomenclature_code]) {
             grouped[r.nomenclature_code] = { nomenclature_code: r.nomenclature_code, totalNetto: 0, totalQuantity: 0 };
           }
@@ -116,7 +126,7 @@ export default function SimulationsPage() {
       }
     };
     fetchMonth();
-  }, [user, currentScenario.monthBase.enabled, currentScenario.monthBase.month, currentScenario.monthBase.year]);
+  }, [user, currentMonthBase, monthRecords]);
 
   const codesWithNetto = codes.filter(c => c.netto_amount > 0);
 
@@ -240,42 +250,49 @@ export default function SimulationsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-[1600px] space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Simulaties</h1>
         <p className="text-muted-foreground mt-1">
-          Test verschillende scenario's en bereken het verwachte maandloon.
+          Test verschillende scenario's voor inkomen, BVBA-cashflow en pensioen.
         </p>
       </div>
 
-      {codesWithNetto.length === 0 && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="pt-4">
-            <p className="text-sm text-destructive">
-              Geen nomenclatuurcodes met een netto bedrag gevonden. Ga naar{' '}
-              <a href="/nomenclature" className="underline font-medium">Nomenclatuurbeheer</a>{' '}
-              om netto bedragen toe te kennen aan je codes.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="income" className="space-y-6">
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="income">Inkomen</TabsTrigger>
+          <TabsTrigger value="retirement">Pensioen & BVBA</TabsTrigger>
+        </TabsList>
 
-      {/* Scenario selector */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {scenarios.map((s, idx) => (
-          <Button
-            key={s.id}
-            variant={idx === activeScenario ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setActiveScenario(idx)}
-          >
-            {s.name}
-          </Button>
-        ))}
-        <Button variant="ghost" size="sm" onClick={addScenario}>
-          <Plus className="h-4 w-4 mr-1" /> Nieuw
-        </Button>
-      </div>
+        <TabsContent value="income" className="space-y-6">
+          {codesWithNetto.length === 0 && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="pt-4">
+                <p className="text-sm text-destructive">
+                  Geen nomenclatuurcodes met een netto bedrag gevonden. Ga naar{' '}
+                  <a href="/nomenclature" className="underline font-medium">Nomenclatuurbeheer</a>{' '}
+                  om netto bedragen toe te kennen aan je codes.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scenario selector */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {scenarios.map((s, idx) => (
+              <Button
+                key={s.id}
+                variant={idx === activeScenario ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveScenario(idx)}
+              >
+                {s.name}
+              </Button>
+            ))}
+            <Button variant="ghost" size="sm" onClick={addScenario}>
+              <Plus className="h-4 w-4 mr-1" /> Nieuw
+            </Button>
+          </div>
 
       {/* Scenario config */}
       <Card className="border-border/50">
@@ -515,6 +532,12 @@ export default function SimulationsPage() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="retirement" className="mt-4">
+          <RetirementBvbaSimulator />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
