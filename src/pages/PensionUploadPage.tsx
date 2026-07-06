@@ -39,6 +39,7 @@ interface BatchItem {
   pdfPath?: string;
   extracted?: Snapshot;
   note: string;
+  fileHash?: string;
 }
 
 const CATEGORY_OPTIONS: { value: PensionCategory; label: string; description: string }[] = [
@@ -77,12 +78,29 @@ export default function PensionUploadPage() {
     for (const item of newItems) {
       try {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'uploading' } : i));
+
+        // Duplicate check via SHA-256 hash of the file
+        const fileHash = await computeSha256(item.file);
+        const { data: existing, error: dupErr } = await (supabase as any)
+          .from(catConfig.table)
+          .select('id, snapshot_date, year')
+          .eq('user_id', user.id)
+          .eq('file_hash', fileHash)
+          .maybeSingle();
+        if (dupErr) throw dupErr;
+        if (existing) {
+          setItems(prev => prev.map(i => i.id === item.id
+            ? { ...i, status: 'error', error: `Duplicaat — dezelfde PDF is al opgeslagen (${existing.snapshot_date || existing.year}).` }
+            : i));
+          continue;
+        }
+
         const safeName = item.file.name.normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/_+/g, '_');
         const filePath = `${user.id}/${Date.now()}_${safeName}`;
         const { error: upErr } = await supabase.storage.from(catConfig.bucket).upload(filePath, item.file, { contentType: item.file.type });
         if (upErr) throw upErr;
 
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath } : i));
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'extracting', pdfPath: filePath, fileHash } : i));
         const base64 = await fileToBase64(item.file);
         const { data, error } = await supabase.functions.invoke(catConfig.functionName, { body: { pdf: base64, mimeType: item.file.type } });
         if (error) throw error;
@@ -162,6 +180,7 @@ export default function PensionUploadPage() {
           year: extracted.year,
           source_pdf_url: item.pdfPath,
           note: item.note || null,
+          file_hash: item.fileHash || null,
         };
         if (category === 'ipt') {
           const ipt = extracted as IptSnapshot;
@@ -347,4 +366,10 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+async function computeSha256(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
