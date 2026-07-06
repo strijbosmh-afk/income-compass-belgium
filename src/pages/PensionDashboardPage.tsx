@@ -149,6 +149,15 @@ export default function PensionDashboardPage() {
                 </div>
               </div>
             )}
+            {totalDekking > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary">
+                <Shield className="h-4 w-4" />
+                <div className="text-sm">
+                  <div className="font-semibold">{fmt(totalDekking)}</div>
+                  <div className="text-xs opacity-80">Totale overlijdensdekking</div>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
