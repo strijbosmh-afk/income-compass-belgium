@@ -175,16 +175,15 @@ export default function PensionDashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cats.map(c => {
-          const l = latestByCat[c.key]; const p = previousByCat[c.key];
-          const value = l ? ('opgebouwde_reserve' in l ? l.opgebouwde_reserve : l.pensioenreserve) : 0;
-          const prev = p ? ('opgebouwde_reserve' in p ? p.opgebouwde_reserve : p.pensioenreserve) : 0;
-          const d = value - prev;
+          const t = catTotals[c.key] || { reserve: 0, prevReserve: 0, dekking: 0, policyCount: 0 };
+          const d = t.reserve - t.prevReserve;
           return (
             <Card key={c.key} className="border-border/50">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-2 text-muted-foreground text-xs"><c.icon className="h-4 w-4" />{c.label}</div>
-                <p className="text-2xl font-semibold mt-2">{fmt(value)}</p>
-                {prev > 0 && <p className={`text-xs mt-1 ${d >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{d >= 0 ? '+' : ''}{fmt(d)} vs vorig</p>}
+                <p className="text-2xl font-semibold mt-2">{fmt(t.reserve)}</p>
+                {t.prevReserve > 0 && <p className={`text-xs mt-1 ${d >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{d >= 0 ? '+' : ''}{fmt(d)} vs vorig</p>}
+                {t.policyCount > 1 && <p className="text-[10px] text-muted-foreground mt-0.5">{t.policyCount} polissen</p>}
               </CardContent>
             </Card>
           );
