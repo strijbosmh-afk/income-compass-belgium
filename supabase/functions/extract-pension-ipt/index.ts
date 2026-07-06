@@ -14,13 +14,19 @@ const TOOL_SCHEMA = {
     parameters: {
       type: "object",
       properties: {
+        detected_category: {
+          type: "string",
+          enum: ["vapz", "vapz_riziv", "pensioensparen", "ipt", "unknown"],
+          description: "Type pensioenproduct dat je herkent in de PDF.",
+        },
+        detection_confidence: { type: "number", description: "0-1 vertrouwen in detected_category" },
         snapshot_date: { type: "string", description: "Referentiedatum (einde overzichtsjaar) in YYYY-MM-DD. Bv. 'Jaaroverzicht 2024' → '2024-12-31'." },
         year: { type: "integer", description: "Kalenderjaar van het overzicht (bv. 2024)." },
         beginkapitaal: { type: "number", description: "Beginkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar>' in EUR." },
-        eindkapitaal: { type: "number", description: "Eindkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar+1>' in EUR." },
-        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op einddatum (meestal = eindkapitaal)." },
+        eindkapitaal: { type: "number", description: "Eindkapitaal = 'Uw spaartegoed/kapitaal op 01/01/<jaar+1>' in EUR (= totaal gespaard bedrag op einddatum)." },
+        opgebouwde_reserve: { type: "number", description: "Opgebouwde reserve op einddatum in EUR (meestal = eindkapitaal). Neem TOTAAL." },
         jaarpremie: { type: "number", description: "Jaarpremie / som van stortingen dit jaar in EUR. 0 indien niet zichtbaar." },
-        overlijdenskapitaal: { type: "number", description: "Overlijdenskapitaal in EUR op einddatum." },
+        overlijdenskapitaal: { type: "number", description: "Kapitaal bij overlijden op einddatum in EUR. Synoniemen: 'Overlijdenskapitaal', 'Kapitaal bij overlijden', 'Dekking overlijden', 'Verzekerd overlijdenskapitaal'." },
         gewaarborgd_rendement: { type: "number", description: "Gewaarborgd rendementspercentage (bv. 1.75). 0 indien niet zichtbaar." },
         winst_uit_beleggingen: { type: "number", description: "Beleggingswinst in EUR. Herken als 'Prestatie van de eenheden' of 'Nettorendement van de fondsen'." },
         inkomende_bewegingen: { type: "number", description: "Som van inkomende bewegingen in EUR (positief)." },
@@ -28,7 +34,7 @@ const TOOL_SCHEMA = {
         kosten_taksen: { type: "number", description: "Som van 'Kosten en taksen' / 'Taksen en kosten' in EUR (negatief indien zo getoond)." },
         kosten_overlijden: { type: "number", description: "Kosten van de overlijdensdekking in EUR (negatief indien zo getoond)." },
       },
-      required: ["snapshot_date", "year", "beginkapitaal", "eindkapitaal", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen", "inkomende_bewegingen", "uitgaande_bewegingen", "kosten_taksen", "kosten_overlijden"],
+      required: ["detected_category", "detection_confidence", "snapshot_date", "year", "beginkapitaal", "eindkapitaal", "opgebouwde_reserve", "jaarpremie", "overlijdenskapitaal", "gewaarborgd_rendement", "winst_uit_beleggingen", "inkomende_bewegingen", "uitgaande_bewegingen", "kosten_taksen", "kosten_overlijden"],
     },
   },
 };
