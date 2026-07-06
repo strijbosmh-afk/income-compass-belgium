@@ -140,7 +140,31 @@ export default function PensionUploadPage() {
             jaarpremie: Number(data.jaarpremie) || 0,
           };
         }
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'ready', extracted } : i));
+
+        // Basisvalidatie
+        if (!extracted.snapshot_date || !/^\d{4}-\d{2}-\d{2}$/.test(extracted.snapshot_date)) {
+          throw new Error('AI kon geen geldige referentiedatum vinden in deze PDF.');
+        }
+        if (!extracted.year || extracted.year < 1950 || extracted.year > 2100) {
+          throw new Error('AI kon geen geldig jaartal vinden in deze PDF.');
+        }
+        if (extracted.pensioenreserve <= 0 && extracted.overlijdensdekking <= 0 && extracted.jaarpremie <= 0) {
+          throw new Error('Geen bedragen kunnen extraheren. Controleer of dit een geldig jaaroverzicht is.');
+        }
+
+        // Categorie-detectie
+        const detected = (data.detected_category as PensionCategory | 'unknown') || 'unknown';
+        const confidence = Number(data.detection_confidence) || 0;
+        const isMismatch = detected !== 'unknown' && detected !== category && confidence >= 0.6;
+
+        setItems(prev => prev.map(i => i.id === item.id ? {
+          ...i, status: 'ready', extracted,
+          detectedCategory: detected, detectionConfidence: confidence, mismatch: isMismatch,
+        } : i));
+
+        if (isMismatch) {
+          setMismatchDialog(prev => prev ?? { itemId: item.id, detected, selected: category });
+        }
       } catch (err: any) {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: err.message || 'Verwerking mislukt' } : i));
       }
