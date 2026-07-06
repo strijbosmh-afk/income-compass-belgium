@@ -377,7 +377,38 @@ export default function PensionUploadPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!mismatchDialog} onOpenChange={(o) => !o && setMismatchDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Verkeerde categorie gedetecteerd?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Je hebt <strong>{mismatchDialog ? pensionCategoryLabel(mismatchDialog.selected) : ''}</strong> geselecteerd, maar de PDF lijkt een{' '}
+              <strong>{mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</strong>-overzicht te zijn.
+              Wissel van categorie en upload opnieuw voor de juiste extractie, of behoud je huidige keuze.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              if (mismatchDialog) setItems(prev => prev.map(i => i.id === mismatchDialog.itemId ? { ...i, mismatchAcknowledged: true } : i));
+              setMismatchDialog(null);
+            }}>Behouden</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (mismatchDialog && mismatchDialog.detected !== 'unknown') {
+                setCategory(mismatchDialog.detected as PensionCategory);
+                setItems(prev => prev.filter(i => i.id !== mismatchDialog.itemId));
+              }
+              setMismatchDialog(null);
+            }}>Wissel naar {mismatchDialog && mismatchDialog.detected !== 'unknown' ? pensionCategoryLabel(mismatchDialog.detected as PensionCategory) : ''}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
   );
 }
 
