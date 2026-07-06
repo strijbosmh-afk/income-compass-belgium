@@ -270,10 +270,11 @@ export default function PortfolioPage() {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of assets) {
       const quote = quotes[asset.symbol]?.quote;
-      const snapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
-      const current = Number(quote?.c || 0) || (snapshot ? asset.purchase_price : 0);
+      const livePrice = Number(quote?.c || 0);
+      const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+      const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot ? asset.purchase_price : 0);
       const cost = asset.quantity * asset.purchase_price;
-      const value = current > 0 ? asset.quantity * current : 0;
+      const value = currentPrice > 0 ? asset.quantity * currentPrice : 0;
       const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
       groups.set(asset.currency, { cost: prev.cost + cost, value: prev.value + value, gain: prev.gain + value - cost });
     }
@@ -612,11 +613,11 @@ export default function PortfolioPage() {
         return;
       }
 
+      // Wis alle bestaande portfolio-posities bij een nieuwe import
       const { error: deleteError } = await (supabase as any)
         .from('portfolio_assets')
         .delete()
-        .eq('user_id', user.id)
-        .ilike('notes', 'Bolero Expert snapshot%');
+        .eq('user_id', user.id);
       if (deleteError) throw deleteError;
 
       const payload = positions.map((position) => boleroPositionToAsset(position, user.id, file.name));
