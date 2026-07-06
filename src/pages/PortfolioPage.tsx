@@ -225,7 +225,8 @@ export default function PortfolioPage() {
     if (months.length === 0) return;
     const average = months.reduce((sum, [, value]) => sum + value, 0) / months.length;
     setMonthlyNetIncome(average);
-    setIncomeWindowLabel(`${months.at(-1)?.[0]} tot ${months[0]?.[0]}`);
+    const oldestMonth = months[months.length - 1]?.[0];
+    setIncomeWindowLabel(`${oldestMonth} tot ${months[0]?.[0]}`);
   }
 
   async function loadPensionContext() {
@@ -248,7 +249,8 @@ export default function PortfolioPage() {
     }));
     const values = rows.filter(Boolean) as { value: number; date: string }[];
     setPensionTotal(values.reduce((sum, row) => sum + row.value, 0));
-    setPensionSnapshotDate(values.map((row) => row.date).filter(Boolean).sort().at(-1) || '');
+    const pensionDates = values.map((row) => row.date).filter(Boolean).sort();
+    setPensionSnapshotDate(pensionDates[pensionDates.length - 1] || '');
   }
 
 
@@ -378,13 +380,15 @@ export default function PortfolioPage() {
 
   const valueAtDate = useMemo(() => {
     if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
-    const target = history.filter((point) => point.date <= valuationDate).at(-1);
+    const eligibleHistory = history.filter((point) => point.date <= valuationDate);
+    const target = eligibleHistory[eligibleHistory.length - 1];
     return target?.value ?? 0;
   }, [history, valuationDate, currencyGroups, chartCurrency]);
 
   const eurValueAtDate = useMemo(() => {
     if (eurHistory.length === 0) return eurTotals.value;
-    const target = eurHistory.filter((point) => point.date <= valuationDate).at(-1);
+    const eligibleHistory = eurHistory.filter((point) => point.date <= valuationDate);
+    const target = eligibleHistory[eligibleHistory.length - 1];
     return target?.value ?? eurTotals.value;
   }, [eurHistory, valuationDate, eurTotals]);
 
@@ -468,7 +472,8 @@ export default function PortfolioPage() {
     const symbols = [...new Set(analysisAssets.filter((asset) => !isCashAsset(asset)).map((asset) => asset.symbol))];
     if (symbols.length === 0) {
       const cashAssets = analysisAssets.filter((asset) => isCashAsset(asset));
-      const cashDate = cashAssets.map((asset) => asset.purchase_date).sort().at(-1) || new Date().toISOString().slice(0, 10);
+      const cashDates = cashAssets.map((asset) => asset.purchase_date).sort();
+      const cashDate = cashDates[cashDates.length - 1] || new Date().toISOString().slice(0, 10);
       const chartCashValue = cashAssets
         .filter((asset) => asset.currency === chartCurrency)
         .reduce((sum, asset) => sum + asset.quantity * asset.purchase_price, 0);

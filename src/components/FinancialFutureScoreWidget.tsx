@@ -87,7 +87,8 @@ export function FinancialFutureScoreWidget() {
         return row ? { value: Number(row[field] || 0), date: String(row.snapshot_date || '') } : null;
       }).filter(Boolean) as { value: number; date: string }[];
       setPensionTotal(pensionValues.reduce((sum, row) => sum + row.value, 0));
-      setLatestPensionDate(pensionValues.map((row) => row.date).filter(Boolean).sort().at(-1) || null);
+      const pensionDates = pensionValues.map((row) => row.date).filter(Boolean).sort();
+      setLatestPensionDate(pensionDates[pensionDates.length - 1] || null);
 
       const assets = (portfolioRes.data || []) as Array<{ asset_type: string; currency: string; quantity: number; purchase_price: number }>;
       setPortfolioCost(assets.reduce((sum, asset) => sum + Number(asset.quantity || 0) * Number(asset.purchase_price || 0), 0));

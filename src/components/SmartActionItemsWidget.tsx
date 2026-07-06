@@ -62,7 +62,7 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
       const dates = [iptRes, vapzRes, rizivRes, sparenRes]
         .flatMap((r) => ((r.data as any[]) || []).map((row) => row.snapshot_date))
         .filter(Boolean).sort();
-      setLatestPensionDate(dates.at(-1) || null);
+      setLatestPensionDate(dates[dates.length - 1] || null);
       setPortfolioCount(portfolioRes.count || 0);
       setLoading(false);
     });
@@ -113,7 +113,7 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
       .filter((row) => row.month <= lastCompleteMonth && row.netto > 0);
     if (associatieMonths.length >= 3) {
       const avg = associatieMonths.reduce((sum, row) => sum + row.netto, 0) / associatieMonths.length;
-      const latest = associatieMonths.at(-1);
+      const latest = associatieMonths[associatieMonths.length - 1];
       if (latest && latest.netto < avg * 0.65) {
         nextActions.push({
           title: 'Associatie-inkomen ligt lager dan normaal',

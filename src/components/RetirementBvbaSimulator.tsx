@@ -185,7 +185,8 @@ export function RetirementBvbaSimulator() {
     simpleRows.forEach((rows) => {
       otherPensionReserve += latestPerPolicy(rows, (row) => Number(row.pensioenreserve || 0))
         .reduce((sum, value) => sum + value, 0);
-      latestPensionDate = [latestPensionDate, latestDate(rows)].filter(Boolean).sort().at(-1) || '';
+      const pensionDates = [latestPensionDate, latestDate(rows)].filter(Boolean).sort();
+      latestPensionDate = pensionDates[pensionDates.length - 1] || '';
     });
 
     const privatePortfolio = estimatePortfolioValue(portfolioRows);
@@ -589,13 +590,15 @@ function latestPerPolicy<T extends PolicyRow>(rows: T[], reserveFn: (row: T) => 
     byPolicy.set(key, [...(byPolicy.get(key) || []), row]);
   });
   return [...byPolicy.values()].map((items) => {
-    const latest = items.sort((a, b) => String(a.snapshot_date || '').localeCompare(String(b.snapshot_date || ''))).at(-1);
+    const sortedItems = items.sort((a, b) => String(a.snapshot_date || '').localeCompare(String(b.snapshot_date || '')));
+    const latest = sortedItems[sortedItems.length - 1];
     return latest ? reserveFn(latest) : 0;
   });
 }
 
 function latestDate<T extends PolicyRow>(rows: T[]) {
-  return rows.map((row) => String(row.snapshot_date || '')).filter(Boolean).sort().at(-1) || '';
+  const dates = rows.map((row) => String(row.snapshot_date || '')).filter(Boolean).sort();
+  return dates[dates.length - 1] || '';
 }
 
 function averageRecentMonthlyNet(rows: IncomeContextRow[]) {
