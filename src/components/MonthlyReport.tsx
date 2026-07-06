@@ -450,7 +450,7 @@ export function MonthlyReport() {
   const monthHasData = currentRecs.length > 0;
 
   return (
-    <Card className="ios-card border-border/50">
+    <Card ref={cardRef} id="maandafsluiting" className="ios-card border-border/50 scroll-mt-20">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
