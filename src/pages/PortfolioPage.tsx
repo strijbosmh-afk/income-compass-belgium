@@ -414,8 +414,8 @@ export default function PortfolioPage() {
     .filter((row) => manualCashAccount(row.asset) === 'bvba')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
   const debitValue = Math.min(0, cashValue);
-  const investmentValue = Math.max(0, eurTotals.value - cashValue);
-  const netWorth = eurTotals.value + pensionTotal;
+  const investmentValue = Math.max(0, eurTotals.value);
+  const netWorth = eurTotals.value + cashValue + pensionTotal;
   const bufferTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 6 : 0;
   const bufferMonths = monthlyNetIncome > 0 ? cashValue / monthlyNetIncome : 0;
   const investableCash = Math.max(0, cashValue - bufferTarget);
