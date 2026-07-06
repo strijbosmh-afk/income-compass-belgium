@@ -75,6 +75,7 @@ export default function RecordsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  const fetchRecords = async () => {
     if (!user) return;
     setLoading(true);
     let query = supabase.from('income_records').select('*').eq('user_id', user.id).order('record_date', { ascending: false });
