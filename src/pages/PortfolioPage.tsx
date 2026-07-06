@@ -383,6 +383,7 @@ export default function PortfolioPage() {
   const cashValue = useMemo(() => portfolioRows
     .filter((row) => isCashAsset(row.asset))
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [portfolioRows, toEur]);
+  const debitValue = Math.min(0, cashValue);
   const investmentValue = Math.max(0, eurTotals.value - cashValue);
   const netWorth = eurTotals.value + pensionTotal;
   const bufferTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 6 : 0;
@@ -641,7 +642,7 @@ export default function PortfolioPage() {
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="dashboard-shell max-w-7xl mx-auto space-y-4 animate-fade-in md:space-y-6">
+    <div className="dashboard-shell mx-auto w-full max-w-[1800px] space-y-4 animate-fade-in md:space-y-6 2xl:space-y-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen cockpit</p>
@@ -679,7 +680,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <section className="dashboard-hero">
+      <section className="dashboard-hero 2xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.55fr)]">
         <div className="dashboard-hero-main wealth-hero">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -742,7 +743,7 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 2xl:grid-cols-5">
         {currencyGroups.length === 0 ? (
           <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
         ) : currencyGroups.map((group) => (
@@ -754,6 +755,7 @@ export default function PortfolioPage() {
           />
         ))}
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
+        <MetricCard title="Cash Bolero" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Debetstand op brokerrekening' : 'Vrije cash op brokerrekening'} />
         <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
       </div>
 
@@ -766,15 +768,16 @@ export default function PortfolioPage() {
         </TabsList>
 
         <TabsContent value="cockpit" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6">
             <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Beleggingen + cash + pensioen/IPT" />
             <MetricCard title="Beleggingen" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
-            <MetricCard title="Cashbuffer" value={money(cashValue, 'EUR')} sub={monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
+            <MetricCard title="Cashbuffer" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Debetstand verlaagt netto waarde' : monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
+            <MetricCard title="Debetstand" value={money(debitValue, 'EUR')} sub={debitValue < 0 ? 'Negatieve Bolero cash' : 'Geen debetstand'} />
             <MetricCard title="Pensioen/IPT" value={money(pensionTotal, 'EUR')} sub={pensionSnapshotDate ? `Laatste snapshot ${pensionSnapshotDate}` : 'Nog geen pensioenimport'} />
             <MetricCard title="Inlegcapaciteit" value={money(monthlyCapacity, 'EUR')} sub="Per maand boven 6m cashbuffer" />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr] 2xl:grid-cols-[1.4fr_0.6fr]">
             <Card className="data-card">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2"><Flame className="h-4 w-4" /> FIRE / pensioenrichting</CardTitle>
@@ -817,7 +820,7 @@ export default function PortfolioPage() {
         </TabsContent>
 
         <TabsContent value="allocation" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
             <AllocationChartCard title="Activaklasse" data={allocationData} />
             <AllocationChartCard title="Broker / bron" data={brokerData} />
             <AllocationChartCard title="Munt" data={currencyData} />
@@ -827,7 +830,7 @@ export default function PortfolioPage() {
         </TabsContent>
 
         <TabsContent value="risk" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] 2xl:grid-cols-[0.7fr_1.3fr]">
             <Card className="data-card">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Portfolio-check</CardTitle>
@@ -853,7 +856,7 @@ export default function PortfolioPage() {
               <CardHeader>
                 <CardTitle className="text-base">Belgische aandachtspunten</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-2">
+              <CardContent className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                 <InfoTile title="TOB" text="Controleer per ETF/aandeel de juiste beurstaks. Belgische registratie kan sterk verschillen." />
                 <InfoTile title="Roerende voorheffing" text="Dividendposities kunnen Belgische RV en buitenlandse bronheffing hebben." />
                 <InfoTile title="Reynders-tax" text="Fondsen/ETF's met obligatiecomponent vragen extra controle bij verkoop." />
@@ -918,7 +921,7 @@ export default function PortfolioPage() {
       </Card>
 
 
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr] 2xl:grid-cols-[minmax(0,1.7fr)_minmax(420px,0.55fr)]">
         <Card className="data-card">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Portefeuillewaarde</CardTitle>
@@ -1166,8 +1169,11 @@ function parseBoleroWorkbook(workbook: any, XLSX: any): BoleroPosition[] {
 }
 
 function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string) {
-  const isCash = position.type.toLowerCase() === 'cash';
-  const quantity = isCash ? Math.max(Math.abs(position.eurValue || position.currentValue), 0.01) : Math.max(position.quantity, 0.0001);
+  const isCash = position.type.toLowerCase().includes('cash');
+  const cashAmount = position.eurValue || position.currentValue || position.purchaseValue;
+  const quantity = isCash
+    ? (cashAmount === 0 ? 0.01 : cashAmount)
+    : Math.max(position.quantity, 0.0001);
   const eurValue = Math.abs(position.eurValue || position.currentValue || position.purchaseValue);
   const snapshotPrice = isCash ? 1 : eurValue / quantity;
   const symbol = boleroSymbol(position);
@@ -1182,13 +1188,13 @@ function boleroPositionToAsset(position: BoleroPosition, userId: string, fileNam
     purchase_date: new Date().toISOString().slice(0, 10),
     quantity,
     purchase_price: snapshotPrice,
-    notes: `Bolero Expert snapshot ${fileName}; ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; rendement ${position.returnPct || 0}%; originele koers ${position.currentQuote || position.currentValue || 0}.`,
+    notes: `Bolero Expert snapshot ${fileName}; ${isCash && cashAmount < 0 ? 'debetstand; ' : ''}ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; rendement ${position.returnPct || 0}%; originele koers ${position.currentQuote || position.currentValue || 0}.`,
   };
 }
 
 function boleroSymbol(position: BoleroPosition) {
   if (position.isin) return position.isin.toUpperCase();
-  if (position.type.toLowerCase() === 'cash') return `CASH-${position.currency || 'EUR'}`;
+  if (position.type.toLowerCase().includes('cash')) return `CASH-${position.currency || 'EUR'}`;
   return (position.name || 'BOLERO')
     .slice(0, 20)
     .replace(/[^A-Z0-9]+/gi, '_')
