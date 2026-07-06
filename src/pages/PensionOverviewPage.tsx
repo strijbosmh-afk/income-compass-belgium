@@ -34,14 +34,15 @@ export default function PensionOverviewPage() {
     (async () => {
       setLoading(true);
       const queries = await Promise.all([
-        supabase.from('pension_ipt_records').select('id, snapshot_date, year, opgebouwde_reserve, overlijdenskapitaal, jaarpremie').eq('user_id', user.id).order('snapshot_date', { ascending: true }),
-        ...SIMPLE_CATEGORIES.map(c => (supabase as any).from(c.table).select('id, snapshot_date, year, pensioenreserve, overlijdensdekking, jaarpremie').eq('user_id', user.id).order('snapshot_date', { ascending: true })),
+        supabase.from('pension_ipt_records').select('id, snapshot_date, year, opgebouwde_reserve, overlijdenskapitaal, jaarpremie, note').eq('user_id', user.id).order('snapshot_date', { ascending: true }),
+        ...SIMPLE_CATEGORIES.map(c => (supabase as any).from(c.table).select('id, snapshot_date, year, pensioenreserve, overlijdensdekking, jaarpremie, note').eq('user_id', user.id).order('snapshot_date', { ascending: true })),
       ]);
       const iptRows: SnapshotRow[] = ((queries[0].data as any[]) || []).map(r => ({
         id: r.id, snapshot_date: r.snapshot_date, year: r.year,
         pensioenreserve: Number(r.opgebouwde_reserve) || 0,
         overlijdensdekking: Number(r.overlijdenskapitaal) || 0,
         jaarpremie: Number(r.jaarpremie) || 0,
+        note: r.note || '',
       }));
       const cats: CategoryData[] = [
         { key: 'ipt', label: IPT_CONFIG.label, icon: IPT_CONFIG.icon, description: IPT_CONFIG.description, rows: iptRows },
@@ -52,6 +53,7 @@ export default function PensionOverviewPage() {
             pensioenreserve: Number(r.pensioenreserve) || 0,
             overlijdensdekking: Number(r.overlijdensdekking) || 0,
             jaarpremie: Number(r.jaarpremie) || 0,
+            note: r.note || '',
           }))) as SnapshotRow[],
         })),
       ];
@@ -61,21 +63,56 @@ export default function PensionOverviewPage() {
   }, [user, version]);
 
   const overview = useMemo(() => {
+    // Groepeer per (categorie + polis/note): elke unieke provider is een aparte polis.
+    // Nemen dan de LAATSTE snapshot per polis en sommeren.
+    const latestPerPolicy = (rows: SnapshotRow[]) => {
+      const byPolicy = new Map<string, SnapshotRow>();
+      for (const r of [...rows].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))) {
+        byPolicy.set((r as any).note || '__default__', r);
+      }
+      return [...byPolicy.values()];
+    };
     const perCat = data.map(c => {
       const sorted = [...c.rows].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
-      return { ...c, latest: sorted[sorted.length - 1] || null, previous: sorted[sorted.length - 2] || null, sorted };
+      const policies = latestPerPolicy(c.rows);
+      const catReserve = policies.reduce((s, r) => s + (r.pensioenreserve || 0), 0);
+      const catDekking = policies.reduce((s, r) => s + (r.overlijdensdekking || 0), 0);
+      // Voor "vorige snapshot" vergelijking: totaal per polis op één-na-laatste datum per polis.
+      const byPolicyPrev = new Map<string, SnapshotRow>();
+      const byPolicyAll = new Map<string, SnapshotRow[]>();
+      for (const r of sorted) {
+        const k = (r as any).note || '__default__';
+        const arr = byPolicyAll.get(k) || [];
+        arr.push(r); byPolicyAll.set(k, arr);
+      }
+      for (const [k, arr] of byPolicyAll.entries()) {
+        if (arr.length >= 2) byPolicyPrev.set(k, arr[arr.length - 2]);
+      }
+      const catPrevReserve = [...byPolicyPrev.values()].reduce((s, r) => s + (r.pensioenreserve || 0), 0);
+      return {
+        ...c, sorted, policies,
+        latest: sorted[sorted.length - 1] || null,
+        previous: sorted[sorted.length - 2] || null,
+        catReserve, catDekking, catPrevReserve,
+      };
     });
-    const totalReserve = perCat.reduce((s, c) => s + (c.latest?.pensioenreserve || 0), 0);
-    const previousTotalReserve = perCat.reduce((s, c) => s + (c.previous?.pensioenreserve || 0), 0);
-    const totalDekking = perCat.reduce((s, c) => s + (c.latest?.overlijdensdekking || 0), 0);
+    const totalReserve = perCat.reduce((s, c) => s + c.catReserve, 0);
+    const previousTotalReserve = perCat.reduce((s, c) => s + c.catPrevReserve, 0);
+    const totalDekking = perCat.reduce((s, c) => s + c.catDekking, 0);
 
     const years = new Map<number, Record<string, number>>();
     for (const c of perCat) {
-      const byYear = new Map<number, number>();
-      for (const r of c.sorted) byYear.set(r.year, r.pensioenreserve);
-      for (const [y, v] of byYear.entries()) {
+      // Per jaar: som van (laatste snapshot per polis tot en met dat jaar)
+      const yearSet = new Set<number>();
+      for (const r of c.sorted) yearSet.add(r.year);
+      for (const y of yearSet) {
+        const latestPerPolicyUpToY = new Map<string, number>();
+        for (const r of c.sorted) {
+          if (r.year <= y) latestPerPolicyUpToY.set((r as any).note || '__default__', r.pensioenreserve);
+        }
+        const sum = [...latestPerPolicyUpToY.values()].reduce((s, v) => s + v, 0);
         const row = years.get(y) || { year: y };
-        row[c.key] = v;
+        row[c.key] = sum;
         years.set(y, row);
       }
     }
