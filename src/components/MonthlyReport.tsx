@@ -68,6 +68,26 @@ export function MonthlyReport() {
   const now = new Date();
   const [year, setYear] = useState<string>(String(now.getFullYear()));
   const [month, setMonth] = useState<string>(String(now.getMonth() + 1));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = searchParams.get('close');
+    if (!close) return;
+    const m = close.match(/^(\d{4})-(\d{1,2})$/);
+    if (!m) return;
+    setYear(m[1]);
+    setMonth(String(parseInt(m[2], 10)));
+    // Scroll after render
+    setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setDetailsOpen(true);
+    }, 100);
+    // Clear the param so it doesn't retrigger
+    const next = new URLSearchParams(searchParams);
+    next.delete('close');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!user) return;
