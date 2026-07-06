@@ -315,10 +315,39 @@ export default function RecordsPage() {
             <SelectItem value="associatie">Associatie</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="gap-2 sm:ml-auto" onClick={runCompare}>
-          <Scale className="h-4 w-4" /> Vergelijk met dashboard
-        </Button>
+        <div className="col-span-2 sm:ml-auto flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={!canReset}
+            onClick={() => setResetOpen(true)}
+            title={canReset ? `Verwijder alle records voor ${resetLabel}` : 'Kies eerst jaar, maand en type'}
+          >
+            <RotateCcw className="h-4 w-4" /> Maand + type opnieuw uploaden
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={runCompare}>
+            <Scale className="h-4 w-4" /> Vergelijk met dashboard
+          </Button>
+        </div>
       </div>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Records verwijderen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alle records voor <strong>{resetLabel}</strong> worden definitief verwijderd. Daarna kan je de screenshots opnieuw uploaden. Deze actie kan niet ongedaan gemaakt worden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetting}>Annuleer</AlertDialogCancel>
+            <AlertDialogAction disabled={resetting} onClick={(e) => { e.preventDefault(); void resetMonthType(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {resetting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Bezig…</> : 'Verwijder & upload opnieuw'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
         <DialogContent className="max-w-xl">
