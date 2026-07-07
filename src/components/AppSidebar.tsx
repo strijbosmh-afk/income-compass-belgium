@@ -36,7 +36,6 @@ const incomeSecondary = [
   { title: 'Simulaties', url: '/simulations', icon: Calculator },
 ];
 
-const incomeAll = [...incomePrimary, ...incomeSecondary];
 
 const pensionItems = [
   { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
