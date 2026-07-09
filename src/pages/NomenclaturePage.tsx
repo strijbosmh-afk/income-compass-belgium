@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Loader2, Pencil, Tag, X, Download } from 'lucide-react';
+import { Plus, Trash2, Loader2, Pencil, Tag, X, Download, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { bumpDataVersion } from '@/hooks/useDataVersion';
@@ -19,6 +19,26 @@ type NomenclatureCode = {
   description: string;
   category: string;
   netto_amount: number;
+};
+
+type QueryResult = {
+  code: string;
+  description: string;
+  recordCount: number;
+  totalQuantity: number;
+  totalNetto: number;
+  totalAmount: number;
+  firstDate: string;
+  lastDate: string;
+  rows: Array<{
+    id: string;
+    record_date: string;
+    income_type: string;
+    quantity: number;
+    netto: number;
+    total_amount: number;
+    description: string | null;
+  }>;
 };
 
 const DEFAULT_CATEGORIES = ['algemeen', 'raadpleging', 'behandeling', 'procedure', 'overig'];
@@ -43,6 +63,12 @@ export default function NomenclaturePage() {
   const [editCategory, setEditCategory] = useState('');
   const [editNettoAmount, setEditNettoAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [queryCode, setQueryCode] = useState('');
+  const [queryStart, setQueryStart] = useState(`${new Date().getFullYear()}-01-01`);
+  const [queryEnd, setQueryEnd] = useState(new Date().toISOString().slice(0, 10));
+  const [queryType, setQueryType] = useState('all');
+  const [querying, setQuerying] = useState(false);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
 
@@ -59,6 +85,10 @@ export default function NomenclaturePage() {
   };
 
   useEffect(() => { fetchCodes(); }, [user]);
+
+  useEffect(() => {
+    if (!queryCode && codes.length > 0) setQueryCode(codes[0].code);
+  }, [codes, queryCode]);
 
   const addCode = async () => {
     if (!user || !newCode.trim()) return;
@@ -134,6 +164,51 @@ export default function NomenclaturePage() {
     }
     setCustomCategories(prev => prev.filter(c => c !== cat));
     toast({ title: 'Categorie verwijderd' });
+  };
+
+  const runNomenclatureQuery = async () => {
+    if (!user || !queryCode || !queryStart || !queryEnd) return;
+    if (queryStart > queryEnd) {
+      toast({ title: 'Periode ongeldig', description: 'De startdatum moet voor de einddatum liggen.', variant: 'destructive' });
+      return;
+    }
+
+    setQuerying(true);
+    let query = supabase.from('income_records')
+      .select('id, record_date, income_type, quantity, netto, total_amount, description')
+      .eq('user_id', user.id)
+      .eq('nomenclature_code', queryCode)
+      .gte('record_date', queryStart)
+      .lte('record_date', queryEnd)
+      .order('record_date', { ascending: true });
+
+    if (queryType !== 'all') query = query.eq('income_type', queryType);
+    const { data, error } = await query;
+    setQuerying(false);
+
+    if (error) {
+      toast({ title: 'Query mislukt', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    const rows = ((data as QueryResult['rows']) || []).map((row) => ({
+      ...row,
+      quantity: Number(row.quantity || 0),
+      netto: Number(row.netto || 0),
+      total_amount: Number(row.total_amount || 0),
+    }));
+    const codeInfo = codes.find((item) => item.code === queryCode);
+    setQueryResult({
+      code: queryCode,
+      description: codeInfo?.description || rows[0]?.description || queryCode,
+      recordCount: rows.length,
+      totalQuantity: rows.reduce((sum, row) => sum + (row.quantity || 0), 0),
+      totalNetto: rows.reduce((sum, row) => sum + row.netto, 0),
+      totalAmount: rows.reduce((sum, row) => sum + row.total_amount, 0),
+      firstDate: rows[0]?.record_date || '',
+      lastDate: rows[rows.length - 1]?.record_date || '',
+      rows,
+    });
   };
 
   const groupedCodes = allCategories.reduce((acc, cat) => {
@@ -222,6 +297,95 @@ export default function NomenclaturePage() {
               Toevoegen
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Search className="h-4 w-4" /> Prestatie-query</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-[1fr_0.8fr_0.8fr_0.8fr_auto] md:items-end">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nomenclatuurcode</Label>
+              <Select value={queryCode} onValueChange={setQueryCode}>
+                <SelectTrigger><SelectValue placeholder="Kies code" /></SelectTrigger>
+                <SelectContent>
+                  {codes.map(code => (
+                    <SelectItem key={code.id} value={code.code}>{code.code} · {code.description || 'Geen omschrijving'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Van</Label>
+              <Input type="date" value={queryStart} onChange={e => setQueryStart(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Tot</Label>
+              <Input type="date" value={queryEnd} onChange={e => setQueryEnd(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type</Label>
+              <Select value={queryType} onValueChange={setQueryType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle types</SelectItem>
+                  <SelectItem value="ambulatory">Ambulant</SelectItem>
+                  <SelectItem value="hospitalized">Hospitalisatie</SelectItem>
+                  <SelectItem value="associatie">Associatie</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={runNomenclatureQuery} disabled={querying || codes.length === 0 || !queryCode}>
+              {querying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Query
+            </Button>
+          </div>
+
+          {queryResult && (
+            <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{queryResult.code} · {queryResult.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {queryResult.firstDate && queryResult.lastDate ? `${queryResult.firstDate} tot ${queryResult.lastDate}` : 'Geen prestaties gevonden in deze periode'}
+                  </p>
+                </div>
+                <Badge variant="secondary">{queryResult.totalQuantity.toLocaleString('nl-BE')} prestaties</Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <MiniMetric label="Aantal prestaties" value={queryResult.totalQuantity.toLocaleString('nl-BE')} />
+                <MiniMetric label="Records" value={String(queryResult.recordCount)} />
+                <MiniMetric label="Netto" value={fmt(queryResult.totalNetto)} />
+                <MiniMetric label="Bruto" value={fmt(queryResult.totalAmount)} />
+              </div>
+              {queryResult.rows.length > 0 && (
+                <div className="max-h-72 overflow-auto rounded-md border border-border/60 bg-background">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-background">
+                      <tr className="border-b border-border/50">
+                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Datum</th>
+                        <th className="text-left py-2 px-3 font-medium text-muted-foreground">Type</th>
+                        <th className="text-right py-2 px-3 font-medium text-muted-foreground">Aantal</th>
+                        <th className="text-right py-2 px-3 font-medium text-muted-foreground">Netto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {queryResult.rows.map(row => (
+                        <tr key={row.id} className="border-b border-border/20">
+                          <td className="py-2 px-3">{row.record_date}</td>
+                          <td className="py-2 px-3 capitalize">{typeLabel(row.income_type)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{row.quantity.toLocaleString('nl-BE')}</td>
+                          <td className="py-2 px-3 text-right font-mono">{fmt(row.netto)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -366,4 +530,20 @@ export default function NomenclaturePage() {
       </Dialog>
     </div>
   );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function typeLabel(type: string) {
+  if (type === 'ambulatory') return 'Ambulant';
+  if (type === 'hospitalized') return 'Hospitalisatie';
+  if (type === 'associatie') return 'Associatie';
+  return type || '-';
 }

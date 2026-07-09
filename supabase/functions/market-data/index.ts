@@ -77,6 +77,38 @@ async function finnhub(token: string, path: string, params: Record<string, strin
 }
 
 async function quoteWithFallback(token: string, symbol: string) {
+  const direct = await quoteFromProviders(token, symbol);
+  if (Number(direct.quote?.c || 0) > 0 || !looksLikeIsin(symbol)) {
+    return {
+      ...direct,
+      symbol,
+      resolvedSymbol: symbol,
+      status: Number(direct.quote?.c || 0) > 0 ? "live" : "unresolved",
+    };
+  }
+
+  const search = await finnhub(token, "/search", { q: symbol }).catch(() => ({ result: [] }));
+  const candidates = ((search.result || []) as Array<{ symbol?: string; displaySymbol?: string }>)
+    .flatMap((item) => [item.symbol, item.displaySymbol])
+    .map((item) => String(item || "").trim().toUpperCase())
+    .filter((item) => item && item !== symbol);
+
+  for (const candidate of [...new Set(candidates)].slice(0, 8)) {
+    const resolved = await quoteFromProviders(token, candidate);
+    if (Number(resolved.quote?.c || 0) > 0) {
+      return {
+        ...resolved,
+        symbol,
+        resolvedSymbol: candidate,
+        status: "live",
+      };
+    }
+  }
+
+  return { ...direct, symbol, resolvedSymbol: symbol, status: "unresolved" };
+}
+
+async function quoteFromProviders(token: string, symbol: string) {
   const [quoteResult, profileResult, metricResult] = await Promise.allSettled([
     finnhub(token, "/quote", { symbol }),
     finnhub(token, "/stock/profile2", { symbol }),
@@ -102,6 +134,10 @@ async function quoteWithFallback(token: string, symbol: string) {
   }
 
   return yahooQuote(symbol);
+}
+
+function looksLikeIsin(value: string) {
+  return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value);
 }
 
 async function yahooQuote(symbol: string) {
