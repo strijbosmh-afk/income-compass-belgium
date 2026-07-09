@@ -52,6 +52,8 @@ type MarketQuote = {
 
 type QuoteEntry = {
   symbol: string;
+  resolvedSymbol?: string;
+  status?: 'live' | 'snapshot' | 'unresolved';
   quote: MarketQuote;
   profile?: {
     country?: string;
@@ -159,6 +161,10 @@ export default function PortfolioPage() {
   const [eurHistory, setEurHistory] = useState<{ date: string; value: number }[]>([]);
   const [fxRates, setFxRates] = useState<Record<string, number>>({ EUR: 1 });
   const [fxUpdated, setFxUpdated] = useState<string>('');
+  const [lastMarketRefresh, setLastMarketRefresh] = useState<Date | null>(null);
+  const [nextMarketRefresh, setNextMarketRefresh] = useState<Date | null>(null);
+  const [marketError, setMarketError] = useState('');
+  const [refreshTicker, setRefreshTicker] = useState(0);
   const [loading, setLoading] = useState(true);
   const [marketLoading, setMarketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -268,6 +274,10 @@ export default function PortfolioPage() {
     if (analysisAssets.length === 0) {
       setQuotes({});
       setHistory([]);
+      setEurHistory([]);
+      setLastMarketRefresh(null);
+      setNextMarketRefresh(null);
+      setMarketError('');
       return;
     }
     refreshMarketData();
@@ -275,6 +285,24 @@ export default function PortfolioPage() {
       refreshMarketData();
     }, 15 * 60 * 1000);
     return () => window.clearInterval(handle);
+  }, [analysisAssets, range, chartCurrency]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setRefreshTicker((value) => value + 1), 30 * 1000);
+    return () => window.clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    if (analysisAssets.length === 0) return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshMarketData();
+    };
+    window.addEventListener('focus', refreshMarketData);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshMarketData);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [analysisAssets, range, chartCurrency]);
 
   const toEur = useMemo(() => {
@@ -325,7 +353,8 @@ export default function PortfolioPage() {
     const quote = quoteEntry?.quote;
     const profile = quoteEntry?.profile || {};
     const livePrice = Number(quote?.c || 0);
-    const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+    const boleroImported = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+    const isBoleroSnapshot = boleroImported && livePrice <= 0;
     const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
     const previousClose = Number(quote?.pc || 0);
     const cost = asset.quantity * asset.purchase_price;
@@ -374,6 +403,7 @@ export default function PortfolioPage() {
       website: profile.weburl || '',
       weekHigh,
       weekLow,
+      boleroImported,
       isBoleroSnapshot,
     };
   }), [analysisAssets, quotes, eurTotals.value, toEur]);
@@ -432,6 +462,15 @@ export default function PortfolioPage() {
   const currencyData = useMemo(() => groupRows(portfolioRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [portfolioRows, toEur]);
   const regionData = useMemo(() => groupRows(portfolioRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [portfolioRows, toEur]);
   const sectorData = useMemo(() => groupRows(portfolioRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [portfolioRows, toEur]);
+  const liveQuoteCount = useMemo(() => portfolioRows.filter((row) => row.currentPrice > 0 && !row.isBoleroSnapshot).length, [portfolioRows]);
+  const snapshotQuoteCount = useMemo(() => portfolioRows.filter((row) => row.isBoleroSnapshot).length, [portfolioRows]);
+  const nextRefreshLabel = useMemo(() => {
+    if (!nextMarketRefresh) return 'Nog niet gepland';
+    const seconds = Math.max(0, Math.ceil((nextMarketRefresh.getTime() - Date.now()) / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${minutes}:${String(remainder).padStart(2, '0')}`;
+  }, [nextMarketRefresh, refreshTicker]);
 
   const riskItems = useMemo(() => buildRiskItems({
     rows: portfolioRows,
@@ -469,6 +508,7 @@ export default function PortfolioPage() {
 
   async function refreshMarketData() {
     setMarketLoading(true);
+    setMarketError('');
     const symbols = [...new Set(analysisAssets.filter((asset) => !isCashAsset(asset)).map((asset) => asset.symbol))];
     if (symbols.length === 0) {
       const cashAssets = analysisAssets.filter((asset) => isCashAsset(asset));
@@ -481,6 +521,7 @@ export default function PortfolioPage() {
       setQuotes({});
       setHistory(cashAssets.length > 0 ? [{ date: cashDate, value: chartCashValue }] : []);
       setEurHistory(cashAssets.length > 0 ? [{ date: cashDate, value: eurCashValue }] : []);
+      markMarketRefreshComplete();
       setMarketLoading(false);
       return;
     }
@@ -488,7 +529,9 @@ export default function PortfolioPage() {
       body: { action: 'quotes', symbols },
     });
     if (error || data?.error) {
-      toast.error(data?.error || error?.message || 'Koersen ophalen mislukt');
+      const message = data?.error || error?.message || 'Koersen ophalen mislukt';
+      setMarketError(message);
+      toast.error(message);
       setMarketLoading(false);
       return;
     }
@@ -498,18 +541,32 @@ export default function PortfolioPage() {
       nextQuotes[entry.symbol] = entry;
     });
     setQuotes(nextQuotes);
-    await loadHistory(symbols);
+    await loadHistory(symbols, nextQuotes);
+    markMarketRefreshComplete();
     setMarketLoading(false);
   }
 
-  async function loadHistory(symbols: string[]) {
+  function markMarketRefreshComplete() {
+    const now = new Date();
+    setLastMarketRefresh(now);
+    setNextMarketRefresh(new Date(now.getTime() + 15 * 60 * 1000));
+  }
+
+  async function loadHistory(symbols: string[], quoteMap: Record<string, QuoteEntry> = quotes) {
     const { from, to, interval } = getRange(range);
     const intraday = interval !== '1d';
     const series = await Promise.all(symbols.map(async (symbol) => {
       const { data } = await supabase.functions.invoke('market-data', {
         body: { action: 'candles', symbol, from, to, interval },
       });
-      if (!data || data.s !== 'ok') return { symbol, points: [] as { date: string; close: number }[] };
+      if (!data || data.s !== 'ok') {
+        const close = Number(quoteMap[symbol]?.quote?.c || 0);
+        const points = close > 0 ? [
+          { date: intraday ? new Date(from * 1000).toISOString().slice(0, 16) : new Date(from * 1000).toISOString().slice(0, 10), close },
+          { date: intraday ? new Date().toISOString().slice(0, 16) : new Date().toISOString().slice(0, 10), close },
+        ] : [];
+        return { symbol, points };
+      }
       const points = (data.t || []).map((ts: number, idx: number) => ({
         date: intraday
           ? new Date(ts * 1000).toISOString().slice(0, 16)
@@ -530,6 +587,16 @@ export default function PortfolioPage() {
       }
     }
     const timeline = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+    if (timeline.length === 0) {
+      const today = intraday ? new Date().toISOString().slice(0, 16) : new Date().toISOString().slice(0, 10);
+      const chartValue = analysisAssets
+        .filter((asset) => asset.currency === chartCurrency)
+        .reduce((sum, asset) => sum + fallbackAssetValue(asset, quoteMap), 0);
+      const eurValue = analysisAssets.reduce((sum, asset) => sum + toEur(fallbackAssetValue(asset, quoteMap), asset.currency), 0);
+      setHistory(chartValue ? [{ date: today, value: chartValue }] : []);
+      setEurHistory(eurValue ? [{ date: today, value: eurValue }] : []);
+      return;
+    }
 
     // For each asset, carry the last known close forward over the timeline so a
     // missing candle (weekend, holiday, delayed provider update) doesn't drop the
@@ -700,11 +767,19 @@ export default function PortfolioPage() {
 
   async function importBoleroFile(file: File) {
     if (!user) return;
+    if (!/\.xlsx$/i.test(file.name)) {
+      toast.error('Gebruik een Bolero Excel-bestand (.xlsx).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Bolero-bestand is te groot', { description: 'Importeer een bestand kleiner dan 5 MB.' });
+      return;
+    }
     setImportingBolero(true);
     try {
-      const XLSX = await import('xlsx');
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-      const positions = parseBoleroWorkbook(workbook, XLSX);
+      const readXlsxFile = (await import('read-excel-file/browser')).default;
+      const rows = await readXlsxFile(file);
+      const positions = parseBoleroRows(rows);
       if (positions.length === 0) {
         toast.error('Geen Bolero-posities gevonden in dit bestand.');
         return;
@@ -744,6 +819,14 @@ export default function PortfolioPage() {
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen cockpit</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Beursportfolio</h1>
           <p className="text-muted-foreground mt-1">Portefeuillewaarde, rendement en posities meteen zichtbaar.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
+              {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
+            </Badge>
+            <span>Laatst: {lastMarketRefresh ? lastMarketRefresh.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : 'nog niet'}</span>
+            <span>Volgende refresh: {nextRefreshLabel}</span>
+          </div>
+          {marketError && <p className="mt-1 text-xs text-destructive">{marketError}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           {currencyGroups.length > 1 && (
@@ -762,7 +845,7 @@ export default function PortfolioPage() {
           <input
             ref={boleroInputRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx"
             className="hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -1216,7 +1299,11 @@ export default function PortfolioPage() {
                     <TableCell className="min-w-40">
                       <div className="font-semibold">{row.asset.symbol}</div>
                       <div className="mt-1 text-xs text-muted-foreground">{row.exchange || row.asset.mic || 'Beurs onbekend'} · {row.quoteCurrency}</div>
-                      {row.isBoleroSnapshot && <div className="mt-1 text-xs font-medium text-secondary">Bolero snapshot</div>}
+                      {row.boleroImported && (
+                        <div className="mt-1 text-xs font-medium text-secondary">
+                          {row.isBoleroSnapshot ? 'Bolero snapshot' : `Bolero · live via ${quotes[row.asset.symbol]?.resolvedSymbol || row.asset.symbol}`}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-80">
                       <div className="font-medium">{row.name}</div>
@@ -1286,10 +1373,7 @@ export default function PortfolioPage() {
   );
 }
 
-function parseBoleroWorkbook(workbook: any, XLSX: any): BoleroPosition[] {
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) return [];
-  const table = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false }) as string[][];
+function parseBoleroRows(table: unknown[][]): BoleroPosition[] {
   const headerIdx = table.findIndex((row) => row.some((cell) => normalizeHeader(String(cell)) === 'portfoliopositions'));
   const columnIdx = table.findIndex((row, idx) =>
     idx > headerIdx &&
@@ -1544,6 +1628,13 @@ function groupRows(rows: any[], keyFn: (row: any) => string, toEur: (value: numb
   return Array.from(map.entries())
     .map(([name, value]) => ({ name, value, percentage: total > 0 ? (value / total) * 100 : 0 }))
     .sort((a, b) => b.value - a.value);
+}
+
+function fallbackAssetValue(asset: PortfolioAsset, quoteMap: Record<string, QuoteEntry>) {
+  if (isCashAsset(asset)) return asset.quantity * asset.purchase_price;
+  const livePrice = Number(quoteMap[asset.symbol]?.quote?.c || 0);
+  const price = livePrice > 0 ? livePrice : asset.purchase_price;
+  return asset.quantity * price;
 }
 
 function latestCashSnapshots(assets: PortfolioAsset[]) {
