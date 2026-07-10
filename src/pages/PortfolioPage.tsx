@@ -779,7 +779,7 @@ export default function PortfolioPage() {
     try {
       const readXlsxFile = (await import('read-excel-file/browser')).default;
       const rows = await readXlsxFile(file);
-      const positions = parseBoleroRows(rows);
+      const positions = parseBoleroRows(rows as unknown as unknown[][]);
       if (positions.length === 0) {
         toast.error('Geen Bolero-posities gevonden in dit bestand.');
         return;
