@@ -138,8 +138,11 @@ export default function UploadPage() {
     if (file) processFile(file);
   };
 
+  const [saving, setSaving] = useState(false);
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
+    if (saving) return; // voorkom dubbele klik → dubbele insert
+    setSaving(true);
     try {
       // Harde guardrail: netto MOET binnen €0,02 matchen met aandeel - bouwfonds - mif.
       const TOLERANCE = 0.02;
