@@ -138,8 +138,11 @@ export default function UploadPage() {
     if (file) processFile(file);
   };
 
+  const [saving, setSaving] = useState(false);
   const handleSaveRecords = async (records: ExtractedRecord[]) => {
     if (!user) return;
+    if (saving) return; // voorkom dubbele klik → dubbele insert
+    setSaving(true);
     try {
       // Harde guardrail: netto MOET binnen €0,02 matchen met aandeel - bouwfonds - mif.
       const TOLERANCE = 0.02;
@@ -204,6 +207,34 @@ export default function UploadPage() {
         });
         return;
       }
+      // Pre-check: bestaan er al records voor deze (maand + type + codes)?
+      // Dit voorkomt dat dezelfde upload per ongeluk 2× wordt opgeslagen
+      // (bv. bij dubbelklikken of terug-navigeren) en beschermt zo o.a. de
+      // associatie-verdeling die anders 2× 50% = 100% van de pool zou tonen.
+      const codes = records.map(r => (r.nomenclature_code || '').trim()).filter(Boolean);
+      const firstDate = records[0]?.record_date;
+      const firstType = records[0]?.income_type;
+      if (firstDate && firstType && codes.length > 0) {
+        const { data: existing, error: checkErr } = await supabase
+          .from('income_records')
+          .select('nomenclature_code')
+          .eq('user_id', user.id)
+          .eq('income_type', firstType)
+          .eq('record_date', firstDate)
+          .in('nomenclature_code', codes);
+        if (checkErr) throw checkErr;
+        if (existing && existing.length > 0) {
+          const existingCodes = Array.from(new Set(existing.map((e: any) => e.nomenclature_code)));
+          toast({
+            title: '🚫 Al opgeslagen voor deze maand',
+            description: `Er bestaan al ${existing.length} record(s) voor deze maand & type met code(s): ${existingCodes.slice(0, 5).join(', ')}${existingCodes.length > 5 ? '…' : ''}. Verwijder eerst de bestaande records via 'Overzicht' als je opnieuw wil uploaden.`,
+            variant: 'destructive',
+            duration: 12000,
+          });
+          return;
+        }
+      }
+
       // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
       // Voor 'associatie' bewaren we het volledige poolbedrag (niet halveren).
       const insertData = records.map((rec: any) => {
@@ -216,7 +247,19 @@ export default function UploadPage() {
         return clean;
       });
       const { error } = await supabase.from('income_records').insert(insertData);
-      if (error) throw error;
+      if (error) {
+        // Unieke index vangt duplicaten op als laatste vangnet.
+        if ((error as any).code === '23505') {
+          toast({
+            title: '🚫 Dubbele record geweigerd',
+            description: 'Deze combinatie van maand, type en nomenclatuurcode bestaat al in de database.',
+            variant: 'destructive',
+            duration: 12000,
+          });
+          return;
+        }
+        throw error;
+      }
       toast({
         title: 'Opgeslagen!',
         description: `${records.length} record(s) opgeslagen.`,
@@ -225,6 +268,8 @@ export default function UploadPage() {
       setPreviewUrl(null);
     } catch (err: any) {
       toast({ title: 'Opslaan mislukt', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
   };
 

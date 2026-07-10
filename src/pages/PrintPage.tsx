@@ -115,7 +115,7 @@ export default function PrintPage() {
         .select('id, symbol, name, asset_type, currency, quantity, purchase_price, purchase_date, notes')
         .eq('user_id', user.id)
         .order('purchase_date', { ascending: false }),
-      supabase.from('pension_records')
+      (supabase as any).from('pension_records')
         .select('snapshot_date, pensioenreserve, overlijdensdekking, pensioenreserve_vapz, vap_riziv_toelage')
         .eq('user_id', user.id)
         .order('snapshot_date', { ascending: true }),
