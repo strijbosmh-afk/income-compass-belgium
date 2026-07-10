@@ -68,6 +68,7 @@ export type Database = {
       income_records: {
         Row: {
           aandeel_arts: number
+          associatie_share_applied: boolean
           bouwfonds: number
           created_at: string
           description: string | null
@@ -88,6 +89,7 @@ export type Database = {
         }
         Insert: {
           aandeel_arts?: number
+          associatie_share_applied?: boolean
           bouwfonds?: number
           created_at?: string
           description?: string | null
@@ -108,6 +110,7 @@ export type Database = {
         }
         Update: {
           aandeel_arts?: number
+          associatie_share_applied?: boolean
           bouwfonds?: number
           created_at?: string
           description?: string | null

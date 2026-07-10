@@ -200,7 +200,7 @@ export default function RecordsPage() {
     if (!user) return;
     setCompareOpen(true);
     setCompareLoading(true);
-    // Onafhankelijke fetch (dashboard-stijl): alle records, daarna applyShare + dezelfde filters.
+    // Onafhankelijke fetch (dashboard-stijl): alle records, daarna dezelfde filters.
     const { data, error } = await supabase
       .from('income_records')
       .select('id, month, year, income_type, netto')

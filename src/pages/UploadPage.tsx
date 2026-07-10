@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, Loader2, Image, Activity, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ExtractedDataReview } from '@/components/ExtractedDataReview';
-import { applyShare, ASSOCIATIE_SHARE, type IncomeType } from '@/lib/incomeTypes';
+import { type IncomeType } from '@/lib/incomeTypes';
 import { IMAGE_UPLOAD_RULES, validateFileForUpload } from '@/lib/fileValidation';
 
 export interface ExtractedRecord {
@@ -235,8 +235,8 @@ export default function UploadPage() {
         }
       }
 
-      // Bedragen worden 1-op-1 uit de screenshot bewaard — niet herberekenen.
-      // Voor 'associatie' bewaren we het volledige poolbedrag (niet halveren).
+      // Bedragen worden 1-op-1 uit de screenshot doorgestuurd.
+      // Voor 'associatie' zet de database dit automatisch om naar het 50%-aandeel.
       const insertData = records.map((rec: any) => {
         const clean: any = { user_id: user.id };
         for (const [k, v] of Object.entries(rec)) {
@@ -326,13 +326,13 @@ export default function UploadPage() {
               <Users className={`h-5 w-5 ${incomeType === 'associatie' ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
               <div className="text-left">
                 <p className={`font-medium ${incomeType === 'associatie' ? 'text-foreground' : 'text-muted-foreground'}`}>Associatie</p>
-                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — volledig poolbedrag</p>
+                <p className="text-xs text-muted-foreground">Gepoold met dr. Schrevens — 50% eigen aandeel</p>
               </div>
             </button>
           </div>
           {incomeType === 'associatie' && (
             <p className="mt-3 text-xs text-muted-foreground rounded-md border border-border/50 bg-muted/30 p-2">
-              Bedragen uit deze upload worden 1-op-1 opgeslagen (volledig poolbedrag, niet gehalveerd).
+              Bedragen uit deze upload worden bij opslaan automatisch naar 50% eigen aandeel omgerekend.
             </p>
           )}
         </CardContent>

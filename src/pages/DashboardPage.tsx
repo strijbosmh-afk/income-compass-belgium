@@ -68,7 +68,7 @@ export default function DashboardPage() {
       supabase.from('nomenclature_codes').select('code, category, description').eq('user_id', user.id),
       supabase.from('income_records').select('year').eq('user_id', user.id),
     ]).then(([recRes, nomRes, yearsRes]) => {
-      // Associatie-records worden bij weergave gehalveerd: dr. Schrevens-pool wordt 50/50 verdeeld.
+      // Associatie-records zijn bij bewaren al genormaliseerd naar 50% eigen aandeel.
       setRecords((recRes.data || []).map((r: any) => applyShare(r)));
       setNomenclatureCodes(nomRes.data || []);
       setAvailableYears([...new Set((yearsRes.data || []).map((r) => r.year))].sort((a, b) => b - a));
