@@ -67,7 +67,7 @@ export default function StatisticsPage() {
         .eq('user_id', user.id),
       supabase.from('income_records').select('year').eq('user_id', user.id),
     ]).then(([r1, r2, yearsRes]) => {
-      // Associatie wordt gehalveerd voor weergave (50% eigen aandeel uit dr. Schrevens-pool).
+      // Associatie-records zijn bij bewaren al genormaliseerd naar 50% eigen aandeel.
       setRecords(((r1.data as any[]) || []).map((r) => applyShare(r)));
       setNomenclature((r2.data as any) || []);
       setAvailableYears([...new Set((yearsRes.data || []).map((r) => r.year))].sort((a, b) => b - a));
