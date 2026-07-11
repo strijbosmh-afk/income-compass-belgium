@@ -257,7 +257,7 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       totalEnd: Number(lastRow?.__total || 0),
       perSymbolStats: stats,
     };
-  }, [series, investable, intraday, fxRates]);
+  }, [series, investable, intraday, fxRates, range]);
 
   const totalChange = totalEnd - totalStart;
   const totalChangePct = totalStart > 0 ? (totalChange / totalStart) * 100 : 0;
