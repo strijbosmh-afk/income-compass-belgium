@@ -239,26 +239,33 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       timeline = [from, to];
     }
 
-    // Per-symbol forward-fill map, seeded with cost price so early points are filled
-    const filled: Record<string, Map<number, number>> = {};
-    for (const sym of bySymbol.keys()) {
+    // Per-symbol forward-fill: store EUR value per symbol per timestamp.
+    // Market close is converted using the market currency (returned by Yahoo).
+    const filledEur: Record<string, Map<number, number>> = {};
+    for (const [sym, holdings] of bySymbol) {
       const s = series[sym];
-      const byTs = new Map<number, number>();
+      const marketCcy = (s?.currency || '').toUpperCase();
+      const totalQty = holdings.reduce((sum, h) => sum + h.quantity, 0);
+      const byTsEur = new Map<number, number>();
       if (s) {
         s.t.forEach((ts, i) => {
           const v = s.c[i];
-          if (typeof v === 'number' && Number.isFinite(v) && v > 0) byTs.set(ts, v);
+          if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+            // Convert market price to EUR using detected market currency.
+            const priceEur = marketCcy ? toEur(v, marketCcy) : v;
+            byTsEur.set(ts, priceEur * totalQty);
+          }
         });
       }
       const out = new Map<number, number>();
-      // Seed with cost price so timestamps before first market tick still get a value
-      let last = avgCostPrice.get(sym)?.price || 0;
+      // Seed with cost baseline (already EUR) so ticks before first market data still render.
+      let last = baselineEur.get(sym) || 0;
       for (const ts of timeline) {
-        const v = byTs.get(ts);
+        const v = byTsEur.get(ts);
         if (v !== undefined) last = v;
         if (last > 0) out.set(ts, last);
       }
-      filled[sym] = out;
+      filledEur[sym] = out;
     }
 
     const rows: Point[] = timeline.map((ts) => {
@@ -267,17 +274,8 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
         : new Date(ts * 1000).toISOString().slice(0, 10);
       const row: Point = { date: dateKey } as Point;
       let total = 0;
-      for (const [sym, holdings] of bySymbol) {
-        const close = filled[sym]?.get(ts);
-        let symValue = 0;
-        if (close && close > 0) {
-          for (const h of holdings) {
-            symValue += toEur(h.quantity * close, h.currency);
-          }
-        } else {
-          // Ultimate fallback: cost baseline from Bolero snapshot
-          symValue = baselineEur.get(sym) || 0;
-        }
+      for (const sym of bySymbol.keys()) {
+        const symValue = filledEur[sym]?.get(ts) ?? (baselineEur.get(sym) || 0);
         if (symValue > 0) {
           row[sym] = symValue;
           total += symValue;
