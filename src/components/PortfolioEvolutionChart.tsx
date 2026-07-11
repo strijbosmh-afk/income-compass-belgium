@@ -159,39 +159,63 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
   const intraday = range === '1D' || range === '1W';
 
   const { chartData, totalStart, totalEnd, perSymbolStats } = useMemo(() => {
+    const bySymbol = new Map<string, EvolutionAsset[]>();
+    for (const a of investable) {
+      const arr = bySymbol.get(a.symbol) || [];
+      arr.push(a);
+      bySymbol.set(a.symbol, arr);
+    }
+
+    // Baseline (cost) value per symbol in EUR — from Bolero snapshot
+    const baselineEur = new Map<string, number>();
+    // Weighted avg cost price per symbol (in symbol currency) — for pre-market fallback
+    const avgCostPrice = new Map<string, { price: number; currency: string }>();
+    for (const [sym, holdings] of bySymbol) {
+      let cost = 0;
+      let qty = 0;
+      let currency = holdings[0]?.currency || 'EUR';
+      for (const h of holdings) {
+        cost += toEur(h.quantity * h.purchase_price, h.currency);
+        qty += h.quantity;
+      }
+      baselineEur.set(sym, cost);
+      const totalCostSymCur = holdings.reduce((s, h) => s + h.quantity * h.purchase_price, 0);
+      avgCostPrice.set(sym, { price: qty > 0 ? totalCostSymCur / qty : 0, currency });
+    }
+
     // Union of all timestamps
     const allTs = new Set<number>();
     for (const s of Object.values(series)) {
       s.t.forEach((ts) => allTs.add(ts));
     }
-    const timeline = [...allTs].sort((a, b) => a - b);
+    let timeline = [...allTs].sort((a, b) => a - b);
+
+    // If no market data at all: synthesize a flat baseline over the selected range
     if (timeline.length === 0) {
-      return { chartData: [] as Point[], totalStart: 0, totalEnd: 0, perSymbolStats: {} as Record<string, { start: number; end: number }> };
+      const { from, to } = getRange(range);
+      timeline = [from, to];
     }
 
-    // Per-symbol forward-fill map
+    // Per-symbol forward-fill map, seeded with cost price so early points are filled
     const filled: Record<string, Map<number, number>> = {};
-    for (const [sym, s] of Object.entries(series)) {
+    for (const sym of bySymbol.keys()) {
+      const s = series[sym];
       const byTs = new Map<number, number>();
-      s.t.forEach((ts, i) => {
-        const v = s.c[i];
-        if (typeof v === 'number' && Number.isFinite(v) && v > 0) byTs.set(ts, v);
-      });
+      if (s) {
+        s.t.forEach((ts, i) => {
+          const v = s.c[i];
+          if (typeof v === 'number' && Number.isFinite(v) && v > 0) byTs.set(ts, v);
+        });
+      }
       const out = new Map<number, number>();
-      let last = 0;
+      // Seed with cost price so timestamps before first market tick still get a value
+      let last = avgCostPrice.get(sym)?.price || 0;
       for (const ts of timeline) {
         const v = byTs.get(ts);
         if (v !== undefined) last = v;
         if (last > 0) out.set(ts, last);
       }
       filled[sym] = out;
-    }
-
-    const bySymbol = new Map<string, EvolutionAsset[]>();
-    for (const a of investable) {
-      const arr = bySymbol.get(a.symbol) || [];
-      arr.push(a);
-      bySymbol.set(a.symbol, arr);
     }
 
     const rows: Point[] = timeline.map((ts) => {
@@ -202,11 +226,14 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       let total = 0;
       for (const [sym, holdings] of bySymbol) {
         const close = filled[sym]?.get(ts);
-        if (!close) continue;
         let symValue = 0;
-        for (const h of holdings) {
-          const raw = h.quantity * close;
-          symValue += toEur(raw, h.currency);
+        if (close && close > 0) {
+          for (const h of holdings) {
+            symValue += toEur(h.quantity * close, h.currency);
+          }
+        } else {
+          // Ultimate fallback: cost baseline from Bolero snapshot
+          symValue = baselineEur.get(sym) || 0;
         }
         if (symValue > 0) {
           row[sym] = symValue;
