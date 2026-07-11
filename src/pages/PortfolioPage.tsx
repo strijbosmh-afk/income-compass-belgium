@@ -321,16 +321,25 @@ export default function PortfolioPage() {
     const groups = new Map<string, { cost: number; value: number; gain: number }>();
     for (const asset of analysisAssets) {
       if (isCashAsset(asset)) continue;
-      const quote = quotes[asset.symbol]?.quote;
+      const quoteEntry = quotes[asset.symbol];
+      const quote = quoteEntry?.quote;
       const livePrice = Number(quote?.c || 0);
       const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
-      const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
+      const hasLive = livePrice > 0;
+      const currentPrice = hasLive ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
+      // Cost is stored in the asset's own currency; live value is in the quote's currency (can differ, e.g. USD-listed ETF).
+      const valueCurrency = (hasLive ? (quoteEntry?.profile?.currency || asset.currency) : asset.currency).toUpperCase();
+      const costCurrency = (asset.currency || 'EUR').toUpperCase();
       const cost = asset.quantity * asset.purchase_price;
       const value = currentPrice > 0 ? asset.quantity * currentPrice : 0;
-      const prev = groups.get(asset.currency) || { cost: 0, value: 0, gain: 0 };
-      groups.set(asset.currency, { cost: prev.cost + cost, value: prev.value + value, gain: prev.gain + value - cost });
+      const costPrev = groups.get(costCurrency) || { cost: 0, value: 0, gain: 0 };
+      groups.set(costCurrency, { ...costPrev, cost: costPrev.cost + cost });
+      if (value > 0) {
+        const valPrev = groups.get(valueCurrency) || { cost: 0, value: 0, gain: 0 };
+        groups.set(valueCurrency, { ...valPrev, value: valPrev.value + value });
+      }
     }
-    return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals }));
+    return Array.from(groups.entries()).map(([currency, totals]) => ({ currency, ...totals, gain: totals.value - totals.cost }));
   }, [analysisAssets, quotes]);
 
   const eurTotals = useMemo(() => {
