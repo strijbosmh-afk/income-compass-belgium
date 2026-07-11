@@ -41,7 +41,7 @@ serve(async (req) => {
         throw new HttpError("Invalid candle range", 400);
       }
       const interval = String(body.interval || "1d");
-      const data = await yahooCandles(symbol, Math.floor(from), Math.floor(to), interval);
+      const data = await candlesWithFallback(token, symbol, Math.floor(from), Math.floor(to), interval);
       return json(data);
     }
 
