@@ -881,8 +881,10 @@ export default function PortfolioPage() {
               <strong>{money(eurTotals.cost, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Op datum</span>
-              <strong>{money(eurValueAtDate, 'EUR')}</strong>
+              <span>Resultaat</span>
+              <strong className={eurTotals.gain >= 0 ? 'text-emerald-200' : 'text-red-200'}>
+                {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
+              </strong>
             </div>
             <div className="dashboard-hero-pill">
               <span>Posities</span>
