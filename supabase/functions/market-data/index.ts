@@ -259,27 +259,28 @@ async function yahooCandles(symbol: string, from: number, to: number, interval =
       },
     });
   } catch (_error) {
-    return { s: "no_data", t: [], c: [] };
+    return { s: "no_data", t: [], c: [], currency: "" };
   }
 
   if (!response.ok) {
     await response.body?.cancel();
-    return { s: "no_data", t: [], c: [] };
+    return { s: "no_data", t: [], c: [], currency: "" };
   }
 
   let payload: any;
   try {
     payload = await response.json();
   } catch (_error) {
-    return { s: "no_data", t: [], c: [] };
+    return { s: "no_data", t: [], c: [], currency: "" };
   }
 
   const result = payload?.chart?.result?.[0];
   const timestamps: number[] | undefined = result?.timestamp;
   const closes: (number | null)[] | undefined = result?.indicators?.quote?.[0]?.close;
+  const currency = String(result?.meta?.currency || "").toUpperCase();
 
   if (!Array.isArray(timestamps) || !Array.isArray(closes) || timestamps.length === 0) {
-    return { s: "no_data", t: [], c: [] };
+    return { s: "no_data", t: [], c: [], currency };
   }
 
   const t: number[] = [];
@@ -292,8 +293,8 @@ async function yahooCandles(symbol: string, from: number, to: number, interval =
     }
   }
 
-  if (t.length === 0) return { s: "no_data", t: [], c: [] };
-  return { s: "ok", t, c };
+  if (t.length === 0) return { s: "no_data", t: [], c: [], currency };
+  return { s: "ok", t, c, currency };
 }
 
 
