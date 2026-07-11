@@ -38,7 +38,7 @@ const SERIES_COLORS = [
   '#14b8a6', '#eab308',
 ];
 
-type CandleResp = { s: string; t?: number[]; c?: number[] };
+type CandleResp = { s: string; t?: number[]; c?: number[]; currency?: string };
 
 type Point = { date: string } & Record<string, number>;
 
@@ -97,7 +97,7 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
   const [range, setRange] = useState<RangeKey>('1M');
   const [mode, setMode] = useState<'total' | 'positions'>('total');
   const [loading, setLoading] = useState(false);
-  const [series, setSeries] = useState<Record<string, { t: number[]; c: number[] }>>({});
+  const [series, setSeries] = useState<Record<string, { t: number[]; c: number[]; currency: string }>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const investable = useMemo(
@@ -142,15 +142,18 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
             body: { action: 'candles', symbol, from, to, interval },
           });
           const resp = data as CandleResp | undefined;
-          if (!resp || resp.s !== 'ok' || !resp.t || !resp.c) return { symbol, t: [] as number[], c: [] as number[] };
-          return { symbol, t: resp.t, c: resp.c };
+          if (!resp || resp.s !== 'ok' || !resp.t || !resp.c) {
+            return { symbol, t: [] as number[], c: [] as number[], currency: '' };
+          }
+          return { symbol, t: resp.t, c: resp.c, currency: String(resp.currency || '').toUpperCase() };
         }),
       );
 
-      // 2) Stored snapshots (refreshed 6x/day) — merged in to fill gaps
+      // 2) Stored snapshots (refreshed 6x/day) — merged in to fill gaps.
+      //    Snapshots are stored in native currency (price) with a price_eur column.
       const { data: snaps } = await supabase
         .from('portfolio_price_snapshots')
-        .select('symbol, snapshot_at, price')
+        .select('symbol, snapshot_at, price, currency')
         .in('symbol', symbols)
         .gte('snapshot_at', new Date(from * 1000).toISOString())
         .lte('snapshot_at', new Date(to * 1000).toISOString())
@@ -158,34 +161,33 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
 
       if (cancelled) return;
 
-      const map: Record<string, { t: number[]; c: number[] }> = {};
-      candleResults.forEach((r) => (map[r.symbol] = { t: [...r.t], c: [...r.c] }));
+      const map: Record<string, { t: number[]; c: number[]; currency: string }> = {};
+      candleResults.forEach((r) => (map[r.symbol] = { t: [...r.t], c: [...r.c], currency: r.currency }));
 
-      // Merge snapshot rows per symbol (dedupe by ts, prefer existing candle value)
-      const snapBySym = new Map<string, Array<{ ts: number; price: number }>>();
+      const snapBySym = new Map<string, Array<{ ts: number; price: number; currency: string }>>();
       for (const row of snaps || []) {
         const sym = String(row.symbol).toUpperCase();
         const ts = Math.floor(new Date(row.snapshot_at as string).getTime() / 1000);
         const price = Number(row.price);
         if (!Number.isFinite(price) || price <= 0) continue;
         const arr = snapBySym.get(sym) || [];
-        arr.push({ ts, price });
+        arr.push({ ts, price, currency: String((row as { currency?: string }).currency || '').toUpperCase() });
         snapBySym.set(sym, arr);
       }
 
       for (const sym of symbols) {
-        const existing = map[sym] || { t: [], c: [] };
+        const existing = map[sym] || { t: [], c: [], currency: '' };
         const known = new Set(existing.t);
         const extra = snapBySym.get(sym) || [];
-        for (const { ts, price } of extra) {
+        for (const { ts, price, currency } of extra) {
+          if (!existing.currency && currency) existing.currency = currency;
           if (known.has(ts)) continue;
           existing.t.push(ts);
           existing.c.push(price);
           known.add(ts);
         }
-        // sort chronologically
         const zipped = existing.t.map((t, i) => ({ t, c: existing.c[i] })).sort((a, b) => a.t - b.t);
-        map[sym] = { t: zipped.map((z) => z.t), c: zipped.map((z) => z.c) };
+        map[sym] = { t: zipped.map((z) => z.t), c: zipped.map((z) => z.c), currency: existing.currency };
       }
 
       setSeries(map);
@@ -237,26 +239,33 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       timeline = [from, to];
     }
 
-    // Per-symbol forward-fill map, seeded with cost price so early points are filled
-    const filled: Record<string, Map<number, number>> = {};
-    for (const sym of bySymbol.keys()) {
+    // Per-symbol forward-fill: store EUR value per symbol per timestamp.
+    // Market close is converted using the market currency (returned by Yahoo).
+    const filledEur: Record<string, Map<number, number>> = {};
+    for (const [sym, holdings] of bySymbol) {
       const s = series[sym];
-      const byTs = new Map<number, number>();
+      const marketCcy = (s?.currency || '').toUpperCase();
+      const totalQty = holdings.reduce((sum, h) => sum + h.quantity, 0);
+      const byTsEur = new Map<number, number>();
       if (s) {
         s.t.forEach((ts, i) => {
           const v = s.c[i];
-          if (typeof v === 'number' && Number.isFinite(v) && v > 0) byTs.set(ts, v);
+          if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+            // Convert market price to EUR using detected market currency.
+            const priceEur = marketCcy ? toEur(v, marketCcy) : v;
+            byTsEur.set(ts, priceEur * totalQty);
+          }
         });
       }
       const out = new Map<number, number>();
-      // Seed with cost price so timestamps before first market tick still get a value
-      let last = avgCostPrice.get(sym)?.price || 0;
+      // Seed with cost baseline (already EUR) so ticks before first market data still render.
+      let last = baselineEur.get(sym) || 0;
       for (const ts of timeline) {
-        const v = byTs.get(ts);
+        const v = byTsEur.get(ts);
         if (v !== undefined) last = v;
         if (last > 0) out.set(ts, last);
       }
-      filled[sym] = out;
+      filledEur[sym] = out;
     }
 
     const rows: Point[] = timeline.map((ts) => {
@@ -265,17 +274,8 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
         : new Date(ts * 1000).toISOString().slice(0, 10);
       const row: Point = { date: dateKey } as Point;
       let total = 0;
-      for (const [sym, holdings] of bySymbol) {
-        const close = filled[sym]?.get(ts);
-        let symValue = 0;
-        if (close && close > 0) {
-          for (const h of holdings) {
-            symValue += toEur(h.quantity * close, h.currency);
-          }
-        } else {
-          // Ultimate fallback: cost baseline from Bolero snapshot
-          symValue = baselineEur.get(sym) || 0;
-        }
+      for (const sym of bySymbol.keys()) {
+        const symValue = filledEur[sym]?.get(ts) ?? (baselineEur.get(sym) || 0);
         if (symValue > 0) {
           row[sym] = symValue;
           total += symValue;
