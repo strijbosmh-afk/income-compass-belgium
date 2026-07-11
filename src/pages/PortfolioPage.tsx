@@ -1144,6 +1144,8 @@ export default function PortfolioPage() {
         </TabsContent>
       </Tabs>
 
+      <PortfolioEvolutionChart assets={analysisAssets} fxRates={fxRates} />
+
       <Card className="data-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
