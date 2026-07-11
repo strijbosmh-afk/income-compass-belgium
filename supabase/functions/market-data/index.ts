@@ -297,6 +297,27 @@ async function yahooCandles(symbol: string, from: number, to: number, interval =
 }
 
 
+async function candlesWithFallback(token: string, symbol: string, from: number, to: number, interval: string) {
+  const direct = await yahooCandles(symbol, from, to, interval);
+  if (direct.s === "ok" && direct.t.length > 0) return { ...direct, resolvedSymbol: symbol };
+
+  // Try to resolve via Finnhub search (ISIN, or ambiguous ticker)
+  const search = await finnhub(token, "/search", { q: symbol }).catch(() => ({ result: [] }));
+  const candidates = ((search.result || []) as Array<{ symbol?: string; displaySymbol?: string }>)
+    .flatMap((item) => [item.symbol, item.displaySymbol])
+    .map((item) => String(item || "").trim())
+    .filter((item) => item && item.toUpperCase() !== symbol);
+
+  for (const candidate of [...new Set(candidates)].slice(0, 8)) {
+    const resolved = await yahooCandles(candidate, from, to, interval);
+    if (resolved.s === "ok" && resolved.t.length > 0) {
+      return { ...resolved, resolvedSymbol: candidate };
+    }
+  }
+  return { ...direct, resolvedSymbol: symbol };
+}
+
+
 function normalizeSymbols(value: unknown) {
   if (!Array.isArray(value)) throw new HttpError("Symbols must be an array", 400);
   const symbols = [...new Set(value.map((item) => String(item || "").trim().toUpperCase()).filter(Boolean))];
