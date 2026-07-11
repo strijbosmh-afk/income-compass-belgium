@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Activity, AlertTriangle, BarChart3, Building2, Clock3, ExternalLink, FileSpreadsheet, Flame, Landmark, Loader2, Pencil, PieChart as PieIcon, Plus, RefreshCw, Search, ShieldCheck, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
+import { PortfolioEvolutionChart } from '@/components/PortfolioEvolutionChart';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
 type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
