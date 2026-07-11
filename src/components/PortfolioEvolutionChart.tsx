@@ -91,9 +91,11 @@ function fmtDate(d: string, intraday: boolean) {
 type Props = {
   assets: EvolutionAsset[];
   fxRates: Record<string, number>;
+  currentValueEur?: number;
+  currentValuesBySymbolEur?: Record<string, number>;
 };
 
-export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
+export function PortfolioEvolutionChart({ assets, fxRates, currentValueEur = 0, currentValuesBySymbolEur = {} }: Props) {
   const [range, setRange] = useState<RangeKey>('1M');
   const [mode, setMode] = useState<'total' | 'positions'>('total');
   const [loading, setLoading] = useState(false);
@@ -232,6 +234,9 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       s.t.forEach((ts) => allTs.add(ts));
     }
     let timeline = [...allTs].sort((a, b) => a - b);
+    const nowTs = Math.floor(Date.now() / 1000);
+    if (currentValueEur > 0) allTs.add(nowTs);
+    timeline = [...allTs].sort((a, b) => a - b);
 
     // If no market data at all: synthesize a flat baseline over the selected range
     if (timeline.length === 0) {
@@ -257,6 +262,8 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
           }
         });
       }
+      const currentSymValue = Number(currentValuesBySymbolEur[sym] || 0);
+      if (currentSymValue > 0) byTsEur.set(nowTs, currentSymValue);
       const out = new Map<number, number>();
       // Seed with cost baseline (already EUR) so ticks before first market data still render.
       let last = baselineEur.get(sym) || 0;
@@ -285,6 +292,10 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       return row;
     });
 
+    if (currentValueEur > 0 && rows.length > 0) {
+      rows[rows.length - 1].__total = currentValueEur;
+    }
+
     const firstRow = rows[0];
     const lastRow = rows[rows.length - 1];
     const stats: Record<string, { start: number; end: number }> = {};
@@ -298,7 +309,7 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
       totalEnd: Number(lastRow?.__total || 0),
       perSymbolStats: stats,
     };
-  }, [series, investable, intraday, fxRates, range]);
+  }, [series, investable, intraday, fxRates, range, currentValueEur, currentValuesBySymbolEur]);
 
   const totalChange = totalEnd - totalStart;
   const totalChangePct = totalStart > 0 ? (totalChange / totalStart) * 100 : 0;
