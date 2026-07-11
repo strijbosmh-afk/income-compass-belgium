@@ -38,7 +38,7 @@ const SERIES_COLORS = [
   '#14b8a6', '#eab308',
 ];
 
-type CandleResp = { s: string; t?: number[]; c?: number[] };
+type CandleResp = { s: string; t?: number[]; c?: number[]; currency?: string };
 
 type Point = { date: string } & Record<string, number>;
 
