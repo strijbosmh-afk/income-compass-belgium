@@ -142,15 +142,18 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
             body: { action: 'candles', symbol, from, to, interval },
           });
           const resp = data as CandleResp | undefined;
-          if (!resp || resp.s !== 'ok' || !resp.t || !resp.c) return { symbol, t: [] as number[], c: [] as number[] };
-          return { symbol, t: resp.t, c: resp.c };
+          if (!resp || resp.s !== 'ok' || !resp.t || !resp.c) {
+            return { symbol, t: [] as number[], c: [] as number[], currency: '' };
+          }
+          return { symbol, t: resp.t, c: resp.c, currency: String(resp.currency || '').toUpperCase() };
         }),
       );
 
-      // 2) Stored snapshots (refreshed 6x/day) — merged in to fill gaps
+      // 2) Stored snapshots (refreshed 6x/day) — merged in to fill gaps.
+      //    Snapshots are stored in native currency (price) with a price_eur column.
       const { data: snaps } = await supabase
         .from('portfolio_price_snapshots')
-        .select('symbol, snapshot_at, price')
+        .select('symbol, snapshot_at, price, currency')
         .in('symbol', symbols)
         .gte('snapshot_at', new Date(from * 1000).toISOString())
         .lte('snapshot_at', new Date(to * 1000).toISOString())
@@ -158,34 +161,33 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
 
       if (cancelled) return;
 
-      const map: Record<string, { t: number[]; c: number[] }> = {};
-      candleResults.forEach((r) => (map[r.symbol] = { t: [...r.t], c: [...r.c] }));
+      const map: Record<string, { t: number[]; c: number[]; currency: string }> = {};
+      candleResults.forEach((r) => (map[r.symbol] = { t: [...r.t], c: [...r.c], currency: r.currency }));
 
-      // Merge snapshot rows per symbol (dedupe by ts, prefer existing candle value)
-      const snapBySym = new Map<string, Array<{ ts: number; price: number }>>();
+      const snapBySym = new Map<string, Array<{ ts: number; price: number; currency: string }>>();
       for (const row of snaps || []) {
         const sym = String(row.symbol).toUpperCase();
         const ts = Math.floor(new Date(row.snapshot_at as string).getTime() / 1000);
         const price = Number(row.price);
         if (!Number.isFinite(price) || price <= 0) continue;
         const arr = snapBySym.get(sym) || [];
-        arr.push({ ts, price });
+        arr.push({ ts, price, currency: String((row as { currency?: string }).currency || '').toUpperCase() });
         snapBySym.set(sym, arr);
       }
 
       for (const sym of symbols) {
-        const existing = map[sym] || { t: [], c: [] };
+        const existing = map[sym] || { t: [], c: [], currency: '' };
         const known = new Set(existing.t);
         const extra = snapBySym.get(sym) || [];
-        for (const { ts, price } of extra) {
+        for (const { ts, price, currency } of extra) {
+          if (!existing.currency && currency) existing.currency = currency;
           if (known.has(ts)) continue;
           existing.t.push(ts);
           existing.c.push(price);
           known.add(ts);
         }
-        // sort chronologically
         const zipped = existing.t.map((t, i) => ({ t, c: existing.c[i] })).sort((a, b) => a.t - b.t);
-        map[sym] = { t: zipped.map((z) => z.t), c: zipped.map((z) => z.c) };
+        map[sym] = { t: zipped.map((z) => z.t), c: zipped.map((z) => z.c), currency: existing.currency };
       }
 
       setSeries(map);
