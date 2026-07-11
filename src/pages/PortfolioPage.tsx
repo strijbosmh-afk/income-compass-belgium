@@ -418,6 +418,16 @@ export default function PortfolioPage() {
     };
   }), [analysisAssets, quotes, eurTotals.value, toEur]);
 
+  const currentValuesBySymbolEur = useMemo(() => {
+    const values: Record<string, number> = {};
+    for (const row of portfolioRows) {
+      if (isCashAsset(row.asset) || row.currentValue <= 0) continue;
+      const symbol = row.asset.symbol.toUpperCase();
+      values[symbol] = (values[symbol] || 0) + toEur(row.currentValue, row.quoteCurrency);
+    }
+    return values;
+  }, [portfolioRows, toEur]);
+
   const valueAtDate = useMemo(() => {
     if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
     const eligibleHistory = history.filter((point) => point.date <= valuationDate);
@@ -1155,7 +1165,12 @@ export default function PortfolioPage() {
         </TabsContent>
       </Tabs>
 
-      <PortfolioEvolutionChart assets={analysisAssets} fxRates={fxRates} />
+      <PortfolioEvolutionChart
+        assets={analysisAssets}
+        fxRates={fxRates}
+        currentValueEur={eurTotals.value}
+        currentValuesBySymbolEur={currentValuesBySymbolEur}
+      />
 
       <Card className="data-card">
         <CardHeader className="flex flex-row items-center justify-between">
