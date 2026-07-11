@@ -97,7 +97,7 @@ export function PortfolioEvolutionChart({ assets, fxRates }: Props) {
   const [range, setRange] = useState<RangeKey>('1M');
   const [mode, setMode] = useState<'total' | 'positions'>('total');
   const [loading, setLoading] = useState(false);
-  const [series, setSeries] = useState<Record<string, { t: number[]; c: number[] }>>({});
+  const [series, setSeries] = useState<Record<string, { t: number[]; c: number[]; currency: string }>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const investable = useMemo(
