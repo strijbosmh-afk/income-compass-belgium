@@ -362,6 +362,39 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_price_snapshots: {
+        Row: {
+          created_at: string
+          currency: string | null
+          id: string
+          price: number
+          price_eur: number | null
+          resolved_symbol: string | null
+          snapshot_at: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          id?: string
+          price: number
+          price_eur?: number | null
+          resolved_symbol?: string | null
+          snapshot_at?: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          id?: string
+          price?: number
+          price_eur?: number | null
+          resolved_symbol?: string | null
+          snapshot_at?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
       vapz_records: {
         Row: {
           created_at: string
