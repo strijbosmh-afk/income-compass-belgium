@@ -24,8 +24,8 @@ import {
 
 const incomePrimary = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
-  { title: 'Uploaden', url: '/upload', icon: Upload },
   { title: 'Overzicht', url: '/records', icon: FileText },
+  { title: 'Uploaden', url: '/upload', icon: Upload },
 ];
 
 const incomeSecondary = [
@@ -38,9 +38,9 @@ const incomeSecondary = [
 
 const pensionItems = [
   { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
-  { title: 'Uploaden', url: '/pensioen/upload', icon: Upload },
   { title: 'Snapshots', url: '/pensioen/overzicht', icon: FileText },
   { title: 'Dashboard', url: '/pensioen/dashboard', icon: BarChart3 },
+  { title: 'Uploaden', url: '/pensioen/upload', icon: Upload },
 ];
 
 const wealthItems = [

@@ -13,16 +13,16 @@ type TabItem = {
 
 const incomeTabs: TabItem[] = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
-  { title: 'Uploaden', url: '/upload', icon: Upload },
   { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
+  { title: 'Uploaden', url: '/upload', icon: Upload },
 ];
 
 const pensionTabs: TabItem[] = [
   { title: 'Pensioen', url: '/pensioen', icon: PiggyBank, match: (pathname) => pathname === '/pensioen' },
-  { title: 'Upload', url: '/pensioen/upload', icon: Upload },
   { title: 'IPT', url: '/pensioen/upload-ipt', icon: Wallet },
   { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
+  { title: 'Upload', url: '/pensioen/upload', icon: Upload },
 ];
 
 const wealthTabs: TabItem[] = [
