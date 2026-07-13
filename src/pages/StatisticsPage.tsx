@@ -90,6 +90,36 @@ export default function StatisticsPage() {
       return { month: name, netto: mr.reduce((s, r) => s + r.netto, 0) };
     }), [yearFiltered]);
 
+  const monthlyTrendData = useMemo(() => {
+    const activeMonths = monthlyData
+      .map((month, idx) => ({ ...month, monthNumber: idx + 1 }))
+      .filter((month) => month.netto > 0);
+
+    if (activeMonths.length < 2) {
+      return monthlyData.map((month) => ({ ...month, trend: null as number | null }));
+    }
+
+    const xMean = activeMonths.reduce((sum, month) => sum + month.monthNumber, 0) / activeMonths.length;
+    const yMean = activeMonths.reduce((sum, month) => sum + month.netto, 0) / activeMonths.length;
+    const denominator = activeMonths.reduce((sum, month) => sum + (month.monthNumber - xMean) ** 2, 0);
+    const slope = denominator === 0
+      ? 0
+      : activeMonths.reduce((sum, month) => sum + (month.monthNumber - xMean) * (month.netto - yMean), 0) / denominator;
+    const intercept = yMean - slope * xMean;
+    const firstMonth = activeMonths[0].monthNumber;
+    const lastMonth = activeMonths[activeMonths.length - 1].monthNumber;
+
+    return monthlyData.map((month, idx) => {
+      const monthNumber = idx + 1;
+      return {
+        ...month,
+        trend: monthNumber >= firstMonth && monthNumber <= lastMonth
+          ? Math.max(0, slope * monthNumber + intercept)
+          : null,
+      };
+    });
+  }, [monthlyData]);
+
   // --- Statistics ---
   const statsData = useMemo(() => {
     const monthlyNetto = MONTHS.map((name, idx) => {
@@ -348,12 +378,14 @@ export default function StatisticsPage() {
                 <CardHeader><CardTitle className="text-base">Maandelijks Netto Verloop</CardTitle></CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={monthlyData}>
+                    <LineChart data={monthlyTrendData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 88%)" />
                       <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                       <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 46%)" />
                       <Tooltip formatter={(val: number) => fmt(val)} />
+                      <Legend />
                       <Line type="monotone" dataKey="netto" name="Netto" stroke="hsl(174, 50%, 40%)" strokeWidth={2.5} dot={{ r: 4, fill: 'hsl(174, 50%, 40%)' }} />
+                      <Line type="linear" dataKey="trend" name="Trendlijn" stroke="hsl(38, 92%, 50%)" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
