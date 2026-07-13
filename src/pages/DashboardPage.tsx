@@ -392,13 +392,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      <FinancialFutureScoreWidget />
-
-      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <YearForecastWidget year={parseInt(selectedYear)} monthlyData={monthlyData} previousYearTotal={previousYearNettoTotal} />
-        <SmartActionItemsWidget year={parseInt(selectedYear)} />
-      </div>
-
       {/* Statistieken */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
         <div className="stat-card">
@@ -445,6 +438,13 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <FinancialFutureScoreWidget />
+
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <YearForecastWidget year={parseInt(selectedYear)} monthlyData={monthlyData} previousYearTotal={previousYearNettoTotal} />
+        <SmartActionItemsWidget year={parseInt(selectedYear)} />
       </div>
 
       {/* Doelstellingen & Forecast */}
