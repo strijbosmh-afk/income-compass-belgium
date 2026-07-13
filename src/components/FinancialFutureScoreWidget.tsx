@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useDataVersion } from '@/hooks/useDataVersion';
 import { supabase } from '@/integrations/supabase/client';
 import { applyShare } from '@/lib/incomeTypes';
-import { Activity, BrainCircuit, PiggyBank, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { Activity, BrainCircuit, ChevronDown, PiggyBank, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
 
 type IncomeRow = {
   record_date: string;
@@ -41,6 +42,7 @@ export function FinancialFutureScoreWidget() {
   const [portfolioCost, setPortfolioCost] = useState(0);
   const [portfolioBuckets, setPortfolioBuckets] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -171,20 +173,35 @@ export function FinancialFutureScoreWidget() {
   return (
     <Card className="data-card overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <BrainCircuit className="h-4 w-4 text-primary" />
               Financiële toekomstscore
             </CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 hidden text-sm text-muted-foreground md:block">
               Indicatieve score op basis van inkomen, stabiliteit, pensioen, beleggingen en leeftijd.
             </p>
+            <p className="mt-1 text-xs text-muted-foreground md:hidden">
+              {result.score}/100 · {result.label.text}
+            </p>
           </div>
-          <Badge className={`${result.label.className} w-fit`}>{result.label.text}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={`${result.label.className} hidden w-fit md:inline-flex`}>{result.label.text}</Badge>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs md:hidden"
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              Details
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mobileOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={`${mobileOpen ? 'block' : 'hidden'} md:block`}>
         <div className="grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
           <div className="rounded-3xl border border-primary/15 bg-primary/5 p-5">
             <div className="flex items-end gap-2">
