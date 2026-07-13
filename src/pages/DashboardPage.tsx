@@ -348,8 +348,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <FinancialFutureScoreWidget />
-
       {/* Kort maandoverzicht: 12 blokken per maand */}
       <Card className="ios-card border-border/50">
         <CardHeader className="pb-3">
@@ -393,6 +391,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <FinancialFutureScoreWidget />
 
       <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <YearForecastWidget year={parseInt(selectedYear)} monthlyData={monthlyData} previousYearTotal={previousYearNettoTotal} />
