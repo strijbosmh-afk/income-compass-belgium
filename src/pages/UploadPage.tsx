@@ -176,36 +176,33 @@ export default function UploadPage() {
         return;
       }
 
-      // Uniciteits-guardrail: per upload mag elke (nomenclatuur_code + type) maar 1x voorkomen.
-      const dupMap = new Map<string, number[]>();
-      records.forEach((r, i) => {
+      // Structurele fix: bronrapporten splitsen dezelfde nomenclatuurcode per kostenplaats.
+      // We aggregeren automatisch per (code + type) i.p.v. te blokkeren — som van qty en bedragen.
+      const aggMap = new Map<string, ExtractedRecord>();
+      let mergedCount = 0;
+      for (const r of records) {
         const key = `${(r.nomenclature_code || '').trim()}__${r.income_type}`;
-        if (!dupMap.has(key)) dupMap.set(key, []);
-        dupMap.get(key)!.push(i + 1);
-      });
-      const dups = Array.from(dupMap.entries()).filter(([, idxs]) => idxs.length > 1);
-      if (dups.length > 0) {
-        const dupLines = dups.slice(0, 3).map(([key, idxs]) => {
-          const [code, type] = key.split('__');
-          const typeLabel = type === 'ambulatory' ? 'Amb' : type === 'hospitalized' ? 'Hosp' : 'Assoc';
-          return `• ${code} (${typeLabel}): rijen ${idxs.join(', ')}`;
-        });
-        const extra = dups.length > 3 ? `…en nog ${dups.length - 3} duplicaat(en).` : '';
+        const existing = aggMap.get(key);
+        if (!existing) {
+          aggMap.set(key, { ...r });
+        } else {
+          mergedCount++;
+          existing.quantity = (existing.quantity || 0) + (r.quantity || 0);
+          existing.total_amount = Math.round(((existing.total_amount || 0) + (r.total_amount || 0)) * 100) / 100;
+          existing.aandeel_arts = Math.round(((existing.aandeel_arts || 0) + (r.aandeel_arts || 0)) * 100) / 100;
+          existing.bouwfonds = Math.round(((existing.bouwfonds || 0) + (r.bouwfonds || 0)) * 100) / 100;
+          existing.mif = Math.round(((existing.mif || 0) + (r.mif || 0)) * 100) / 100;
+          existing.netto = Math.round(((existing.netto || 0) + (r.netto || 0)) * 100) / 100;
+          // unit_amount blijft ongewijzigd (zelfde code = zelfde tarief)
+        }
+      }
+      if (mergedCount > 0) {
+        records = Array.from(aggMap.values());
         toast({
-          title: `🚫 Opslaan geblokkeerd — ${dups.length} dubbele nomenclatuur(en)`,
-          description: (
-            <div className="space-y-1 whitespace-pre-line text-xs">
-              <p>Per upload mag elke nomenclatuurcode (per type) maar 1 keer voorkomen. Voeg de aantallen + bedragen samen tot 1 rij of verwijder de overtollige rij(en).</p>
-              <div className="font-mono">
-                {dupLines.map((l, i) => <div key={i}>{l}</div>)}
-                {extra && <div className="opacity-80">{extra}</div>}
-              </div>
-            </div>
-          ) as any,
-          variant: 'destructive',
-          duration: 12000,
+          title: `ℹ️ ${mergedCount} regel(s) samengevoegd`,
+          description: 'Dezelfde nomenclatuurcode kwam meerdere keren voor (verschillende kostenplaatsen). Aantallen en bedragen zijn opgeteld tot 1 rij per code.',
+          duration: 6000,
         });
-        return;
       }
       // Pre-check: bestaan er al records voor deze (maand + type + codes)?
       // Dit voorkomt dat dezelfde upload per ongeluk 2× wordt opgeslagen
