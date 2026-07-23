@@ -333,9 +333,9 @@ export default function PortfolioPage() {
       const quoteEntry = quotes[asset.symbol];
       const quote = quoteEntry?.quote;
       const livePrice = Number(quote?.c || 0);
-      const isBoleroSnapshot = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
+      const isBoleroSnapshot = isBoleroManagedAsset(asset);
       const hasLive = livePrice > 0;
-      const currentPrice = hasLive ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
+      const currentPrice = hasLive ? livePrice : (isBoleroSnapshot ? boleroImportedQuote(asset) : isCashAsset(asset) ? asset.purchase_price : 0);
       // Cost is stored in the asset's own currency; live value is in the quote's currency (can differ, e.g. USD-listed ETF).
       const valueCurrency = (hasLive ? (quoteEntry?.profile?.currency || asset.currency) : asset.currency).toUpperCase();
       const costCurrency = (asset.currency || 'EUR').toUpperCase();
@@ -372,9 +372,10 @@ export default function PortfolioPage() {
     const quote = quoteEntry?.quote;
     const profile = quoteEntry?.profile || {};
     const livePrice = Number(quote?.c || 0);
-    const boleroImported = Boolean(asset.notes?.includes('Bolero Expert snapshot'));
-    const isBoleroSnapshot = boleroImported && livePrice <= 0;
-    const currentPrice = livePrice > 0 ? livePrice : (isBoleroSnapshot || isCashAsset(asset) ? asset.purchase_price : 0);
+    const boleroImported = isBoleroManagedAsset(asset);
+    const isBoleroFallback = boleroImported && livePrice <= 0;
+    const isBoleroSnapshot = isBoleroFallback;
+    const currentPrice = livePrice > 0 ? livePrice : (isBoleroFallback ? boleroImportedQuote(asset) : isCashAsset(asset) ? asset.purchase_price : 0);
     const previousClose = Number(quote?.pc || 0);
     const cost = asset.quantity * asset.purchase_price;
     const currentValue = currentPrice > 0 ? asset.quantity * currentPrice : 0;
@@ -423,6 +424,7 @@ export default function PortfolioPage() {
       weekHigh,
       weekLow,
       boleroImported,
+      isBoleroFallback,
       isBoleroSnapshot,
     };
   }), [analysisAssets, quotes, eurTotals.value, toEur]);
@@ -516,7 +518,7 @@ export default function PortfolioPage() {
   const currencyData = useMemo(() => groupRows(investmentRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [investmentRows, toEur]);
   const regionData = useMemo(() => groupRows(investmentRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [investmentRows, toEur]);
   const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [investmentRows, toEur]);
-  const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroSnapshot).length, [investmentRows]);
+  const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroFallback).length, [investmentRows]);
   const snapshotQuoteCount = useMemo(() => investmentRows.filter((row) => row.isBoleroSnapshot).length, [investmentRows]);
   const nextRefreshLabel = useMemo(() => {
     if (!nextMarketRefresh) return 'Nog niet gepland';
@@ -537,14 +539,24 @@ export default function PortfolioPage() {
   async function loadAssets() {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from('portfolio_assets')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('purchase_date', { ascending: false });
+    const { data, error } = await loadPortfolioAssetsQuery(user.id);
     if (error) toast.error(error.message);
     else setAssets((data || []).map(normalizeAsset));
     setLoading(false);
+  }
+
+  async function loadPortfolioAssets(userId: string) {
+    const { data, error } = await loadPortfolioAssetsQuery(userId);
+    if (error) throw error;
+    return ((data || []) as PortfolioAsset[]).map(normalizeAsset);
+  }
+
+  function loadPortfolioAssetsQuery(userId: string) {
+    return (supabase as any)
+      .from('portfolio_assets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('purchase_date', { ascending: false });
   }
 
   async function searchSymbols(term: string) {
@@ -822,19 +834,42 @@ export default function PortfolioPage() {
         return;
       }
 
-      // Wis alle bestaande portfolio-posities bij een nieuwe import
-      const { error: deleteError } = await (supabase as any)
-        .from('portfolio_assets')
-        .delete()
-        .eq('user_id', user.id);
-      if (deleteError) throw deleteError;
+      const today = new Date().toISOString().slice(0, 10);
+      const currentAssets = await loadPortfolioAssets(user.id);
+      const matchIndex = buildBoleroMatchIndex(currentAssets);
+      let added = 0;
+      let updated = 0;
+      let cashSnapshots = 0;
 
-      const payload = positions.map((position) => boleroPositionToAsset(position, user.id, file.name));
-      const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
-      if (error) throw error;
+      for (const position of positions) {
+        const payload = boleroPositionToAsset(position, user.id, file.name, today);
+        if (isCashPayload(payload)) {
+          const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
+          if (error) throw error;
+          cashSnapshots++;
+          continue;
+        }
 
-      toast.success('Bolero-portefeuille geïmporteerd', {
-        description: `${payload.length} positie(s) als huidige snapshot geladen.`,
+        const match = findBoleroMatch(position, matchIndex);
+        if (match) {
+          const updatePayload = {
+            ...payload,
+            symbol: match.symbol,
+            purchase_date: match.purchase_date,
+            notes: mergeBoleroNotes(match.notes, payload.notes),
+          };
+          const { error } = await (supabase as any).from('portfolio_assets').update(updatePayload).eq('id', match.id);
+          if (error) throw error;
+          updated++;
+        } else {
+          const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
+          if (error) throw error;
+          added++;
+        }
+      }
+
+      toast.success('Bolero-import verwerkt', {
+        description: `${updated} bijgewerkt · ${added} toegevoegd · ${cashSnapshots} cashsnapshot(s).`,
       });
       await loadAssets();
       setChartCurrency('EUR');
@@ -858,7 +893,7 @@ export default function PortfolioPage() {
           <p className="text-muted-foreground mt-1">Cash, pensioen en beurs helder gesplitst met snelle trends.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
-              {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
+              {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Bolero fallback: ${snapshotQuoteCount}`}
             </Badge>
             <span>Laatst: {lastMarketRefresh ? lastMarketRefresh.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : 'nog niet'}</span>
             <span>Volgende refresh: {nextRefreshLabel}</span>
@@ -1199,7 +1234,7 @@ export default function PortfolioPage() {
                 <InfoTile title="TOB" text="Controleer per ETF/aandeel de juiste beurstaks. Belgische registratie kan sterk verschillen." />
                 <InfoTile title="Roerende voorheffing" text="Dividendposities kunnen Belgische RV en buitenlandse bronheffing hebben." />
                 <InfoTile title="Reynders-tax" text="Fondsen/ETF's met obligatiecomponent vragen extra controle bij verkoop." />
-                <InfoTile title="Brokerdata" text="Bolero-import is een snapshot. Live koersen hangen af van ticker/marktdata-herkenning." />
+                <InfoTile title="Brokerdata" text="Bolero-import werkt posities bij. Live koersen blijven leidend; alleen bij ontbrekende koers gebruiken we de laatste Bolero-waarde als fallback." />
               </CardContent>
             </Card>
           </div>
@@ -1212,8 +1247,8 @@ export default function PortfolioPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Startpunt is Bolero Expert `.xlsx`: bestaande Bolero snapshot-posities worden vervangen en als huidige posities ingeladen.
-                Andere brokers blijven voorlopig manueel of via latere CSV-mapping.
+                Bolero Expert `.xlsx` wordt nu gebruikt als onderhoudswizard: bestaande posities worden herkend op ISIN/ticker en bijgewerkt,
+                nieuwe posities worden toegevoegd en broker-cash komt apart onder Cash. De import wist je portfolio niet meer.
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => boleroInputRef.current?.click()} disabled={importingBolero}>
@@ -1394,7 +1429,7 @@ export default function PortfolioPage() {
                       <div className="mt-1 text-xs text-muted-foreground">{row.exchange || row.asset.mic || 'Beurs onbekend'} · {row.quoteCurrency}</div>
                       {row.boleroImported && (
                         <div className="mt-1 text-xs font-medium text-secondary">
-                          {row.isBoleroSnapshot ? 'Bolero snapshot' : `Bolero · live via ${quotes[row.asset.symbol]?.resolvedSymbol || row.asset.symbol}`}
+                          {row.isBoleroFallback ? 'Bolero fallbackwaarde' : `Bolero · live via ${quotes[row.asset.symbol]?.resolvedSymbol || row.asset.symbol}`}
                         </div>
                       )}
                     </TableCell>
@@ -1424,7 +1459,7 @@ export default function PortfolioPage() {
                     <TableCell className="min-w-52 text-right">
                       <div className="font-semibold">{row.currentPrice ? money(row.currentPrice, row.quoteCurrency) : '-'}</div>
                       <div className={`text-xs ${row.dayChange >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                        {row.currentPrice && !row.isBoleroSnapshot ? `${money(row.dayChangeAmount, row.quoteCurrency)} (${pct(row.dayChange)}) vandaag` : row.isBoleroSnapshot ? 'Waarde uit import' : 'Geen koers'}
+                        {row.currentPrice && !row.isBoleroFallback ? `${money(row.dayChangeAmount, row.quoteCurrency)} (${pct(row.dayChange)}) vandaag` : row.isBoleroFallback ? 'Laatste Bolero-waarde' : 'Geen koers'}
                       </div>
                       <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
                         <span>Open {row.open ? money(row.open, row.quoteCurrency) : '-'}</span>
@@ -1520,14 +1555,15 @@ function normalizeWealthSection(value: unknown): WealthSection {
   return wealthSections.includes(value as WealthSection) ? value as WealthSection : 'overview';
 }
 
-function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string) {
+function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string, importDate: string) {
   const isCash = position.type.toLowerCase().includes('cash');
   const cashAmount = position.eurValue || position.currentValue || position.purchaseValue;
   const quantity = isCash
     ? (cashAmount === 0 ? 0.01 : cashAmount)
     : Math.max(position.quantity, 0.0001);
-  const eurValue = Math.abs(position.eurValue || position.currentValue || position.purchaseValue);
-  const snapshotPrice = isCash ? 1 : eurValue / quantity;
+  const fallbackValue = Math.abs(position.currentValue || position.purchaseValue || position.eurValue);
+  const importedQuote = position.currentQuote > 0 ? position.currentQuote : (quantity > 0 ? fallbackValue / quantity : 0);
+  const purchasePrice = isCash ? 1 : (position.avgPrice > 0 ? position.avgPrice : importedQuote);
   const symbol = boleroSymbol(position);
   return {
     user_id: userId,
@@ -1536,22 +1572,105 @@ function boleroPositionToAsset(position: BoleroPosition, userId: string, fileNam
     asset_type: boleroAssetType(position.type),
     exchange: position.market || null,
     mic: null,
-    currency: 'EUR',
-    purchase_date: new Date().toISOString().slice(0, 10),
+    currency: isCash ? 'EUR' : (position.currency || 'EUR').toUpperCase(),
+    purchase_date: importDate,
     quantity,
-    purchase_price: snapshotPrice,
-    notes: `Bolero Expert snapshot ${fileName}; ${isCash && cashAmount < 0 ? 'debetstand; ' : ''}ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; rendement ${position.returnPct || 0}%; originele koers ${position.currentQuote || position.currentValue || 0}.`,
+    purchase_price: purchasePrice,
+    notes: isCash
+      ? `Broker cash snapshot Bolero; import=${importDate}; file=${fileName}; ${cashAmount < 0 ? 'debetstand; ' : ''}originele munt ${position.currency || 'EUR'}; actuele waarde EUR ${position.eurValue || cashAmount}.`
+      : `Bolero managed position; broker=Bolero; import=${importDate}; file=${fileName}; ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; originele koers ${importedQuote || 0}; actuele waarde ${position.currentValue || 0}; actuele waarde EUR ${position.eurValue || 0}; rendement ${position.returnPct || 0}%.`,
   };
 }
 
 function boleroSymbol(position: BoleroPosition) {
   if (position.isin) return position.isin.toUpperCase();
-  if (position.type.toLowerCase().includes('cash')) return `CASH-${position.currency || 'EUR'}`;
+  if (position.type.toLowerCase().includes('cash')) return `CASH-BOLERO-${(position.currency || 'EUR').toUpperCase()}`;
   return (position.name || 'BOLERO')
     .slice(0, 20)
     .replace(/[^A-Z0-9]+/gi, '_')
     .replace(/^_+|_+$/g, '')
     .toUpperCase();
+}
+
+function buildBoleroMatchIndex(assets: PortfolioAsset[]) {
+  const index = new Map<string, PortfolioAsset>();
+  for (const asset of assets) {
+    if (isCashAsset(asset)) continue;
+    for (const key of boleroAssetKeys(asset)) {
+      if (!index.has(key)) index.set(key, asset);
+    }
+  }
+  return index;
+}
+
+function findBoleroMatch(position: BoleroPosition, index: Map<string, PortfolioAsset>) {
+  for (const key of boleroPositionKeys(position)) {
+    const match = index.get(key);
+    if (match) return match;
+  }
+  return null;
+}
+
+function boleroPositionKeys(position: BoleroPosition) {
+  return [
+    position.isin,
+    boleroSymbol(position),
+    position.name,
+  ].map(normalizeBoleroKey).filter(Boolean);
+}
+
+function boleroAssetKeys(asset: PortfolioAsset) {
+  return [
+    asset.symbol,
+    asset.name,
+    extractIsin(asset.notes),
+  ].map(normalizeBoleroKey).filter(Boolean);
+}
+
+function normalizeBoleroKey(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function extractIsin(notes: string | null) {
+  return String(notes || '').match(/\bISIN\s+([A-Z]{2}[A-Z0-9]{9}[0-9])\b/i)?.[1] || '';
+}
+
+function mergeBoleroNotes(existingNotes: string | null, boleroNotes: string | null) {
+  const manual = String(existingNotes || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) =>
+      part &&
+      !/^Bolero managed position/i.test(part) &&
+      !/^broker=Bolero/i.test(part) &&
+      !/^import=/i.test(part) &&
+      !/^file=/i.test(part) &&
+      !/^ISIN /i.test(part) &&
+      !/^originele munt/i.test(part) &&
+      !/^originele koers/i.test(part) &&
+      !/^actuele waarde/i.test(part) &&
+      !/^rendement/i.test(part)
+    );
+  return [...manual, boleroNotes].filter(Boolean).join('; ');
+}
+
+function isCashPayload(payload: { symbol: string; name: string; asset_type: AssetType; notes: string | null }) {
+  return isCashAsset(payload as PortfolioAsset);
+}
+
+function isBoleroManagedAsset(asset: PortfolioAsset) {
+  const notes = String(asset.notes || '').toLowerCase();
+  return notes.includes('bolero managed position') || notes.includes('bolero expert snapshot');
+}
+
+function boleroImportedQuote(asset: PortfolioAsset) {
+  const notes = String(asset.notes || '');
+  const value = notes.match(/originele koers\s+(-?[\d.,]+)/i)?.[1] || '';
+  const parsed = parseFlexibleNumber(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : asset.purchase_price;
 }
 
 function boleroAssetType(type: string): AssetType {
@@ -1862,8 +1981,14 @@ function buildRiskItems({ rows, cashValue, bufferMonths, monthlyNetIncome, curre
   if (crypto > 5) items.push({ title: 'Crypto boven 5%', detail: `Crypto weegt ongeveer ${crypto.toFixed(1)}%. Beperk speculatieve blootstelling bewust.`, tone: 'warn' });
   const foreign = currencyData.filter((item) => item.name !== 'EUR').reduce((sum, item) => sum + item.percentage, 0);
   if (foreign > 30) items.push({ title: 'Valutarisico', detail: `${foreign.toFixed(1)}% staat niet in EUR. Wisselkoersen beïnvloeden je EUR-netto waarde.`, tone: 'info' });
-  const snapshots = rows.filter((row) => row.isBoleroSnapshot).length;
-  if (snapshots > 0) items.push({ title: 'Snapshotdata', detail: `${snapshots} positie(s) komen uit Bolero-import. Herimporteer periodiek voor actuele holdings.`, tone: 'info' });
+  const fallbackQuotes = rows.filter((row) => row.isBoleroFallback).length;
+  if (fallbackQuotes > 0) {
+    items.push({
+      title: 'Bolero fallback',
+      detail: `${fallbackQuotes} positie(s) gebruiken de laatste Bolero-waarde omdat live koersdata ontbreekt. Controleer ticker/ISIN voor live opvolging.`,
+      tone: 'info',
+    });
+  }
   if (monthlyNetIncome > 0 && bufferMonths < 3) {
     items.push({ title: 'Cashbuffer laag', detail: `Cashbuffer is ${bufferMonths.toFixed(1)} maand(en) netto inkomen. Richtwaarde: 3 tot 6 maanden.`, tone: 'warn' });
   } else if (monthlyNetIncome === 0 && cashValue === 0) {
