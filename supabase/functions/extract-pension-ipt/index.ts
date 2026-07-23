@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { PDF_MIME_TYPES, errorResponse, requireAiCaller, validateBase64Payload } from "../_shared/security.ts";
+import { extractWithOpenAi, openAiPdfContent } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,9 +46,6 @@ serve(async (req) => {
   try {
     requireAiCaller(req);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const { pdf, mimeType } = await req.json();
     validateBase64Payload("PDF", pdf, mimeType, PDF_MIME_TYPES, 12 * 1024 * 1024);
 
@@ -84,58 +82,15 @@ REGELS:
 - Bij meerdere jaren, kies het MEEST RECENTE jaar.
 - Antwoord ALTIJD via de tool call.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extraheer de IPT-waarden en de referentiedatum uit deze PDF." },
-              { type: "file", file: { filename: "ipt.pdf", file_data: `data:${mimeType};base64,${pdf}` } },
-            ],
-          },
-        ],
-        tools: [TOOL_SCHEMA],
-        tool_choice: { type: "function", function: { name: "extract_ipt_snapshot" } },
-      }),
+    const parsed = await extractWithOpenAi({
+      systemPrompt,
+      userContent: [
+        openAiPdfContent("ipt.pdf", mimeType, pdf),
+        { type: "input_text", text: "Extraheer de IPT-waarden en de referentiedatum uit deze PDF. Antwoord als JSON via de tool call." },
+      ],
+      toolSchema: TOOL_SCHEMA,
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("AI Gateway error:", res.status, errorText);
-      if (res.status === 429) {
-        return new Response(JSON.stringify({ error: "AI is momenteel druk. Probeer over enkele seconden opnieuw." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (res.status === 402) {
-        return new Response(JSON.stringify({ error: "AI-krediet opgebruikt. Voeg credits toe in Lovable Cloud." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: `AI-verwerking mislukt (${res.status}). Controleer of de PDF leesbaar is.` }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await res.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      return new Response(JSON.stringify({ error: "Geen data kunnen extraheren uit deze PDF. Controleer of het een geldig IPT-jaaroverzicht is." }), {
-        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    let parsed: any;
-    try { parsed = JSON.parse(toolCall.function.arguments); }
-    catch { return new Response(JSON.stringify({ error: "AI-antwoord kon niet gelezen worden." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

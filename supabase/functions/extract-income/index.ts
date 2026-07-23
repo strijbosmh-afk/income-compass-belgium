@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { IMAGE_MIME_TYPES, errorResponse, requireAiCaller, validateBase64Payload } from "../_shared/security.ts";
+import { extractWithOpenAi, openAiImageContent } from "../_shared/openai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,9 +49,6 @@ serve(async (req) => {
 
   try {
     requireAiCaller(req);
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { image, mimeType, unitNettoByCode, incomeType: selectedIncomeType } = await req.json();
     validateBase64Payload("image", image, mimeType, IMAGE_MIME_TYPES, 8 * 1024 * 1024);
@@ -135,65 +133,19 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
 
     const userText = "Extract every line item from this RIZIV income statement screenshot. Copy each EUR amount EXACTLY as printed (no rounding, no recomputation). Return JSON via the tool call.";
 
-    const callModel = async (model: string) => {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: userText },
-                { type: "image_url", image_url: { url: `data:${mimeType};base64,${image}` } },
-              ],
-            },
-          ],
-          tools: [TOOL_SCHEMA],
-          tool_choice: { type: "function", function: { name: "extract_income_records" } },
-        }),
-      });
-      return res;
-    };
-
-    // Flash is used as primary: ~5-10x faster than Pro on vision+tool-call.
-    // Nomenclatuur-tabel is sowieso LEIDEND (stap C hieronder), dus de marginaal
-    // hogere precisie van Pro weegt niet op tegen het 150s timeout-risico.
-    let response = await callModel("google/gemini-2.5-flash");
-    if (response.status === 429 || response.status === 402 || response.status >= 500) {
-      console.warn(`Flash model returned ${response.status}, falling back to pro`);
-      response = await callModel("google/gemini-2.5-pro");
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const parsed = await extractWithOpenAi<{ records?: any[] }>({
+      systemPrompt,
+      userContent: [
+        { type: "input_text", text: userText },
+        openAiImageContent(mimeType, image),
+      ],
+      toolSchema: TOOL_SCHEMA,
+    });
 
     let records: any[] = [];
     let skippedAccount9 = 0;
     let skippedAccount0 = 0;
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
+    if (parsed) {
       const rawRecords: any[] = parsed.records || [];
 
       const num = (v: any) => {
