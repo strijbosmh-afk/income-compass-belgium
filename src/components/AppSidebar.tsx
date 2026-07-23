@@ -36,19 +36,10 @@ const incomeSecondary = [
   { title: 'Uploaden', url: '/upload', icon: Upload },
 ];
 
-const pensionItems = [
-  { title: 'Overzicht', url: '/pensioen', icon: PiggyBank },
-  { title: 'Details', url: '/pensioen/overzicht', icon: FileText },
-  { title: 'Analyse', url: '/pensioen/dashboard', icon: BarChart3 },
-  { title: 'Uploaden', url: '/pensioen/upload', icon: Upload },
-];
-
 const wealthItems = [
-  { title: 'Overzicht', url: '/vermogen?tab=overview', icon: WalletCards },
   { title: 'Cash', url: '/vermogen?tab=cash', icon: Wallet },
-  { title: 'Beleggingen', url: '/vermogen?tab=portfolio', icon: LineChart },
-  { title: 'Analyse', url: '/vermogen?tab=analysis', icon: BarChart3 },
-  { title: 'Import', url: '/vermogen?tab=import', icon: Upload },
+  { title: 'Pensioen', url: '/pensioen', icon: PiggyBank },
+  { title: 'Beurs', url: '/vermogen?tab=portfolio', icon: LineChart },
 ];
 
 export function AppSidebar() {
@@ -202,27 +193,6 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{wealthItems.map(renderItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <Separator className="my-1 bg-sidebar-border" />
-
-        {/* PENSIOEN sectie */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
-            <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
-              <PiggyBank className="h-3 w-3 text-sidebar-foreground" />
-            </span>
-            {!collapsed && <span className="font-bold">Pensioen</span>}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            {collapsed ? (
-              <SidebarMenu>
-                {pensionItems.map(renderItem)}
-              </SidebarMenu>
-            ) : (
-              <SidebarMenu>{pensionItems.map(renderItem)}</SidebarMenu>
-            )}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

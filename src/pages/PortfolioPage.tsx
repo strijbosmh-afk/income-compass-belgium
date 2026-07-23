@@ -505,7 +505,7 @@ export default function PortfolioPage() {
   const wealthCompositionData = useMemo(() => {
     const rows = [
       { name: 'Cash', value: Math.max(0, cashValue) },
-      { name: 'Beleggingen', value: Math.max(0, investmentValue) },
+      { name: 'Beurs', value: Math.max(0, investmentValue) },
       { name: 'Pensioen/IPT', value: Math.max(0, pensionTotal) },
     ].filter((item) => item.value > 0);
     const total = rows.reduce((sum, row) => sum + row.value, 0);
@@ -855,7 +855,7 @@ export default function PortfolioPage() {
         <div>
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Vermogensoverzicht</h1>
-          <p className="text-muted-foreground mt-1">Cash, beleggingen en pensioen helder gesplitst met snelle trends.</p>
+          <p className="text-muted-foreground mt-1">Cash, pensioen en beurs helder gesplitst met snelle trends.</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
               {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
@@ -917,7 +917,7 @@ export default function PortfolioPage() {
               <strong>{money(cashValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Beleggingen</span>
+              <span>Beurs</span>
               <strong>{money(investmentValue, 'EUR')}</strong>
             </div>
           </div>
@@ -979,7 +979,7 @@ export default function PortfolioPage() {
         <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overzicht</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
-          <TabsTrigger value="portfolio">Beleggingen</TabsTrigger>
+          <TabsTrigger value="portfolio">Beurs</TabsTrigger>
           <TabsTrigger value="analysis">Analyse</TabsTrigger>
           <TabsTrigger value="risk">Risico</TabsTrigger>
           <TabsTrigger value="import">Import</TabsTrigger>
@@ -987,8 +987,8 @@ export default function PortfolioPage() {
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6">
-            <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Beleggingen + cash + pensioen/IPT" />
-            <MetricCard title="Beleggingen" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
+            <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Cash + pensioen + beurs" />
+            <MetricCard title="Beurs" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
             <MetricCard title="Cashbuffer" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Debetstand verlaagt netto waarde' : monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
             <MetricCard title="Debetstand" value={money(debitValue, 'EUR')} sub={debitValue < 0 ? 'Negatieve Bolero cash' : 'Geen debetstand'} />
             <MetricCard title="Pensioen/IPT" value={money(pensionTotal, 'EUR')} sub={pensionSnapshotDate ? `Laatste snapshot ${pensionSnapshotDate}` : 'Nog geen pensioenimport'} />
