@@ -156,7 +156,7 @@ export default function PensionOverviewPage() {
         </Card>
       ) : (
         <>
-          <section className="dashboard-hero">
+          <section className="space-y-4">
             <div className="dashboard-hero-main pension-hero">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -177,61 +177,54 @@ export default function PensionOverviewPage() {
                   <span>Snapshots</span>
                   <strong>{overview.snapshotCount}</strong>
                 </div>
+                <div className="dashboard-hero-pill col-span-2 md:col-span-1">
+                  <span>Evolutie sinds vorige snapshot</span>
+                  <strong>{totalDelta !== null ? `${totalDelta >= 0 ? '+' : ''}${fmt(totalDelta)}` : 'Nog geen vergelijking'}</strong>
+                </div>
               </div>
             </div>
 
-            <div className="dashboard-hero-side">
-              <div className="dashboard-insight-card">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Shield className="h-4 w-4 text-secondary" /> Overlijdensdekking (totaal)
-                </div>
-                <p className="mt-2 text-2xl font-semibold">{fmt(overview.totalDekking)}</p>
-                <p className="text-xs text-muted-foreground">Alle categorieën samen</p>
-              </div>
-              <div className="dashboard-insight-card">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <FileText className="h-4 w-4 text-secondary" /> Snapshots
-                </div>
-                <p className="mt-2 text-2xl font-semibold">{overview.snapshotCount}</p>
-                <p className="text-xs text-muted-foreground">Over {overview.perCat.filter(c => c.rows.length > 0).length} categorie(ën)</p>
-              </div>
-              <div className="dashboard-insight-card md:col-span-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Evolutie sinds vorige snapshot</p>
-                    <p className={`mt-1 text-2xl font-semibold ${totalDelta === null || totalDelta >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                      {totalDelta !== null ? `${totalDelta >= 0 ? '+' : ''}${fmt(totalDelta)}` : 'Nog geen vergelijking'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{totalDeltaPct !== null ? `${totalDeltaPct.toFixed(1)}% verschil` : 'Upload nog een snapshot voor trend'}</p>
-                  </div>
-                  {totalDelta !== null && (
-                    <div className={`rounded-xl px-3 py-2 ${totalDelta >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
-                      {totalDelta >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="quiet-panel grid gap-3 p-3 md:grid-cols-3">
+              <PensionMetric
+                icon={<Shield className="h-4 w-4 text-secondary" />}
+                title="Overlijdensdekking"
+                value={fmt(overview.totalDekking)}
+                sub="Alle categorieën samen"
+              />
+              <PensionMetric
+                icon={<FileText className="h-4 w-4 text-secondary" />}
+                title="Snapshots"
+                value={String(overview.snapshotCount)}
+                sub={`Over ${overview.perCat.filter(c => c.rows.length > 0).length} categorie(ën)`}
+              />
+              <PensionMetric
+                icon={totalDelta !== null && totalDelta < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-emerald-600" />}
+                title="Evolutie"
+                value={totalDelta !== null ? `${totalDelta >= 0 ? '+' : ''}${fmt(totalDelta)}` : '-'}
+                sub={totalDeltaPct !== null ? `${totalDeltaPct.toFixed(1)}% verschil` : 'Upload nog een snapshot voor trend'}
+                tone={totalDelta !== null && totalDelta < 0 ? 'down' : 'up'}
+              />
             </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="quiet-panel grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">
             {overview.perCat.map(c => {
               const delta = c.catPrevReserve > 0 ? c.catReserve - c.catPrevReserve : null;
               const pct = delta !== null && c.catPrevReserve > 0 ? (delta / c.catPrevReserve) * 100 : null;
               const positive = (delta || 0) >= 0;
               const polisCount = c.policies.length;
               return (
-                <Card key={c.key} className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <CardContent className="pt-5">
+                <Card key={c.key} className="quiet-metric-card border-0 shadow-none">
+                  <CardContent className="p-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           <c.icon className="h-4 w-4" /><span>{c.label}</span>
                         </div>
-                        <div className="text-2xl font-semibold tracking-tight">{fmt(c.catReserve)}</div>
+                        <div className="text-xl font-semibold tracking-tight md:text-2xl">{fmt(c.catReserve)}</div>
                       </div>
                       {delta !== null && (
-                        <div className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium ${positive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+                        <div className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${positive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
                           {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                           <span>{positive ? '+' : ''}{pct !== null ? `${pct.toFixed(1)}%` : fmt(delta)}</span>
                         </div>
@@ -293,6 +286,21 @@ export default function PensionOverviewPage() {
           </Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function PensionMetric({ icon, title, value, sub, tone }: { icon: React.ReactNode; title: string; value: string; sub: string; tone?: 'up' | 'down' }) {
+  return (
+    <div className="quiet-metric-card">
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {title}
+      </div>
+      <p className={`mt-2 text-xl font-semibold tracking-tight md:text-2xl ${tone === 'up' ? 'text-emerald-600' : tone === 'down' ? 'text-destructive' : ''}`}>
+        {value}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{sub}</p>
     </div>
   );
 }

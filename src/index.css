@@ -157,7 +157,7 @@
   }
 
   .dashboard-insight-card {
-    @apply rounded-3xl border border-border/55 bg-card/90 p-5 shadow-[0_1px_2px_hsl(var(--primary)/0.04)];
+    @apply rounded-3xl border border-border/45 bg-background/40 p-5 shadow-none;
   }
 
   .month-tile {
@@ -314,7 +314,7 @@
   }
 
   .dashboard-hero-main {
-    @apply rounded-[1.65rem] p-4 shadow-md shadow-primary/10;
+    @apply rounded-[1.65rem] p-4 shadow-[0_8px_20px_hsl(var(--primary)/0.08)];
   }
 
   .dashboard-hero-main p.text-4xl,
