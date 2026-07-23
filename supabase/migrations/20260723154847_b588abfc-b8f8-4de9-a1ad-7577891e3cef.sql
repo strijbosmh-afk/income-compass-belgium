@@ -1,0 +1,3 @@
+CREATE POLICY "Deny client inserts on price snapshots" ON public.portfolio_price_snapshots FOR INSERT TO authenticated, anon WITH CHECK (false);
+CREATE POLICY "Deny client updates on price snapshots" ON public.portfolio_price_snapshots FOR UPDATE TO authenticated, anon USING (false) WITH CHECK (false);
+CREATE POLICY "Deny client deletes on price snapshots" ON public.portfolio_price_snapshots FOR DELETE TO authenticated, anon USING (false);
