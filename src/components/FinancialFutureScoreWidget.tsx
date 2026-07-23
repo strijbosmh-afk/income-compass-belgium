@@ -219,7 +219,7 @@ export function FinancialFutureScoreWidget() {
             <ScoreTile icon={Activity} label="Stabiliteit" value={result.breakdown.stability} helper={`${result.activeMonths} actieve maanden`} />
             <ScoreTile icon={PiggyBank} label="Pensioenfit" value={result.breakdown.retirementReadiness} helper={`${fmt(result.pensionTotal + result.portfolioCost)} / ${fmt(result.targetCapital)}`} />
             <ScoreTile icon={ShieldCheck} label="Buffer" value={result.breakdown.resilience} helper={`${fmt(result.pensionTotal + result.portfolioCost)} vermogen`} />
-            <ScoreTile icon={TrendingUp} label="Spreiding" value={result.breakdown.diversification} helper={`${result.portfolioBucketCount} portfolio-buckets`} />
+            <ScoreTile icon={TrendingUp} label="Spreiding" value={result.breakdown.diversification} helper={`${result.portfolioBucketCount} categorieen`} />
             <ScoreTile icon={BrainCircuit} label="Datakwaliteit" value={result.breakdown.dataQuality} helper={result.latestPensionDate ? `Pensioen ${result.latestPensionDate}` : 'Pensioen mist'} />
           </div>
         </div>

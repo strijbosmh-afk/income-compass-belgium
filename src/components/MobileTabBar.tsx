@@ -28,7 +28,7 @@ const pensionTabs: TabItem[] = [
 const wealthTabs: TabItem[] = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
   { title: 'Inkomen', url: '/records', icon: FileText, match: (pathname) => ['/', '/upload', '/records', '/statistics', '/goals', '/nomenclature', '/controle', '/simulations'].includes(pathname) },
-  { title: 'Aandelen', url: '/aandelen', icon: LineChart },
+  { title: 'Vermogen', url: '/vermogen', icon: LineChart, match: (pathname) => pathname === '/vermogen' || pathname === '/aandelen' },
   { title: 'Pensioen', url: '/pensioen', icon: PiggyBank, match: (pathname) => pathname.startsWith('/pensioen') },
 ];
 
@@ -66,13 +66,13 @@ export function MobileTabBar() {
 
 function getTabsForPath(pathname: string) {
   if (pathname.startsWith('/pensioen')) return pensionTabs;
-  if (pathname.startsWith('/aandelen')) return wealthTabs;
+  if (pathname.startsWith('/vermogen') || pathname.startsWith('/aandelen')) return wealthTabs;
   return incomeTabs;
 }
 
 function getTabBarLabel(pathname: string) {
   if (pathname.startsWith('/pensioen')) return 'Pensioennavigatie';
-  if (pathname.startsWith('/aandelen')) return 'Vermogennavigatie';
+  if (pathname.startsWith('/vermogen') || pathname.startsWith('/aandelen')) return 'Vermogennavigatie';
   return 'Inkomstennavigatie';
 }
 

@@ -496,7 +496,7 @@ export default function PortfolioPage() {
   const wealthCompositionData = useMemo(() => {
     const rows = [
       { name: 'Cash', value: Math.max(0, cashValue) },
-      { name: 'Beursportfolio', value: Math.max(0, investmentValue) },
+      { name: 'Beleggingen', value: Math.max(0, investmentValue) },
       { name: 'Pensioen/IPT', value: Math.max(0, pensionTotal) },
     ].filter((item) => item.value > 0);
     const total = rows.reduce((sum, row) => sum + row.value, 0);
@@ -846,7 +846,7 @@ export default function PortfolioPage() {
         <div>
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Vermogensoverzicht</h1>
-          <p className="text-muted-foreground mt-1">Cash, beursportfolio en pensioen helder gesplitst met snelle trends.</p>
+          <p className="text-muted-foreground mt-1">Cash, beleggingen en pensioen helder gesplitst met snelle trends.</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
               {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
@@ -908,7 +908,7 @@ export default function PortfolioPage() {
               <strong>{money(cashValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Beursportfolio</span>
+              <span>Beleggingen</span>
               <strong>{money(investmentValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
@@ -970,7 +970,7 @@ export default function PortfolioPage() {
         <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overzicht</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
-          <TabsTrigger value="portfolio">Beursportfolio</TabsTrigger>
+          <TabsTrigger value="portfolio">Beleggingen</TabsTrigger>
           <TabsTrigger value="analysis">Analyse</TabsTrigger>
           <TabsTrigger value="risk">Risico</TabsTrigger>
           <TabsTrigger value="import">Import</TabsTrigger>
@@ -1175,7 +1175,7 @@ export default function PortfolioPage() {
           <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] 2xl:grid-cols-[0.7fr_1.3fr]">
             <Card className="data-card">
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Portfolio-check</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Beleggingscheck</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {riskItems.length === 0 ? (

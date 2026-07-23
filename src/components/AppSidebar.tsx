@@ -44,7 +44,7 @@ const pensionItems = [
 ];
 
 const wealthItems = [
-  { title: 'Beursportfolio', url: '/aandelen', icon: LineChart },
+  { title: 'Vermogen', url: '/vermogen', icon: LineChart },
 ];
 
 export function AppSidebar() {
@@ -56,7 +56,11 @@ export function AppSidebar() {
   const secondaryActive = incomeSecondary.some((item) => location.pathname === item.url);
 
   const isItemActive = (url: string) => (
-    url === '/pensioen' ? location.pathname === '/pensioen' : location.pathname === url
+    url === '/pensioen'
+      ? location.pathname === '/pensioen'
+      : url === '/vermogen'
+        ? location.pathname === '/vermogen' || location.pathname === '/aandelen'
+        : location.pathname === url
   );
 
   const renderItem = (item: { title: string; url: string; icon: any }) => (

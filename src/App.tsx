@@ -75,7 +75,8 @@ const App = () => {
               <Route path="/pensioen/upload-ipt" element={<Navigate to="/pensioen/upload" replace />} />
               <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
               <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
-              <Route path="/aandelen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
+              <Route path="/vermogen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
+              <Route path="/aandelen" element={<Navigate to="/vermogen" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

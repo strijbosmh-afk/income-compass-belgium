@@ -151,9 +151,9 @@ export function SmartActionItemsWidget({ year }: { year: number }) {
 
     if (portfolioCount === 0) {
       nextActions.push({
-        title: 'Portfolio is nog leeg',
+        title: 'Vermogen is nog leeg',
         description: 'Voeg je eerste aandeel of ETF toe om vermogen mee te volgen.',
-        href: '/aandelen',
+        href: '/vermogen',
         cta: 'Toevoegen',
         severity: 'low',
         icon: LineChart,
