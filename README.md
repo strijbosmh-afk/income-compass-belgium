@@ -90,8 +90,8 @@ Deze repo is geschikt gemaakt om los van Lovable op Vercel te draaien. `vercel.j
 Zet in Vercel bij Project Settings → Environment Variables minimaal:
 
 ```bash
-VITE_SUPABASE_PROJECT_ID="ftsgbacnewhpzasrjmrs"
-VITE_SUPABASE_URL="https://ftsgbacnewhpzasrjmrs.supabase.co"
+VITE_SUPABASE_PROJECT_ID="mncgpeqzbdamohvwfkla"
+VITE_SUPABASE_URL="https://mncgpeqzbdamohvwfkla.supabase.co"
 VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-or-anon-key"
 ```
 
@@ -108,7 +108,7 @@ http://localhost:8080/**
 Voor Supabase zelf:
 
 ```bash
-supabase link --project-ref ftsgbacnewhpzasrjmrs
+supabase link --project-ref mncgpeqzbdamohvwfkla
 supabase db push
 supabase functions deploy extract-income
 supabase functions deploy extract-pension-ipt
