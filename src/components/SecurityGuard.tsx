@@ -26,6 +26,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
   const [touchIdEnabled, setTouchIdEnabled] = useState(false);
   const [touchIdBusy, setTouchIdBusy] = useState(false);
   const [showTouchIdSetup, setShowTouchIdSetup] = useState(false);
+  const [touchIdChecked, setTouchIdChecked] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const signingOutRef = useRef(false);
 
@@ -43,13 +44,22 @@ function WebSessionLock({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    isPlatformAuthenticatorAvailable().then((available) => {
-      if (!active) return;
-      const enabled = hasLocalPasskey(user.id);
-      setTouchIdAvailable(available);
-      setTouchIdEnabled(enabled);
-      setShowTouchIdSetup(available && !enabled && !sessionStorage.getItem('myfinstate-touchid-dismissed'));
-    });
+    isPlatformAuthenticatorAvailable()
+      .then((available) => {
+        if (!active) return;
+        const enabled = hasLocalPasskey(user.id);
+        setTouchIdAvailable(available);
+        setTouchIdEnabled(enabled);
+        setTouchIdChecked(true);
+        setShowTouchIdSetup(!enabled && !sessionStorage.getItem('myfinstate-touchid-dismissed'));
+      })
+      .catch(() => {
+        if (!active) return;
+        setTouchIdAvailable(false);
+        setTouchIdEnabled(false);
+        setTouchIdChecked(true);
+        setShowTouchIdSetup(!sessionStorage.getItem('myfinstate-touchid-dismissed'));
+      });
     return () => {
       active = false;
     };
@@ -130,22 +140,26 @@ function WebSessionLock({ children }: { children: ReactNode }) {
   if (!locked) return (
     <>
       {children}
-      {showTouchIdSetup && (
+      {showTouchIdSetup && touchIdChecked && (
         <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-3xl border border-border/70 bg-card p-4 text-card-foreground shadow-xl">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Fingerprint className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">Touch ID op deze Mac</p>
+              <p className="text-sm font-semibold">{touchIdAvailable ? 'Touch ID op deze Mac' : 'Touch ID niet beschikbaar'}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Ontgrendel MyFinState voortaan met je vingerafdruk na automatische vergrendeling.
+                {touchIdAvailable
+                  ? 'Ontgrendel MyFinState voortaan met je vingerafdruk na automatische vergrendeling.'
+                  : 'Gebruik Safari of Chrome op HTTPS of localhost. Touch ID werkt pas nadat je deze Mac eenmalig hebt geregistreerd.'}
               </p>
               <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={() => void enableTouchId()} disabled={touchIdBusy}>
-                  {touchIdBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-                  Inschakelen
-                </Button>
+                {touchIdAvailable && (
+                  <Button size="sm" onClick={() => void enableTouchId()} disabled={touchIdBusy}>
+                    {touchIdBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                    Inschakelen
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={dismissTouchIdSetup}>Later</Button>
               </div>
             </div>

@@ -536,7 +536,8 @@ export default function PortfolioPage() {
   const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [investmentRows, toEur]);
   const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroFallback).length, [investmentRows]);
   const snapshotQuoteCount = useMemo(() => investmentRows.filter((row) => row.isBoleroSnapshot).length, [investmentRows]);
-  const isPortfolioSection = section === 'portfolio';
+  const urlSection = normalizeWealthSection(searchParams.get('tab'));
+  const isPortfolioSection = section === 'portfolio' || urlSection === 'portfolio';
   const nextRefreshLabel = useMemo(() => {
     if (!nextMarketRefresh) return 'Nog niet gepland';
     const seconds = Math.max(0, Math.ceil((nextMarketRefresh.getTime() - Date.now()) / 1000));
