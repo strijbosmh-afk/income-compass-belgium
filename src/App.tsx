@@ -26,6 +26,7 @@ import PortfolioPage from "./pages/PortfolioPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import { NativeLock } from "@/components/NativeLock";
+import { isSupabaseConfigured, missingSupabaseConfig } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
@@ -44,40 +45,67 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+const App = () => {
+  if (!isSupabaseConfigured) return <MissingSupabaseConfig />;
 
-            <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
-            <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
-            <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
-            <Route path="/print" element={<ProtectedRoute><PrintPage /></ProtectedRoute>} />
-            <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
-            <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
-            <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
-            <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
-            <Route path="/pensioen" element={<ProtectedRoute><PensionOverviewPage /></ProtectedRoute>} />
-            <Route path="/pensioen/upload" element={<ProtectedRoute><PensionUploadPage /></ProtectedRoute>} />
-            <Route path="/pensioen/upload-ipt" element={<Navigate to="/pensioen/upload" replace />} />
-            <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
-            <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
-            <Route path="/aandelen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
+
+              <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
+              <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
+              <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
+              <Route path="/print" element={<ProtectedRoute><PrintPage /></ProtectedRoute>} />
+              <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
+              <Route path="/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
+              <Route path="/controle" element={<ProtectedRoute><ControlePage /></ProtectedRoute>} />
+              <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+              <Route path="/pensioen" element={<ProtectedRoute><PensionOverviewPage /></ProtectedRoute>} />
+              <Route path="/pensioen/upload" element={<ProtectedRoute><PensionUploadPage /></ProtectedRoute>} />
+              <Route path="/pensioen/upload-ipt" element={<Navigate to="/pensioen/upload" replace />} />
+              <Route path="/pensioen/overzicht" element={<ProtectedRoute><PensionRecordsPage /></ProtectedRoute>} />
+              <Route path="/pensioen/dashboard" element={<ProtectedRoute><PensionDashboardPage /></ProtectedRoute>} />
+              <Route path="/aandelen" element={<ProtectedRoute><PortfolioPage /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
+
+function MissingSupabaseConfig() {
+  return (
+    <main className="min-h-screen bg-muted/30 px-4 py-10 text-foreground">
+      <div className="mx-auto max-w-xl rounded-3xl border border-border bg-card p-6 shadow-sm">
+        <p className="text-sm font-medium text-primary">MyFinState configuratie</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">De app is bijna klaar</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          De site is geladen, maar de Supabase-configuratie ontbreekt in de hostingomgeving. Voeg deze variabelen toe en deploy opnieuw.
+        </p>
+        <div className="mt-5 rounded-2xl bg-muted p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ontbreekt</p>
+          <ul className="mt-2 space-y-1 font-mono text-sm">
+            {missingSupabaseConfig.map((key) => <li key={key}>{key}</li>)}
+          </ul>
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Zet minstens <span className="font-mono">VITE_SUPABASE_URL</span> en <span className="font-mono">VITE_SUPABASE_PUBLISHABLE_KEY</span> in je deployment settings.
+        </p>
+      </div>
+    </main>
+  );
+}
 
 export default App;
