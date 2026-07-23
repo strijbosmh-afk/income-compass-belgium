@@ -1,4 +1,5 @@
 const PREFIX = 'myfinstate-passkey';
+const LAST_USER_KEY = `${PREFIX}:last-user`;
 
 function bytesToBase64Url(bytes: Uint8Array) {
   let binary = '';
@@ -41,6 +42,14 @@ export function hasLocalPasskey(userId: string) {
   return Boolean(localStorage.getItem(credentialKey(userId)));
 }
 
+export function getLastPasskeyUser() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_USER_KEY) || 'null') as { userId: string; label: string; createdAt: string } | null;
+  } catch {
+    return null;
+  }
+}
+
 export async function registerLocalPasskey(userId: string, label = 'MyFinState') {
   if (!isWebAuthnAvailable()) throw new Error('Touch ID is niet beschikbaar in deze browser.');
 
@@ -77,6 +86,15 @@ export async function registerLocalPasskey(userId: string, label = 'MyFinState')
     rawId: bytesToBase64Url(new Uint8Array(credential.rawId)),
     createdAt: new Date().toISOString(),
   }));
+  localStorage.setItem(LAST_USER_KEY, JSON.stringify({
+    userId,
+    label,
+    createdAt: new Date().toISOString(),
+  }));
+
+  if (!hasLocalPasskey(userId)) {
+    throw new Error('Touch ID werd aangemaakt, maar kon niet lokaal worden bewaard. Controleer browser privacy-instellingen.');
+  }
 }
 
 export async function verifyLocalPasskey(userId: string) {

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { WalletCards, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getLastPasskeyUser } from '@/lib/webAuthn';
 
 function safeNext(raw: string | null): string | null {
   if (!raw) return null;
@@ -23,12 +24,17 @@ export default function Login() {
   const { toast } = useToast();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
+  const [passkeyLabel, setPasskeyLabel] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && next) {
       window.location.href = next;
     }
   }, [user, next]);
+
+  useEffect(() => {
+    setPasskeyLabel(getLastPasskeyUser()?.label || null);
+  }, []);
 
   const toEmail = (username: string) => `${username.trim().toLowerCase()}@medincome.local`;
 
@@ -80,7 +86,11 @@ export default function Login() {
             </div>
             <div>
               <p className="flex items-center gap-1 text-xs font-medium"><ShieldCheck className="h-3 w-3" /> Biometrisch beschermd</p>
-              <p className="text-[11px] text-muted-foreground">Face ID op iPhone, Touch ID op je MacBook indien ingeschakeld.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {passkeyLabel
+                  ? `Touch ID is ingesteld voor ${passkeyLabel}. Log niet handmatig uit als je met Touch ID wilt ontgrendelen.`
+                  : 'Face ID op iPhone, Touch ID op je MacBook indien ingeschakeld.'}
+              </p>
             </div>
           </div>
         </CardContent>

@@ -15,7 +15,7 @@ import { Activity, AlertTriangle, BarChart3, Building2, Clock3, ExternalLink, Fi
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 import { PortfolioEvolutionChart } from '@/components/PortfolioEvolutionChart';
-import { normalizeWorksheetRows, parseBoleroNumber, parseBoleroRows, type BoleroPosition } from '@/lib/boleroImport';
+import { describeBoleroInput, normalizeWorksheetRows, parseBoleroNumber, parseBoleroRows, type BoleroPosition } from '@/lib/boleroImport';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
 type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
@@ -829,13 +829,25 @@ export default function PortfolioPage() {
     }
     setImportingBolero(true);
     try {
-      const readXlsxFile = (await import('read-excel-file/browser')).default;
-      const rows = await readXlsxFile(file);
-      const positions = parseBoleroRows(rows);
+      const excel = await import('read-excel-file/browser');
+      const rows = await excel.default(file);
+      let positions = parseBoleroRows(rows);
+      let diagnosticInput: unknown = rows;
+      if (positions.length === 0 && Array.isArray(rows) && rows.some((row) => row && typeof row === 'object' && !Array.isArray(row) && 'sheet' in row)) {
+        const sheetRows = await Promise.all(
+          rows
+            .map((sheet) => (sheet && typeof sheet === 'object' && 'sheet' in sheet ? String((sheet as { sheet: unknown }).sheet) : ''))
+            .filter(Boolean)
+            .map(async (sheetName) => ({ sheet: sheetName, data: await excel.readSheet(file, sheetName) }))
+        );
+        diagnosticInput = sheetRows;
+        positions = parseBoleroRows(sheetRows);
+      }
       if (positions.length === 0) {
-        const worksheetRows = normalizeWorksheetRows(rows);
+        const worksheetRows = normalizeWorksheetRows(diagnosticInput);
+        const diagnostics = describeBoleroInput(diagnosticInput);
         toast.error('Geen Bolero-posities gevonden in dit bestand.', {
-          description: `${worksheetRows.length} Excel-rij(en) gelezen. Controleer of dit een Bolero portefeuille-export met kolommen Type, Naam, ISIN en Huidige waarde is.`,
+          description: `${worksheetRows.length} Excel-rij(en) gelezen. Herkende header: ${diagnostics.possibleHeaders[0] || 'geen ISIN-kolom gevonden'}.`,
         });
         return;
       }

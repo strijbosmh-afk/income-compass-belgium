@@ -77,6 +77,19 @@ export function normalizeWorksheetRows(input: unknown): unknown[][] {
     .map((row) => row as unknown[]);
 }
 
+export function describeBoleroInput(input: unknown) {
+  const rows = normalizeWorksheetRows(input);
+  const headers = rows
+    .filter((row) => row.some((cell) => normalizeHeader(String(cell)) === 'isin'))
+    .map((row) => row.filter((cell) => cell !== null && cell !== undefined && String(cell).trim()).map(String).join(' | '))
+    .slice(0, 3);
+
+  return {
+    rowsRead: rows.length,
+    possibleHeaders: headers,
+  };
+}
+
 export function parseBoleroNumber(value: unknown) {
   const text = String(value ?? '')
     .replace(/\u00a0/g, ' ')

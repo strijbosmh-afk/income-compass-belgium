@@ -8,7 +8,7 @@ import { hasLocalPasskey, isPlatformAuthenticatorAvailable, registerLocalPasskey
 import { toast } from 'sonner';
 
 const LOCK_AFTER_MS = 5 * 60 * 1000;
-const SIGN_OUT_AFTER_MS = 30 * 60 * 1000;
+const DEEP_LOCK_AFTER_MS = 30 * 60 * 1000;
 
 export function SecurityGuard({ children }: { children: ReactNode }) {
   if (Capacitor.isNativePlatform()) {
@@ -27,6 +27,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
   const [touchIdBusy, setTouchIdBusy] = useState(false);
   const [showTouchIdSetup, setShowTouchIdSetup] = useState(false);
   const [touchIdChecked, setTouchIdChecked] = useState(false);
+  const [deepLocked, setDeepLocked] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const signingOutRef = useRef(false);
 
@@ -88,6 +89,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
     try {
       await verifyLocalPasskey(user.id);
       lastActivityRef.current = Date.now();
+      setDeepLocked(false);
       setLocked(false);
       toast.success('Ontgrendeld met Touch ID');
     } catch (error) {
@@ -106,12 +108,13 @@ function WebSessionLock({ children }: { children: ReactNode }) {
 
   const evaluateIdleState = useCallback(() => {
     const idleFor = Date.now() - lastActivityRef.current;
-    if (idleFor >= SIGN_OUT_AFTER_MS) {
-      void secureSignOut();
+    if (idleFor >= DEEP_LOCK_AFTER_MS) {
+      setDeepLocked(true);
+      setLocked(true);
       return;
     }
     if (idleFor >= LOCK_AFTER_MS) setLocked(true);
-  }, [secureSignOut]);
+  }, []);
 
   useEffect(() => {
     const noteActivity = () => {
@@ -147,7 +150,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
               <Fingerprint className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold">{touchIdAvailable ? 'Touch ID op deze Mac' : 'Touch ID niet beschikbaar'}</p>
+          <p className="text-sm font-semibold">{touchIdAvailable ? 'Touch ID op deze Mac' : 'Touch ID niet beschikbaar'}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {touchIdAvailable
                   ? 'Ontgrendel MyFinState voortaan met je vingerafdruk na automatische vergrendeling.'
@@ -180,7 +183,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
         </div>
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">MyFinState is vergrendeld</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Je financiële gegevens zijn verborgen na 5 minuten inactiviteit.
+          Je financiële gegevens zijn verborgen na {deepLocked ? '30 minuten' : '5 minuten'} inactiviteit.
           {touchIdEnabled ? ' Ontgrendel met Touch ID of log opnieuw in.' : ' Log opnieuw in om verder te werken.'}
         </p>
         {touchIdAvailable && touchIdEnabled && (
