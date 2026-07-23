@@ -15,6 +15,7 @@ import { Activity, AlertTriangle, BarChart3, Building2, Clock3, ExternalLink, Fi
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 import { PortfolioEvolutionChart } from '@/components/PortfolioEvolutionChart';
+import { normalizeWorksheetRows, parseBoleroNumber, parseBoleroRows, type BoleroPosition } from '@/lib/boleroImport';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
 type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
@@ -92,22 +93,6 @@ type FormState = {
   quantity: string;
   purchase_price: string;
   notes: string;
-};
-
-type BoleroPosition = {
-  type: string;
-  currency: string;
-  quantity: number;
-  name: string;
-  avgPrice: number;
-  purchaseValue: number;
-  currentQuote: number;
-  currentValue: number;
-  eurValue: number;
-  returnPct: number;
-  market: string;
-  returnValue: number;
-  isin: string;
 };
 
 type AllocationDatum = {
@@ -848,7 +833,10 @@ export default function PortfolioPage() {
       const rows = await readXlsxFile(file);
       const positions = parseBoleroRows(rows);
       if (positions.length === 0) {
-        toast.error('Geen Bolero-posities gevonden in dit bestand.');
+        const worksheetRows = normalizeWorksheetRows(rows);
+        toast.error('Geen Bolero-posities gevonden in dit bestand.', {
+          description: `${worksheetRows.length} Excel-rij(en) gelezen. Controleer of dit een Bolero portefeuille-export met kolommen Type, Naam, ISIN en Huidige waarde is.`,
+        });
         return;
       }
 
@@ -1545,73 +1533,6 @@ export default function PortfolioPage() {
   );
 }
 
-function parseBoleroRows(input: unknown): BoleroPosition[] {
-  const table = normalizeWorksheetRows(input);
-  const headerIdx = table.findIndex((row) => row.some((cell) => normalizeHeader(String(cell)) === 'portfoliopositions'));
-  const columnIdx = table.findIndex((row, idx) =>
-    idx > headerIdx &&
-    row.some((cell) => normalizeHeader(String(cell)) === 'isin') &&
-    row.some((cell) => normalizeHeader(String(cell)) === 'huidigewaarde')
-  );
-  if (columnIdx < 0) return [];
-
-  const header = table[columnIdx].map((cell) => normalizeHeader(String(cell)));
-  const idx = (name: string) => header.findIndex((h) => h === normalizeHeader(name));
-  const typeIdx = idx('Type');
-  const currencyIdx = idx('Munt');
-  const quantityIdx = idx('Aantal');
-  const nameIdx = idx('Naam');
-  const avgIdx = idx('Gem. aankoopkoers');
-  const purchaseIdx = idx('Totale aankoopwaarde');
-  const quoteIdx = idx('Koers');
-  const currentIdx = idx('Huidige waarde');
-  const eurIdx = idx('Waarde in EUR');
-  const returnPctIdx = idx('Rendement %');
-  const marketIdx = idx('Markt');
-  const returnValueIdx = idx('Rendement ( in munt)');
-  const isinIdx = idx('ISIN');
-
-  return table.slice(columnIdx + 1)
-    .map((row) => ({
-      type: String(row[typeIdx] || '').trim(),
-      currency: String(row[currencyIdx] || 'EUR').trim() || 'EUR',
-      quantity: parseBoleroNumber(row[quantityIdx]),
-      name: String(row[nameIdx] || '').trim(),
-      avgPrice: parseBoleroNumber(row[avgIdx]),
-      purchaseValue: parseBoleroNumber(row[purchaseIdx]),
-      currentQuote: parseBoleroNumber(row[quoteIdx]),
-      currentValue: parseBoleroNumber(row[currentIdx]),
-      eurValue: parseBoleroNumber(row[eurIdx]),
-      returnPct: parseBoleroNumber(row[returnPctIdx]),
-      market: String(row[marketIdx] || '').trim(),
-      returnValue: parseBoleroNumber(row[returnValueIdx]),
-      isin: String(row[isinIdx] || '').trim(),
-    }))
-    .filter((row) => {
-      const type = row.type.toLowerCase();
-      if (!type || type.startsWith('bolero') || type.startsWith('mail') || type.startsWith('web')) return false;
-      return row.eurValue !== 0 || row.currentValue !== 0 || row.quantity > 0 || type === 'cash';
-    });
-}
-
-function normalizeWorksheetRows(input: unknown): unknown[][] {
-  if (!Array.isArray(input)) return [];
-  const sheetRows = input
-    .flatMap((item) => {
-      if (Array.isArray(item)) return [item];
-      if (item && typeof item === 'object' && Array.isArray((item as { data?: unknown }).data)) {
-        return (item as { data: unknown[] }).data;
-      }
-      return [];
-    })
-    .filter(Array.isArray)
-    .map((row) => row as unknown[]);
-  if (sheetRows.length > 0) return sheetRows;
-  return input
-    .filter(Array.isArray)
-    .map((row) => row as unknown[]);
-}
-
 function normalizeWealthSection(value: unknown): WealthSection {
   return wealthSections.includes(value as WealthSection) ? value as WealthSection : 'overview';
 }
@@ -1744,19 +1665,6 @@ function boleroAssetType(type: string): AssetType {
   return 'other';
 }
 
-function parseBoleroNumber(value: unknown) {
-  const text = String(value ?? '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/[^\d,.-]/g, '')
-    .trim();
-  if (!text) return 0;
-  const normalized = text.includes(',')
-    ? text.replace(/\./g, '').replace(',', '.')
-    : text;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function parseFlexibleNumber(value: string) {
   const text = value
     .replace(/\u00a0/g, ' ')
@@ -1767,14 +1675,6 @@ function parseFlexibleNumber(value: string) {
     : text;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
-}
-
-function normalizeHeader(header: string) {
-  return header
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
 }
 
 function InfoLine({ icon, value, align = 'left' }: { icon: JSX.Element; value: string; align?: 'left' | 'right' }) {
