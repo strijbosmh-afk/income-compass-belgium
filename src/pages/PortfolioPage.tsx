@@ -837,7 +837,7 @@ export default function PortfolioPage() {
     try {
       const readXlsxFile = (await import('read-excel-file/browser')).default;
       const rows = await readXlsxFile(file);
-      const positions = parseBoleroRows(rows as unknown as unknown[][]);
+      const positions = parseBoleroRows(rows);
       if (positions.length === 0) {
         toast.error('Geen Bolero-posities gevonden in dit bestand.');
         return;
@@ -1469,7 +1469,8 @@ export default function PortfolioPage() {
   );
 }
 
-function parseBoleroRows(table: unknown[][]): BoleroPosition[] {
+function parseBoleroRows(input: unknown): BoleroPosition[] {
+  const table = normalizeWorksheetRows(input);
   const headerIdx = table.findIndex((row) => row.some((cell) => normalizeHeader(String(cell)) === 'portfoliopositions'));
   const columnIdx = table.findIndex((row, idx) =>
     idx > headerIdx &&
@@ -1515,6 +1516,13 @@ function parseBoleroRows(table: unknown[][]): BoleroPosition[] {
       if (!type || type.startsWith('bolero') || type.startsWith('mail') || type.startsWith('web')) return false;
       return row.eurValue !== 0 || row.currentValue !== 0 || row.quantity > 0 || type === 'cash';
     });
+}
+
+function normalizeWorksheetRows(input: unknown): unknown[][] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter(Array.isArray)
+    .map((row) => row as unknown[]);
 }
 
 function normalizeWealthSection(value: unknown): WealthSection {
