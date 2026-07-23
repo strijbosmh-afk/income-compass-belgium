@@ -143,41 +143,7 @@ export function AppSidebar() {
             {!collapsed && <span className="font-bold">Inkomen</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            {collapsed ? (
-              <SidebarMenu>
-                {incomePrimary.map(renderItem)}
-                {incomeSecondary.map(renderItem)}
-              </SidebarMenu>
-            ) : (
-              <>
-                <SidebarMenu>{incomePrimary.map(renderItem)}</SidebarMenu>
-                <Separator className="my-2 bg-sidebar-border/70" />
-                <SidebarMenu>
-                  <Collapsible asChild defaultOpen={secondaryActive}>
-                    <SidebarMenuItem className="group/income-tools">
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          isActive={secondaryActive}
-                          className="text-sidebar-foreground hover:bg-sidebar-accent"
-                        >
-                          <Settings className="h-4 w-4" />
-                          <span className="flex-1">Analyse & beheer</span>
-                          {issueCount > 0 && (
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-500/80 shrink-0" aria-label={`${issueCount} aandachtspunt${issueCount === 1 ? '' : 'en'}`} />
-                          )}
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/70 transition-transform group-data-[state=open]/income-tools:rotate-180" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {incomeSecondary.map(renderSubItem)}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                </SidebarMenu>
-              </>
-            )}
+            <SidebarMenu>{incomePrimary.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -198,6 +164,33 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="bg-sidebar border-t border-sidebar-border">
+        <SidebarMenu className={!collapsed ? 'rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/35 p-2' : ''}>
+          <Collapsible asChild defaultOpen={secondaryActive}>
+            <SidebarMenuItem className="group/income-tools">
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton
+                  isActive={secondaryActive}
+                  className="text-sidebar-foreground hover:bg-sidebar-accent"
+                >
+                  <Settings className="h-4 w-4" />
+                  {!collapsed && <span className="flex-1">Analyse & beheer</span>}
+                  {issueCount > 0 && (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500/80 shrink-0" aria-label={`${issueCount} aandachtspunt${issueCount === 1 ? '' : 'en'}`} />
+                  )}
+                  {!collapsed && <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/70 transition-transform group-data-[state=open]/income-tools:rotate-180" />}
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              {!collapsed && (
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {incomeSecondary.map(renderSubItem)}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              )}
+            </SidebarMenuItem>
+          </Collapsible>
+        </SidebarMenu>
+
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={location.pathname === '/print'}>

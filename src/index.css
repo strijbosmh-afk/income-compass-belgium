@@ -367,7 +367,7 @@
   }
 
   .ios-tab-bar {
-    @apply inset-x-2 bottom-2 rounded-[1.4rem] border border-border/60 bg-card/90 px-1.5 pt-1.5 shadow-2xl shadow-primary/10;
+    @apply inset-x-2 bottom-2 rounded-[1.4rem] border border-border/60 bg-card/90 px-1.5 pt-1.5 shadow-[0_-8px_26px_hsl(var(--primary)/0.08)];
     padding-bottom: max(env(safe-area-inset-bottom), 0.45rem);
   }
 
