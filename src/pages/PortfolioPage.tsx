@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import { PortfolioEvolutionChart } from '@/components/PortfolioEvolutionChart';
 
 type AssetType = 'stock' | 'etf' | 'fund' | 'bond' | 'crypto' | 'other';
 type RangeKey = '1D' | '1W' | '1M' | '6M' | 'YTD' | '1Y';
+type WealthSection = 'overview' | 'cash' | 'portfolio' | 'analysis' | 'risk' | 'import';
 
 type PortfolioAsset = {
   id: string;
@@ -144,6 +146,7 @@ const emptyCashForm = (): CashFormState => ({
 });
 
 const rangeLabels: RangeKey[] = ['1D', '1W', '1M', '6M', 'YTD', '1Y'];
+const wealthSections: WealthSection[] = ['overview', 'cash', 'portfolio', 'analysis', 'risk', 'import'];
 const COLORS = ['#2f9e91', '#1d4f7a', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#64748b', '#ec4899'];
 const assetTypeLabels: Record<AssetType, string> = {
   stock: 'Individuele aandelen',
@@ -156,6 +159,7 @@ const assetTypeLabels: Record<AssetType, string> = {
 
 export default function PortfolioPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
   const [quotes, setQuotes] = useState<Record<string, QuoteEntry>>({});
   const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
@@ -184,8 +188,13 @@ export default function PortfolioPage() {
   const [pensionSnapshotDate, setPensionSnapshotDate] = useState('');
   const [monthlyNetIncome, setMonthlyNetIncome] = useState(0);
   const [incomeWindowLabel, setIncomeWindowLabel] = useState('');
-  const [section, setSection] = useState('overview');
+  const [section, setSection] = useState<WealthSection>(() => normalizeWealthSection(searchParams.get('tab')));
   const boleroInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const next = normalizeWealthSection(searchParams.get('tab'));
+    setSection((current) => current === next ? current : next);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -962,7 +971,11 @@ export default function PortfolioPage() {
         <MetricCard title="Aantal posities" value={String(investmentRows.length)} sub={`${new Set(investmentRows.map((row) => row.asset.symbol)).size} unieke tickers`} />
       </div>
 
-      <Tabs value={section} onValueChange={setSection} className="space-y-4">
+      <Tabs value={section} onValueChange={(value) => {
+        const next = normalizeWealthSection(value);
+        setSection(next);
+        setSearchParams({ tab: next }, { replace: true });
+      }} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overzicht</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
@@ -1513,6 +1526,10 @@ function parseBoleroRows(table: unknown[][]): BoleroPosition[] {
       if (!type || type.startsWith('bolero') || type.startsWith('mail') || type.startsWith('web')) return false;
       return row.eurValue !== 0 || row.currentValue !== 0 || row.quantity > 0 || type === 'cash';
     });
+}
+
+function normalizeWealthSection(value: unknown): WealthSection {
+  return wealthSections.includes(value as WealthSection) ? value as WealthSection : 'overview';
 }
 
 function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string) {

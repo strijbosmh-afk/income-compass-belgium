@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, WalletCards, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, WalletCards, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer, Landmark } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,7 +44,11 @@ const pensionItems = [
 ];
 
 const wealthItems = [
-  { title: 'Vermogen', url: '/vermogen', icon: LineChart },
+  { title: 'Overzicht', url: '/vermogen?tab=overview', icon: WalletCards },
+  { title: 'Cash', url: '/vermogen?tab=cash', icon: Wallet },
+  { title: 'Beleggingen', url: '/vermogen?tab=portfolio', icon: LineChart },
+  { title: 'Analyse', url: '/vermogen?tab=analysis', icon: BarChart3 },
+  { title: 'Import', url: '/vermogen?tab=import', icon: Upload },
 ];
 
 export function AppSidebar() {
@@ -55,23 +59,31 @@ export function AppSidebar() {
   const issueCount = useControleIssues();
   const secondaryActive = incomeSecondary.some((item) => location.pathname === item.url);
 
-  const isItemActive = (url: string) => (
-    url === '/pensioen'
-      ? location.pathname === '/pensioen'
-      : url === '/vermogen'
-        ? location.pathname === '/vermogen' || location.pathname === '/aandelen'
-        : location.pathname === url
-  );
+  const isItemActive = (url: string) => {
+    const [path, rawSearch = ''] = url.split('?');
+    if (path === '/pensioen') return location.pathname === '/pensioen';
+    if (path === '/vermogen') {
+      if (location.pathname !== '/vermogen' && location.pathname !== '/aandelen') return false;
+      const targetSearch = rawSearch ? `?${rawSearch}` : '';
+      if (!targetSearch || targetSearch === '?tab=overview') {
+        return !location.search || location.search === '?tab=overview';
+      }
+      return location.search === targetSearch;
+    }
+    return location.pathname === path;
+  };
 
-  const renderItem = (item: { title: string; url: string; icon: any }) => (
+  const renderItem = (item: { title: string; url: string; icon: any }) => {
+    const active = isItemActive(item.url);
+    return (
     <SidebarMenuItem key={item.title}>
-      <SidebarMenuButton asChild isActive={isItemActive(item.url)}>
+      <SidebarMenuButton asChild isActive={active}>
         <NavLink
           to={item.url}
           end
           onClick={() => { if (isMobile) setOpenMobile(false); }}
           className="text-sidebar-foreground hover:bg-sidebar-accent"
-          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+          activeClassName={active ? 'bg-sidebar-accent text-sidebar-primary font-medium' : ''}
         >
           <item.icon className="h-4 w-4" />
           {!collapsed && <span className="flex-1">{item.title}</span>}
@@ -88,17 +100,20 @@ export function AppSidebar() {
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
-  );
+    );
+  };
 
-  const renderSubItem = (item: { title: string; url: string; icon: any }) => (
+  const renderSubItem = (item: { title: string; url: string; icon: any }) => {
+    const active = isItemActive(item.url);
+    return (
     <SidebarMenuSubItem key={item.title}>
-      <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+      <SidebarMenuSubButton asChild isActive={active}>
         <NavLink
           to={item.url}
           end
           onClick={() => { if (isMobile) setOpenMobile(false); }}
           className="text-sidebar-foreground hover:bg-sidebar-accent"
-          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+          activeClassName={active ? 'bg-sidebar-accent text-sidebar-primary font-medium' : ''}
         >
           <item.icon className="h-3.5 w-3.5" />
           <span className="flex-1">{item.title}</span>
@@ -108,7 +123,8 @@ export function AppSidebar() {
         </NavLink>
       </SidebarMenuSubButton>
     </SidebarMenuSubItem>
-  );
+    );
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -180,7 +196,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="px-3 text-[13px] uppercase tracking-wider flex items-center gap-1.5 text-sidebar-foreground">
             <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sidebar-accent/60">
-              <LineChart className="h-3 w-3 text-sidebar-foreground" />
+              <Landmark className="h-3 w-3 text-sidebar-foreground" />
             </span>
             {!collapsed && <span className="font-bold">Vermogen</span>}
           </SidebarGroupLabel>
