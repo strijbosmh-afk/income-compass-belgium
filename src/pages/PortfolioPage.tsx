@@ -950,7 +950,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      <section className="dashboard-hero 2xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.55fr)]">
+      <section className={`dashboard-hero 2xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.55fr)] ${isPortfolioSection ? 'hidden' : ''}`}>
         <div className="dashboard-hero-main wealth-hero">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1285,6 +1285,69 @@ export default function PortfolioPage() {
           </Card>
         </TabsContent>
         <TabsContent value="portfolio" className="space-y-4">
+          <section className="dashboard-hero 2xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.55fr)]">
+            <div className="dashboard-hero-main wealth-hero">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-primary-foreground/75">Totale beurswaarde in EUR</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(investmentValue, 'EUR')}</p>
+                  <p className={`mt-2 text-sm ${eurTotals.gain >= 0 ? 'text-emerald-100' : 'text-red-100'}`}>
+                    Beursresultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
+                  </p>
+                </div>
+                <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
+                  <PieIcon className="h-7 w-7" />
+                </div>
+              </div>
+
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <div className="dashboard-hero-pill">
+                  <span>Aandelen</span>
+                  <strong>{money(stockValue, 'EUR')}</strong>
+                </div>
+                <div className="dashboard-hero-pill">
+                  <span>ETF's</span>
+                  <strong>{money(etfValue, 'EUR')}</strong>
+                </div>
+                <div className="dashboard-hero-pill col-span-2 md:col-span-1">
+                  <span>Andere beleggingen</span>
+                  <strong>{money(otherInvestmentValue, 'EUR')}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-hero-side">
+              <div className="dashboard-insight-card">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <BarChart3 className="h-4 w-4 text-secondary" />
+                  Datakwaliteit
+                </div>
+                <p className="mt-2 text-2xl font-semibold">{liveQuoteCount}/{investmentRows.length} live</p>
+                <p className="text-xs text-muted-foreground">{snapshotQuoteCount} Bolero fallback · ECB {fxUpdated || 'onbekend'}</p>
+              </div>
+              <div className="dashboard-insight-card">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  {totalReturnPct >= 0 ? <TrendingUp className="h-4 w-4 text-emerald-600" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+                  Rendement
+                </div>
+                <p className={`mt-2 text-2xl font-semibold ${totalReturnPct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{pct(totalReturnPct)}</p>
+                <p className="text-xs text-muted-foreground">{money(eurTotals.gain, 'EUR')} totaal</p>
+              </div>
+              <div className="dashboard-insight-card md:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Toppositie</p>
+                    <p className="mt-1 text-2xl font-semibold">{bestPerformer?.asset.symbol || '-'}</p>
+                    <p className="text-xs text-muted-foreground">{topHolding ? `${topHolding.name} · ${topHolding.allocation.toFixed(1)}% allocatie` : 'Nog geen koersdata'}</p>
+                  </div>
+                  <div className="rounded-xl bg-secondary/10 px-3 py-2 text-right text-xs text-muted-foreground">
+                    ECB{fxUpdated ? ` · ${fxUpdated}` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <div className="quiet-panel grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard title="Huidige waarde" value={money(investmentValue, 'EUR')} sub="Alle posities omgerekend naar EUR" />
             <MetricCard title="Aankoopwaarde" value={money(eurTotals.cost, 'EUR')} sub="Historische inleg in EUR" />
