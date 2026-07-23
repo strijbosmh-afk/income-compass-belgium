@@ -184,7 +184,7 @@ export default function PortfolioPage() {
   const [pensionSnapshotDate, setPensionSnapshotDate] = useState('');
   const [monthlyNetIncome, setMonthlyNetIncome] = useState(0);
   const [incomeWindowLabel, setIncomeWindowLabel] = useState('');
-  const [section, setSection] = useState('cockpit');
+  const [section, setSection] = useState('overview');
   const boleroInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -418,15 +418,19 @@ export default function PortfolioPage() {
     };
   }), [analysisAssets, quotes, eurTotals.value, toEur]);
 
+  const cashRows = useMemo(() => portfolioRows.filter((row) => isCashAsset(row.asset)), [portfolioRows]);
+  const investmentRows = useMemo(() => portfolioRows.filter((row) => !isCashAsset(row.asset)), [portfolioRows]);
+  const investmentAssets = useMemo(() => analysisAssets.filter((asset) => !isCashAsset(asset)), [analysisAssets]);
+
   const currentValuesBySymbolEur = useMemo(() => {
     const values: Record<string, number> = {};
-    for (const row of portfolioRows) {
-      if (isCashAsset(row.asset) || row.currentValue <= 0) continue;
+    for (const row of investmentRows) {
+      if (row.currentValue <= 0) continue;
       const symbol = row.asset.symbol.toUpperCase();
       values[symbol] = (values[symbol] || 0) + toEur(row.currentValue, row.quoteCurrency);
     }
     return values;
-  }, [portfolioRows, toEur]);
+  }, [investmentRows, toEur]);
 
   const valueAtDate = useMemo(() => {
     if (history.length === 0) return currencyGroups.find((group) => group.currency === chartCurrency)?.value || 0;
@@ -443,30 +447,32 @@ export default function PortfolioPage() {
   }, [eurHistory, valuationDate, eurTotals]);
 
   const bestPerformer = useMemo(() => {
-    return portfolioRows
+    return investmentRows
       .filter((row) => row.currentValue > 0)
       .sort((a, b) => b.gainPct - a.gainPct)[0] || null;
-  }, [portfolioRows]);
+  }, [investmentRows]);
 
   const topHolding = useMemo(() => {
-    return portfolioRows
+    return investmentRows
       .filter((row) => row.currentValue > 0)
       .sort((a, b) => b.allocation - a.allocation)[0] || null;
-  }, [portfolioRows]);
+  }, [investmentRows]);
 
   const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
-  const cashValue = useMemo(() => portfolioRows
-    .filter((row) => isCashAsset(row.asset))
-    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [portfolioRows, toEur]);
-  const manualCashRows = useMemo(() => portfolioRows
+  const cashValue = useMemo(() => cashRows
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
+  const manualCashRows = useMemo(() => cashRows
     .filter((row) => isManualCashAsset(row.asset))
-    .sort((a, b) => b.asset.purchase_date.localeCompare(a.asset.purchase_date)), [portfolioRows]);
+    .sort((a, b) => b.asset.purchase_date.localeCompare(a.asset.purchase_date)), [cashRows]);
   const privateCashValue = useMemo(() => manualCashRows
     .filter((row) => manualCashAccount(row.asset) === 'private')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
   const bvbaCashValue = useMemo(() => manualCashRows
     .filter((row) => manualCashAccount(row.asset) === 'bvba')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
+  const brokerCashValue = useMemo(() => cashRows
+    .filter((row) => !isManualCashAsset(row.asset))
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
   const debitValue = Math.min(0, cashValue);
   const investmentValue = Math.max(0, eurTotals.value);
   const netWorth = eurTotals.value + cashValue + pensionTotal;
@@ -477,13 +483,32 @@ export default function PortfolioPage() {
   const fireTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 12 * 25 : 0;
   const fireProgress = fireTarget > 0 ? Math.min((netWorth / fireTarget) * 100, 100) : 0;
 
-  const allocationData = useMemo(() => groupRows(portfolioRows, (row) => assetTypeLabels[row.asset.asset_type] || row.asset.asset_type, toEur), [portfolioRows, toEur]);
-  const brokerData = useMemo(() => groupRows(portfolioRows, (row) => inferBrokerFromAsset(row.asset), toEur), [portfolioRows, toEur]);
-  const currencyData = useMemo(() => groupRows(portfolioRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [portfolioRows, toEur]);
-  const regionData = useMemo(() => groupRows(portfolioRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [portfolioRows, toEur]);
-  const sectorData = useMemo(() => groupRows(portfolioRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [portfolioRows, toEur]);
-  const liveQuoteCount = useMemo(() => portfolioRows.filter((row) => row.currentPrice > 0 && !row.isBoleroSnapshot).length, [portfolioRows]);
-  const snapshotQuoteCount = useMemo(() => portfolioRows.filter((row) => row.isBoleroSnapshot).length, [portfolioRows]);
+  const cashTrendData = useMemo(() => buildCashTrendData(assets, toEur), [assets, toEur]);
+  const cashTrendDelta = useMemo(() => {
+    if (cashTrendData.length < 2) return 0;
+    return cashTrendData[cashTrendData.length - 1].total - cashTrendData[cashTrendData.length - 2].total;
+  }, [cashTrendData]);
+  const cashCompositionData = useMemo(() => [
+    { name: 'Prive cash', value: Math.max(0, privateCashValue), percentage: cashValue > 0 ? (Math.max(0, privateCashValue) / cashValue) * 100 : 0 },
+    { name: 'BVBA cash', value: Math.max(0, bvbaCashValue), percentage: cashValue > 0 ? (Math.max(0, bvbaCashValue) / cashValue) * 100 : 0 },
+    { name: 'Broker/debet', value: Math.max(0, brokerCashValue), percentage: cashValue > 0 ? (Math.max(0, brokerCashValue) / cashValue) * 100 : 0 },
+  ].filter((item) => item.value > 0), [privateCashValue, bvbaCashValue, brokerCashValue, cashValue]);
+  const wealthCompositionData = useMemo(() => {
+    const rows = [
+      { name: 'Cash', value: Math.max(0, cashValue) },
+      { name: 'Beursportfolio', value: Math.max(0, investmentValue) },
+      { name: 'Pensioen/IPT', value: Math.max(0, pensionTotal) },
+    ].filter((item) => item.value > 0);
+    const total = rows.reduce((sum, row) => sum + row.value, 0);
+    return rows.map((row) => ({ ...row, percentage: total > 0 ? (row.value / total) * 100 : 0 }));
+  }, [cashValue, investmentValue, pensionTotal]);
+  const allocationData = useMemo(() => groupRows(investmentRows, (row) => assetTypeLabels[row.asset.asset_type] || row.asset.asset_type, toEur), [investmentRows, toEur]);
+  const brokerData = useMemo(() => groupRows(investmentRows, (row) => inferBrokerFromAsset(row.asset), toEur), [investmentRows, toEur]);
+  const currencyData = useMemo(() => groupRows(investmentRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [investmentRows, toEur]);
+  const regionData = useMemo(() => groupRows(investmentRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [investmentRows, toEur]);
+  const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [investmentRows, toEur]);
+  const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroSnapshot).length, [investmentRows]);
+  const snapshotQuoteCount = useMemo(() => investmentRows.filter((row) => row.isBoleroSnapshot).length, [investmentRows]);
   const nextRefreshLabel = useMemo(() => {
     if (!nextMarketRefresh) return 'Nog niet gepland';
     const seconds = Math.max(0, Math.ceil((nextMarketRefresh.getTime() - Date.now()) / 1000));
@@ -493,12 +518,12 @@ export default function PortfolioPage() {
   }, [nextMarketRefresh, refreshTicker]);
 
   const riskItems = useMemo(() => buildRiskItems({
-    rows: portfolioRows,
+    rows: investmentRows,
     cashValue,
     bufferMonths,
     monthlyNetIncome,
     currencyData,
-  }), [portfolioRows, cashValue, bufferMonths, monthlyNetIncome, currencyData]);
+  }), [investmentRows, cashValue, bufferMonths, monthlyNetIncome, currencyData]);
 
   async function loadAssets() {
     if (!user) return;
@@ -531,16 +556,9 @@ export default function PortfolioPage() {
     setMarketError('');
     const symbols = [...new Set(analysisAssets.filter((asset) => !isCashAsset(asset)).map((asset) => asset.symbol))];
     if (symbols.length === 0) {
-      const cashAssets = analysisAssets.filter((asset) => isCashAsset(asset));
-      const cashDates = cashAssets.map((asset) => asset.purchase_date).sort();
-      const cashDate = cashDates[cashDates.length - 1] || new Date().toISOString().slice(0, 10);
-      const chartCashValue = cashAssets
-        .filter((asset) => asset.currency === chartCurrency)
-        .reduce((sum, asset) => sum + asset.quantity * asset.purchase_price, 0);
-      const eurCashValue = cashAssets.reduce((sum, asset) => sum + toEur(asset.quantity * asset.purchase_price, asset.currency), 0);
       setQuotes({});
-      setHistory(cashAssets.length > 0 ? [{ date: cashDate, value: chartCashValue }] : []);
-      setEurHistory(cashAssets.length > 0 ? [{ date: cashDate, value: eurCashValue }] : []);
+      setHistory([]);
+      setEurHistory([]);
       markMarketRefreshComplete();
       setMarketLoading(false);
       return;
@@ -610,9 +628,11 @@ export default function PortfolioPage() {
     if (timeline.length === 0) {
       const today = intraday ? new Date().toISOString().slice(0, 16) : new Date().toISOString().slice(0, 10);
       const chartValue = analysisAssets
-        .filter((asset) => asset.currency === chartCurrency)
+        .filter((asset) => asset.currency === chartCurrency && !isCashAsset(asset))
         .reduce((sum, asset) => sum + fallbackAssetValue(asset, quoteMap), 0);
-      const eurValue = analysisAssets.reduce((sum, asset) => sum + toEur(fallbackAssetValue(asset, quoteMap), asset.currency), 0);
+      const eurValue = analysisAssets
+        .filter((asset) => !isCashAsset(asset))
+        .reduce((sum, asset) => sum + toEur(fallbackAssetValue(asset, quoteMap), asset.currency), 0);
       setHistory(chartValue ? [{ date: today, value: chartValue }] : []);
       setEurHistory(eurValue ? [{ date: today, value: eurValue }] : []);
       return;
@@ -646,12 +666,6 @@ export default function PortfolioPage() {
         byDate.set(date, (byDate.get(date) || 0) + value);
       }
     }
-    for (const cashAsset of analysisAssets.filter((asset) => asset.currency === chartCurrency && isCashAsset(asset))) {
-      for (const date of timeline) {
-        if (!purchaseGate(cashAsset.purchase_date, date)) continue;
-        byDate.set(date, (byDate.get(date) || 0) + cashAsset.quantity * cashAsset.purchase_price);
-      }
-    }
     setHistory(Array.from(byDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
 
     // Cumulative EUR history across ALL currencies (using latest FX rate)
@@ -659,12 +673,6 @@ export default function PortfolioPage() {
     for (const asset of analysisAssets.filter((item) => !isCashAsset(item))) {
       for (const [date, value] of buildAssetSeries(asset)) {
         eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(value, asset.currency));
-      }
-    }
-    for (const cashAsset of analysisAssets.filter((asset) => isCashAsset(asset))) {
-      for (const date of timeline) {
-        if (!purchaseGate(cashAsset.purchase_date, date)) continue;
-        eurByDate.set(date, (eurByDate.get(date) || 0) + toEur(cashAsset.quantity * cashAsset.purchase_price, cashAsset.currency));
       }
     }
     setEurHistory(Array.from(eurByDate.entries()).map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)));
@@ -836,9 +844,9 @@ export default function PortfolioPage() {
     <div className="dashboard-shell mx-auto w-full max-w-[1800px] space-y-4 animate-fade-in md:space-y-6 2xl:space-y-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen cockpit</p>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Beursportfolio</h1>
-          <p className="text-muted-foreground mt-1">Portefeuillewaarde, rendement en posities meteen zichtbaar.</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Vermogensoverzicht</h1>
+          <p className="text-muted-foreground mt-1">Cash, beursportfolio en pensioen helder gesplitst met snelle trends.</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
               {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
@@ -883,10 +891,10 @@ export default function PortfolioPage() {
         <div className="dashboard-hero-main wealth-hero">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-primary-foreground/75">Totale waarde in EUR</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(eurTotals.value, 'EUR')}</p>
+              <p className="text-sm font-medium text-primary-foreground/75">Netto vermogen in EUR</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(netWorth, 'EUR')}</p>
               <p className={`mt-2 text-sm ${eurTotals.gain >= 0 ? 'text-emerald-100' : 'text-red-100'}`}>
-                Resultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
+                Beursresultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
               </p>
             </div>
             <div className="hidden rounded-2xl bg-white/10 p-3 text-primary-foreground shadow-inner md:block">
@@ -896,18 +904,16 @@ export default function PortfolioPage() {
 
           <div className="mt-7 grid grid-cols-3 gap-3">
             <div className="dashboard-hero-pill">
-              <span>Ingelegd</span>
-              <strong>{money(eurTotals.cost, 'EUR')}</strong>
+              <span>Cash</span>
+              <strong>{money(cashValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Resultaat</span>
-              <strong className={eurTotals.gain >= 0 ? 'text-emerald-200' : 'text-red-200'}>
-                {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
-              </strong>
+              <span>Beursportfolio</span>
+              <strong>{money(investmentValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Posities</span>
-              <strong>{assets.length}</strong>
+              <span>Pensioen/IPT</span>
+              <strong>{money(pensionTotal, 'EUR')}</strong>
             </div>
           </div>
         </div>
@@ -916,10 +922,10 @@ export default function PortfolioPage() {
           <div className="dashboard-insight-card">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Wallet className="h-4 w-4 text-secondary" />
-              Toppositie
+              Cashbuffer
             </div>
-            <p className="mt-2 text-2xl font-semibold">{topHolding?.asset.symbol || '-'}</p>
-            <p className="text-xs text-muted-foreground">{topHolding ? `${topHolding.allocation.toFixed(1)}% allocatie` : 'Nog geen actuele waarde'}</p>
+            <p className="mt-2 text-2xl font-semibold">{monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} mnd` : money(cashValue, 'EUR')}</p>
+            <p className="text-xs text-muted-foreground">Prive {money(privateCashValue, 'EUR')} · BVBA {money(bvbaCashValue, 'EUR')}</p>
           </div>
           <div className="dashboard-insight-card">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -932,9 +938,9 @@ export default function PortfolioPage() {
           <div className="dashboard-insight-card md:col-span-2">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Beste performer</p>
+                <p className="text-sm font-medium text-muted-foreground">Toppositie</p>
                 <p className="mt-1 text-2xl font-semibold">{bestPerformer?.asset.symbol || '-'}</p>
-                <p className="text-xs text-muted-foreground">{bestPerformer ? `${bestPerformer.name} · ${pct(bestPerformer.gainPct)}` : 'Nog geen koersdata'}</p>
+                <p className="text-xs text-muted-foreground">{topHolding ? `${topHolding.name} · ${topHolding.allocation.toFixed(1)}% allocatie` : 'Nog geen koersdata'}</p>
               </div>
               <div className="rounded-xl bg-secondary/10 px-3 py-2 text-right text-xs text-muted-foreground">
                 ECB{fxUpdated ? ` · ${fxUpdated}` : ''}
@@ -957,18 +963,20 @@ export default function PortfolioPage() {
         ))}
         <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
         <MetricCard title="Cash totaal" value={money(cashValue, 'EUR')} sub={`Prive ${money(privateCashValue, 'EUR')} · BVBA ${money(bvbaCashValue, 'EUR')}`} />
-        <MetricCard title="Aantal posities" value={String(assets.length)} sub={`${new Set(assets.map((asset) => asset.symbol)).size} unieke tickers`} />
+        <MetricCard title="Aantal posities" value={String(investmentRows.length)} sub={`${new Set(investmentRows.map((row) => row.asset.symbol)).size} unieke tickers`} />
       </div>
 
       <Tabs value={section} onValueChange={setSection} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
-          <TabsTrigger value="cockpit">Cockpit</TabsTrigger>
-          <TabsTrigger value="allocation">Allocatie</TabsTrigger>
-          <TabsTrigger value="risk">Risico & fiscaliteit</TabsTrigger>
+          <TabsTrigger value="overview">Overzicht</TabsTrigger>
+          <TabsTrigger value="cash">Cash</TabsTrigger>
+          <TabsTrigger value="portfolio">Beursportfolio</TabsTrigger>
+          <TabsTrigger value="analysis">Analyse</TabsTrigger>
+          <TabsTrigger value="risk">Risico</TabsTrigger>
           <TabsTrigger value="import">Import</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="cockpit" className="space-y-4">
+        <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6">
             <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Beleggingen + cash + pensioen/IPT" />
             <MetricCard title="Beleggingen" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
@@ -1017,6 +1025,66 @@ export default function PortfolioPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+            <AllocationChartCard title="Vermogensmix" data={wealthCompositionData} />
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" /> Kernflow</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                <InfoTile title="1. Cash" text={`Beschikbaar: ${money(cashValue, 'EUR')}. Prive en BVBA worden apart opgevolgd.`} />
+                <InfoTile title="2. Beurs" text={`Geinvesteerd: ${money(investmentValue, 'EUR')}. Rendement: ${pct(totalReturnPct)}.`} />
+                <InfoTile title="3. Pensioen" text={`Opgebouwd: ${money(pensionTotal, 'EUR')}. Laatste snapshot: ${pensionSnapshotDate || 'onbekend'}.`} />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cash" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard title="Cash totaal" value={money(cashValue, 'EUR')} sub={cashTrendDelta ? `Laatste wijziging ${money(cashTrendDelta, 'EUR')}` : 'Laatste snapshots'} />
+            <MetricCard title="Prive cash" value={money(privateCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'private') || 'Nog geen snapshot'} />
+            <MetricCard title="BVBA cash" value={money(bvbaCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'bvba') || 'Nog geen snapshot'} />
+            <MetricCard title="Broker cash/debet" value={money(brokerCashValue, 'EUR')} sub={brokerCashValue < 0 ? 'Debet verlaagt vermogen' : 'Uit brokerimport'} />
+            <MetricCard title="Buffer" value={monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} mnd` : '-'} sub={bufferTarget > 0 ? `Doel ${money(bufferTarget, 'EUR')}` : 'Netto inkomen ontbreekt'} />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+            <Card className="data-card">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Cashtrend prive vs BVBA</CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                {cashTrendData.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Nog geen cashhistoriek beschikbaar.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={cashTrendData}>
+                      <defs>
+                        <linearGradient id="cashPrivate" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.32} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="cashBvba" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(217, 70%, 45%)" stopOpacity={0.26} />
+                          <stop offset="95%" stopColor="hsl(217, 70%, 45%)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} width={80} tickFormatter={(value) => compactMoney(Number(value))} />
+                      <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
+                      <Area type="monotone" dataKey="private" name="Prive" stroke="hsl(var(--primary))" fill="url(#cashPrivate)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="bvba" name="BVBA" stroke="hsl(217, 70%, 45%)" fill="url(#cashBvba)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <AllocationChartCard title="Cashverdeling" data={cashCompositionData} />
           </div>
 
           <Card className="data-card">
@@ -1093,7 +1161,7 @@ export default function PortfolioPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="allocation" className="space-y-4">
+        <TabsContent value="analysis" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
             <AllocationChartCard title="Activaklasse" data={allocationData} />
             <AllocationChartCard title="Broker / bron" data={brokerData} />
@@ -1163,12 +1231,11 @@ export default function PortfolioPage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
-
+        <TabsContent value="portfolio" className="space-y-4">
       <PortfolioEvolutionChart
-        assets={analysisAssets}
+        assets={investmentAssets}
         fxRates={fxRates}
-        currentValueEur={eurTotals.value}
+        currentValueEur={investmentValue}
         currentValuesBySymbolEur={currentValuesBySymbolEur}
       />
 
@@ -1301,7 +1368,7 @@ export default function PortfolioPage() {
 
       <Card className="data-card">
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Portfolio</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Beursposities</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -1321,9 +1388,9 @@ export default function PortfolioPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {portfolioRows.length === 0 ? (
+                {investmentRows.length === 0 ? (
                   <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-10">Nog geen posities toegevoegd.</TableCell></TableRow>
-                ) : portfolioRows.map((row) => (
+                ) : investmentRows.map((row) => (
                   <TableRow key={row.asset.id} className="align-top">
                     <TableCell className="min-w-40">
                       <div className="font-semibold">{row.asset.symbol}</div>
@@ -1398,6 +1465,8 @@ export default function PortfolioPage() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -1681,6 +1750,38 @@ function latestCashSnapshots(assets: PortfolioAsset[]) {
     }
   }
   return [...regularAssets, ...latest.values()];
+}
+
+function buildCashTrendData(assets: PortfolioAsset[], toEur: (value: number, currency: string) => number) {
+  const snapshots = assets
+    .filter(isManualCashAsset)
+    .map((asset) => ({
+      account: manualCashAccount(asset),
+      date: asset.purchase_date,
+      value: toEur(asset.quantity * asset.purchase_price, asset.currency),
+      id: asset.id,
+    }))
+    .filter((snapshot): snapshot is { account: CashAccount; date: string; value: number; id: string } => Boolean(snapshot.account && snapshot.date))
+    .sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      return dateCompare !== 0 ? dateCompare : a.id.localeCompare(b.id);
+    });
+
+  const dates = Array.from(new Set(snapshots.map((snapshot) => snapshot.date))).sort((a, b) => a.localeCompare(b));
+  let privateValue = 0;
+  let bvbaValue = 0;
+  return dates.map((date) => {
+    for (const snapshot of snapshots.filter((item) => item.date === date)) {
+      if (snapshot.account === 'private') privateValue = snapshot.value;
+      if (snapshot.account === 'bvba') bvbaValue = snapshot.value;
+    }
+    return {
+      date,
+      private: privateValue,
+      bvba: bvbaValue,
+      total: privateValue + bvbaValue,
+    };
+  });
 }
 
 function compareCashSnapshots(a: PortfolioAsset, b: PortfolioAsset) {
