@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MyFinState">
+  <defs>
+    <linearGradient id="bg" x1="12" y1="4" x2="52" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2f9e91"/>
+      <stop offset="1" stop-color="#1d4f7a"/>
+    </linearGradient>
+    <linearGradient id="card" x1="18" y1="16" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dff7f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <path d="M18 23.5c0-3 2.4-5.5 5.5-5.5h17c3 0 5.5 2.4 5.5 5.5v17c0 3-2.4 5.5-5.5 5.5h-17c-3 0-5.5-2.4-5.5-5.5v-17Z" fill="url(#card)" opacity=".96"/>
+  <path d="M23 27h18" stroke="#1d4f7a" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M24 37.5 30 31l5.2 5.2 5.8-8.7" fill="none" stroke="#2f9e91" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="43" cy="42" r="5" fill="#f6c453"/>
+  <path d="M43 39.2v5.6M40.2 42h5.6" stroke="#1d4f7a" stroke-width="1.8" stroke-linecap="round"/>
+</svg>
