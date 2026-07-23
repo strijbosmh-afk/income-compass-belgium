@@ -468,6 +468,12 @@ export default function PortfolioPage() {
       .filter((row) => row.currentValue > 0)
       .sort((a, b) => b.allocation - a.allocation)[0] || null;
   }, [investmentRows]);
+  const topPositions = useMemo(() => {
+    return investmentRows
+      .filter((row) => row.currentValue > 0)
+      .sort((a, b) => b.allocation - a.allocation)
+      .slice(0, 5);
+  }, [investmentRows]);
 
   const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
   const cashValue = useMemo(() => cashRows
@@ -481,6 +487,9 @@ export default function PortfolioPage() {
   const bvbaCashValue = useMemo(() => manualCashRows
     .filter((row) => manualCashAccount(row.asset) === 'bvba')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [manualCashRows, toEur]);
+  const brokerCashRows = useMemo(() => cashRows
+    .filter((row) => !isManualCashAsset(row.asset))
+    .sort((a, b) => b.asset.purchase_date.localeCompare(a.asset.purchase_date)), [cashRows]);
   const brokerCashValue = useMemo(() => cashRows
     .filter((row) => !isManualCashAsset(row.asset))
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
@@ -1264,139 +1273,35 @@ export default function PortfolioPage() {
           </Card>
         </TabsContent>
         <TabsContent value="portfolio" className="space-y-4">
-      <PortfolioEvolutionChart
-        assets={investmentAssets}
-        fxRates={fxRates}
-        currentValueEur={investmentValue}
-        currentValuesBySymbolEur={currentValuesBySymbolEur}
-      />
+          <div className="quiet-panel grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Huidige waarde" value={money(investmentValue, 'EUR')} sub="Alle posities omgerekend naar EUR" />
+            <MetricCard title="Aankoopwaarde" value={money(eurTotals.cost, 'EUR')} sub="Historische inleg in EUR" />
+            <MetricCard title="Rendement" value={pct(totalReturnPct)} sub={`${money(eurTotals.gain, 'EUR')} totaal`} />
+            <MetricCard title="Posities" value={String(investmentRows.length)} sub={`${liveQuoteCount} live · ${snapshotQuoteCount} Bolero fallback`} />
+          </div>
 
-      <Card className="data-card">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Cumulatief verloop (EUR)</CardTitle>
-          <span className="text-xs text-muted-foreground">Alle valuta's omgerekend met huidige ECB-koers</span>
-        </CardHeader>
-        <CardContent className="h-72">
-          {eurHistory.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische data beschikbaar.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={eurHistory}>
-                <defs>
-                  <linearGradient id="portfolioEur" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
+          <PortfolioEvolutionChart
+            assets={investmentAssets}
+            fxRates={fxRates}
+            currentValueEur={investmentValue}
+            currentValuesBySymbolEur={currentValuesBySymbolEur}
+          />
 
-                <Tooltip formatter={(value) => money(Number(value), 'EUR')} />
-                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="url(#portfolioEur)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.85fr] 2xl:grid-cols-[minmax(0,1.7fr)_minmax(420px,0.55fr)]">
-        <Card className="data-card">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Portefeuillewaarde</CardTitle>
-            <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
-              <TabsList>
-                {rangeLabels.map((item) => <TabsTrigger key={item} value={item}>{item}</TabsTrigger>)}
-              </TabsList>
-            </Tabs>
-          </CardHeader>
-          <CardContent className="h-80">
-            {history.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Geen historische koersdata beschikbaar.</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history}>
-                  <defs>
-                    <linearGradient id="portfolioValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(174, 50%, 40%)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="hsl(174, 50%, 40%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={80} domain={[(min: number) => min - Math.max(Math.abs(min) * 0.01, 1), (max: number) => max + Math.max(Math.abs(max) * 0.01, 1)]} allowDataOverflow tickFormatter={(value) => compactMoney(Number(value))} />
-                  <Tooltip formatter={(value) => money(Number(value), chartCurrency)} />
-                  <Area type="monotone" dataKey="value" stroke="hsl(174, 50%, 40%)" fill="url(#portfolioValue)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="data-card">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> {editingId ? 'Positie bewerken' : 'Positie toevoegen'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative space-y-2">
-              <Label>Zoek ticker of naam</Label>
-              <div className="relative">
-                <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bv. IWDA, Apple, VUSA" className="pl-9" />
-              </div>
-              {searching && <div className="text-xs text-muted-foreground">Zoeken...</div>}
-              {results.length > 0 && (
-                <div className="absolute z-20 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
-                  {results.map((result) => (
-                    <button key={`${result.symbol}-${result.description}`} type="button" className="w-full text-left px-3 py-2 hover:bg-muted text-sm" onClick={() => selectSymbol(result)}>
-                      <span className="font-medium">{result.displaySymbol || result.symbol}</span>
-                      <span className="text-muted-foreground"> · {result.description || result.type}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+            <div className="space-y-4">
+              <PortfolioTopPositionsCard rows={topPositions} totalValue={investmentValue} totalReturnPct={totalReturnPct} toEur={toEur} />
+              <PortfolioCashCard rows={brokerCashRows} totalValue={brokerCashValue} toEur={toEur} />
             </div>
+            <AllocationChartCard title="Spreiding over activaklassen" data={allocationData} />
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Ticker" value={form.symbol} onChange={(value) => setForm({ ...form, symbol: value.toUpperCase() })} />
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={form.asset_type} onValueChange={(value) => setForm({ ...form, asset_type: value as AssetType })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="etf">ETF</SelectItem>
-                    <SelectItem value="stock">Aandeel</SelectItem>
-                    <SelectItem value="fund">Fonds</SelectItem>
-                    <SelectItem value="bond">Obligatie</SelectItem>
-                    <SelectItem value="crypto">Crypto</SelectItem>
-                    <SelectItem value="other">Andere</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <AllocationBarsCard title="Sector / profiel" data={sectorData} />
+            <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
+              <AllocationChartCard title="Munt" data={currencyData} />
+              <AllocationChartCard title="Regio" data={regionData} />
             </div>
-            <Field label="Naam" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Aankoopdatum" type="date" value={form.purchase_date} onChange={(value) => setForm({ ...form, purchase_date: value })} />
-              <Field label="Valuta" value={form.currency} onChange={(value) => setForm({ ...form, currency: value.toUpperCase() })} />
-              <Field label="Aantal" type="number" value={form.quantity} onChange={(value) => setForm({ ...form, quantity: value })} />
-              <Field label="Aankoopprijs" type="number" value={form.purchase_price} onChange={(value) => setForm({ ...form, purchase_price: value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Beurs" value={form.exchange} onChange={(value) => setForm({ ...form, exchange: value })} />
-              <Field label="MIC" value={form.mic} onChange={(value) => setForm({ ...form, mic: value })} />
-            </div>
-            <Field label="Notitie" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
-            <div className="flex gap-2">
-              <Button onClick={saveAsset} disabled={saving} className="flex-1">
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingId ? 'Bijwerken' : 'Toevoegen'}
-              </Button>
-              {editingId && <Button variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setQuery(''); }}>Annuleer</Button>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
 
       <Card className="data-card">
         <CardHeader>
@@ -1497,6 +1402,67 @@ export default function PortfolioPage() {
           </div>
         </CardContent>
       </Card>
+
+          <Card className="data-card">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> {editingId ? 'Positie bewerken' : 'Positie toevoegen'}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative space-y-2">
+                <Label>Zoek ticker of naam</Label>
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" />
+                  <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="bv. IWDA, Apple, VUSA" className="pl-9" />
+                </div>
+                {searching && <div className="text-xs text-muted-foreground">Zoeken...</div>}
+                {results.length > 0 && (
+                  <div className="absolute z-20 w-full rounded-md border bg-popover shadow-md max-h-64 overflow-auto">
+                    {results.map((result) => (
+                      <button key={`${result.symbol}-${result.description}`} type="button" className="w-full text-left px-3 py-2 hover:bg-muted text-sm" onClick={() => selectSymbol(result)}>
+                        <span className="font-medium">{result.displaySymbol || result.symbol}</span>
+                        <span className="text-muted-foreground"> · {result.description || result.type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Field label="Ticker" value={form.symbol} onChange={(value) => setForm({ ...form, symbol: value.toUpperCase() })} />
+                <div className="space-y-2">
+                  <Label>Type</Label>
+                  <Select value={form.asset_type} onValueChange={(value) => setForm({ ...form, asset_type: value as AssetType })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="etf">ETF</SelectItem>
+                      <SelectItem value="stock">Aandeel</SelectItem>
+                      <SelectItem value="fund">Fonds</SelectItem>
+                      <SelectItem value="bond">Obligatie</SelectItem>
+                      <SelectItem value="crypto">Crypto</SelectItem>
+                      <SelectItem value="other">Andere</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Field label="Aankoopdatum" type="date" value={form.purchase_date} onChange={(value) => setForm({ ...form, purchase_date: value })} />
+                <Field label="Valuta" value={form.currency} onChange={(value) => setForm({ ...form, currency: value.toUpperCase() })} />
+              </div>
+              <Field label="Naam" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Field label="Aantal" type="number" value={form.quantity} onChange={(value) => setForm({ ...form, quantity: value })} />
+                <Field label="Aankoopprijs" type="number" value={form.purchase_price} onChange={(value) => setForm({ ...form, purchase_price: value })} />
+                <Field label="Beurs" value={form.exchange} onChange={(value) => setForm({ ...form, exchange: value })} />
+                <Field label="MIC" value={form.mic} onChange={(value) => setForm({ ...form, mic: value })} />
+              </div>
+              <Field label="Notitie" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
+              <div className="flex gap-2">
+                <Button onClick={saveAsset} disabled={saving} className="flex-1">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editingId ? 'Bijwerken' : 'Toevoegen'}
+                </Button>
+                {editingId && <Button variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setQuery(''); }}>Annuleer</Button>}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
@@ -1741,6 +1707,104 @@ function MetricCard({ title, value, sub }: { title: string; value: string; sub: 
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
         <p className="mt-2 text-xl font-semibold tracking-tight md:text-2xl">{value}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PortfolioTopPositionsCard({ rows, totalValue, totalReturnPct, toEur }: {
+  rows: any[];
+  totalValue: number;
+  totalReturnPct: number;
+  toEur: (value: number, currency: string) => number;
+}) {
+  return (
+    <Card className="data-card">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Top 5 posities</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-xl border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Naam</TableHead>
+                <TableHead className="text-right">Gewicht</TableHead>
+                <TableHead className="text-right">Waarde EUR</TableHead>
+                <TableHead className="text-right">Rendement</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nog geen posities.</TableCell></TableRow>
+              ) : rows.map((row) => (
+                <TableRow key={row.asset.id}>
+                  <TableCell className="max-w-48">
+                    <div className="truncate font-medium">{row.name}</div>
+                    <div className="text-xs text-muted-foreground">{row.asset.symbol}</div>
+                  </TableCell>
+                  <TableCell className="text-right">{row.allocation.toFixed(1)}%</TableCell>
+                  <TableCell className="text-right">{money(toEur(row.currentValue, row.quoteCurrency), 'EUR')}</TableCell>
+                  <TableCell className={`text-right font-medium ${row.gainPct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{pct(row.gainPct)}</TableCell>
+                </TableRow>
+              ))}
+              {rows.length > 0 && (
+                <TableRow className="font-semibold">
+                  <TableCell>Totaal</TableCell>
+                  <TableCell className="text-right">100,0%</TableCell>
+                  <TableCell className="text-right">{money(totalValue, 'EUR')}</TableCell>
+                  <TableCell className={`text-right ${totalReturnPct >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>{pct(totalReturnPct)}</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PortfolioCashCard({ rows, totalValue, toEur }: {
+  rows: any[];
+  totalValue: number;
+  toEur: (value: number, currency: string) => number;
+}) {
+  return (
+    <Card className="data-card">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Broker-cash</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-xl border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Munt</TableHead>
+                <TableHead>Bron</TableHead>
+                <TableHead className="text-right">In oorspronkelijke munt</TableHead>
+                <TableHead className="text-right">Omgerekend in EUR</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Geen broker-cash uit import.</TableCell></TableRow>
+              ) : rows.map((row) => (
+                <TableRow key={row.asset.id}>
+                  <TableCell className="font-medium">{row.quoteCurrency}</TableCell>
+                  <TableCell className="text-muted-foreground">{row.asset.exchange || 'Broker'}</TableCell>
+                  <TableCell className={`text-right ${row.currentValue < 0 ? 'text-destructive' : ''}`}>{money(row.currentValue, row.quoteCurrency)}</TableCell>
+                  <TableCell className={`text-right font-medium ${toEur(row.currentValue, row.quoteCurrency) < 0 ? 'text-destructive' : ''}`}>{money(toEur(row.currentValue, row.quoteCurrency), 'EUR')}</TableCell>
+                </TableRow>
+              ))}
+              {rows.length > 0 && (
+                <TableRow className="font-semibold">
+                  <TableCell colSpan={3}>Totaal in EUR</TableCell>
+                  <TableCell className={`text-right ${totalValue < 0 ? 'text-destructive' : ''}`}>{money(totalValue, 'EUR')}</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
