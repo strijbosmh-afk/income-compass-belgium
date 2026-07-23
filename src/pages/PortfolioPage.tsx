@@ -1596,6 +1596,17 @@ function parseBoleroRows(input: unknown): BoleroPosition[] {
 
 function normalizeWorksheetRows(input: unknown): unknown[][] {
   if (!Array.isArray(input)) return [];
+  const sheetRows = input
+    .flatMap((item) => {
+      if (Array.isArray(item)) return [item];
+      if (item && typeof item === 'object' && Array.isArray((item as { data?: unknown }).data)) {
+        return (item as { data: unknown[] }).data;
+      }
+      return [];
+    })
+    .filter(Array.isArray)
+    .map((row) => row as unknown[]);
+  if (sheetRows.length > 0) return sheetRows;
   return input
     .filter(Array.isArray)
     .map((row) => row as unknown[]);
