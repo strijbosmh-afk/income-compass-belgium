@@ -88,6 +88,27 @@ function fmtDate(d: string, intraday: boolean) {
   return dt.toLocaleDateString('nl-BE', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
+function parseFlexibleNumber(value: string) {
+  const text = value.replace(/\u00a0/g, ' ').replace(/\s/g, '').trim();
+  const normalized = text.includes(',')
+    ? text.replace(/\./g, '').replace(',', '.')
+    : text;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function boleroImportedValueEur(asset: EvolutionAsset) {
+  const notes = String(asset.notes || '');
+  const eurValue = notes.match(/actuele waarde EUR\s+(-?[\d.,]+)/i)?.[1] || '';
+  const parsed = parseFlexibleNumber(eurValue);
+  return parsed > 0 ? parsed : 0;
+}
+
+function dateToTs(date: string) {
+  const ts = Math.floor(new Date(`${date}T12:00:00`).getTime() / 1000);
+  return Number.isFinite(ts) ? ts : 0;
+}
+
 type Props = {
   assets: EvolutionAsset[];
   fxRates: Record<string, number>;
@@ -238,10 +259,15 @@ export function PortfolioEvolutionChart({ assets, fxRates, currentValueEur = 0, 
     if (currentValueEur > 0) allTs.add(nowTs);
     timeline = [...allTs].sort((a, b) => a - b);
 
-    // If no market data at all: synthesize a flat baseline over the selected range
-    if (timeline.length === 0) {
+    // If there is no usable market history, synthesize a sensible baseline.
+    // Bolero imports often use ISIN as symbol; that has no candles, but the
+    // imported snapshot itself is still valuable for a portfolio trend.
+    if (timeline.length < 2) {
       const { from, to } = getRange(range);
-      timeline = [from, to];
+      const purchaseDates = investable
+        .map((asset) => dateToTs(asset.purchase_date))
+        .filter((ts) => ts >= from && ts <= to);
+      timeline = [...new Set([from, ...purchaseDates, ...timeline, to])].sort((a, b) => a - b);
     }
 
     // Per-symbol forward-fill: store EUR value per symbol per timestamp.
@@ -262,6 +288,12 @@ export function PortfolioEvolutionChart({ assets, fxRates, currentValueEur = 0, 
           }
         });
       }
+      const importedValueEur = holdings.reduce((sum, h) => sum + boleroImportedValueEur(h), 0);
+      const importTs = holdings
+        .map((h) => dateToTs(h.purchase_date))
+        .filter(Boolean)
+        .sort((a, b) => b - a)[0];
+      if (importedValueEur > 0 && importTs) byTsEur.set(importTs, importedValueEur);
       const currentSymValue = Number(currentValuesBySymbolEur[sym] || 0);
       if (currentSymValue > 0) byTsEur.set(nowTs, currentSymValue);
       const out = new Map<number, number>();

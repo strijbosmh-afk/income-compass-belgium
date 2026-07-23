@@ -462,10 +462,10 @@ export default function PortfolioPage() {
 
   const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
   const stockValue = useMemo(() => investmentRows
-    .filter((row) => row.asset.asset_type === 'stock')
+    .filter((row) => displayAssetType(row.asset) === 'stock')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [investmentRows, toEur]);
   const etfValue = useMemo(() => investmentRows
-    .filter((row) => row.asset.asset_type === 'etf')
+    .filter((row) => displayAssetType(row.asset) === 'etf')
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [investmentRows, toEur]);
   const cashValue = useMemo(() => cashRows
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
@@ -514,11 +514,11 @@ export default function PortfolioPage() {
     const total = rows.reduce((sum, row) => sum + row.value, 0);
     return rows.map((row) => ({ ...row, percentage: total > 0 ? (row.value / total) * 100 : 0 }));
   }, [cashValue, investmentValue, pensionTotal]);
-  const allocationData = useMemo(() => groupRows(investmentRows, (row) => assetTypeLabels[row.asset.asset_type] || row.asset.asset_type, toEur), [investmentRows, toEur]);
+  const allocationData = useMemo(() => groupRows(investmentRows, (row) => assetTypeLabels[displayAssetType(row.asset)] || row.asset.asset_type, toEur), [investmentRows, toEur]);
   const brokerData = useMemo(() => groupRows(investmentRows, (row) => inferBrokerFromAsset(row.asset), toEur), [investmentRows, toEur]);
   const currencyData = useMemo(() => groupRows(investmentRows, (row) => row.quoteCurrency || row.asset.currency || 'EUR', toEur), [investmentRows, toEur]);
   const regionData = useMemo(() => groupRows(investmentRows, (row) => inferRegion(row.exchange || row.asset.exchange || row.asset.mic || row.asset.notes || ''), toEur), [investmentRows, toEur]);
-  const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [investmentRows, toEur]);
+  const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[displayAssetType(row.asset)] || 'Onbekend', toEur), [investmentRows, toEur]);
   const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroFallback).length, [investmentRows]);
   const snapshotQuoteCount = useMemo(() => investmentRows.filter((row) => row.isBoleroSnapshot).length, [investmentRows]);
   const urlSection = normalizeWealthSection(searchParams.get('tab'));
@@ -648,18 +648,22 @@ export default function PortfolioPage() {
         if (point.close > 0) allDates.add(point.date);
       }
     }
-    const timeline = Array.from(allDates).sort((a, b) => a.localeCompare(b));
-    if (timeline.length === 0) {
+    let timeline = Array.from(allDates).sort((a, b) => a.localeCompare(b));
+    if (timeline.length < 2) {
       const today = intraday ? new Date().toISOString().slice(0, 16) : new Date().toISOString().slice(0, 10);
+      const fromKey = intraday ? new Date(from * 1000).toISOString().slice(0, 16) : new Date(from * 1000).toISOString().slice(0, 10);
+      timeline = Array.from(new Set([fromKey, ...timeline, today])).sort((a, b) => a.localeCompare(b));
       const chartValue = analysisAssets
         .filter((asset) => asset.currency === chartCurrency && !isCashAsset(asset))
         .reduce((sum, asset) => sum + fallbackAssetValue(asset, quoteMap), 0);
       const eurValue = analysisAssets
         .filter((asset) => !isCashAsset(asset))
         .reduce((sum, asset) => sum + toEur(fallbackAssetValue(asset, quoteMap), asset.currency), 0);
-      setHistory(chartValue ? [{ date: today, value: chartValue }] : []);
-      setEurHistory(eurValue ? [{ date: today, value: eurValue }] : []);
-      return;
+      if (chartValue || eurValue) {
+        setHistory(chartValue ? timeline.map((date) => ({ date, value: chartValue })) : []);
+        setEurHistory(eurValue ? timeline.map((date) => ({ date, value: eurValue })) : []);
+        return;
+      }
     }
 
     // For each asset, carry the last known close forward over the timeline so a
@@ -1431,7 +1435,7 @@ export default function PortfolioPage() {
                         </a>
                       )}
                     </TableCell>
-                    <TableCell className="uppercase text-xs text-muted-foreground">{row.asset.asset_type}</TableCell>
+                    <TableCell className="uppercase text-xs text-muted-foreground">{displayAssetType(row.asset)}</TableCell>
                     <TableCell className="text-right">{row.asset.quantity.toLocaleString('nl-BE')}</TableCell>
                     <TableCell className="text-right">
                       <div>{money(row.cost, row.asset.currency)}</div>
@@ -1669,8 +1673,9 @@ function boleroImportedQuote(asset: PortfolioAsset) {
 
 function boleroAssetType(type: string): AssetType {
   const value = type.toLowerCase();
-  if (value.includes('etf')) return 'etf';
-  if (value.includes('fonds')) return 'fund';
+  const normalized = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  if (normalized.includes('etf') || normalized.includes('tracker') || normalized.includes('trackers')) return 'etf';
+  if (normalized.includes('fonds') || normalized.includes('fund')) return 'fund';
   if (value.includes('oblig')) return 'bond';
   if (value.includes('aandeel') || value.includes('stock')) return 'stock';
   if (value.includes('crypto')) return 'crypto';
@@ -1922,7 +1927,7 @@ function groupRows(rows: any[], keyFn: (row: any) => string, toEur: (value: numb
 function fallbackAssetValue(asset: PortfolioAsset, quoteMap: Record<string, QuoteEntry>) {
   if (isCashAsset(asset)) return asset.quantity * asset.purchase_price;
   const livePrice = Number(quoteMap[asset.symbol]?.quote?.c || 0);
-  const price = livePrice > 0 ? livePrice : asset.purchase_price;
+  const price = livePrice > 0 ? livePrice : (isBoleroManagedAsset(asset) ? boleroImportedQuote(asset) : asset.purchase_price);
   return asset.quantity * price;
 }
 
@@ -2069,10 +2074,14 @@ function buildRiskItems({ rows, cashValue, bufferMonths, monthlyNetIncome, curre
 }
 
 function normalizeAsset(asset: any): PortfolioAsset {
-  return {
+  const normalized = {
     ...asset,
     quantity: Number(asset.quantity) || 0,
     purchase_price: Number(asset.purchase_price) || 0,
+  } as PortfolioAsset;
+  return {
+    ...normalized,
+    asset_type: displayAssetType(normalized),
   };
 }
 
@@ -2082,6 +2091,17 @@ function inferAssetType(type: string | undefined): AssetType {
   if (value.includes('fund')) return 'fund';
   if (value.includes('crypto')) return 'crypto';
   return 'stock';
+}
+
+function displayAssetType(asset: Pick<PortfolioAsset, 'asset_type' | 'symbol' | 'name' | 'notes'>): AssetType {
+  if (asset.asset_type && asset.asset_type !== 'other') return asset.asset_type;
+  const text = `${asset.symbol || ''} ${asset.name || ''} ${asset.notes || ''}`.toLowerCase();
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ');
+  if (/\b(etf|trackers?|ucits|ishares|xtrackers|xtrac|spdr|vanguard|amundi|lyxor)\b/.test(normalized)) return 'etf';
+  if (/\b(fund|fonds)\b/.test(normalized)) return 'fund';
+  if (/\b(bond|oblig)\b/.test(normalized)) return 'bond';
+  if (/\b(crypto|bitcoin|ethereum)\b/.test(normalized)) return 'crypto';
+  return asset.asset_type || 'other';
 }
 
 function getRange(range: RangeKey): { from: number; to: number; interval: string } {
