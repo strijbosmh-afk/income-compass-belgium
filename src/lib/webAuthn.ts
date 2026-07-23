@@ -42,6 +42,11 @@ export function hasLocalPasskey(userId: string) {
   return Boolean(localStorage.getItem(credentialKey(userId)));
 }
 
+export function clearLocalPasskey(userId?: string) {
+  if (userId) localStorage.removeItem(credentialKey(userId));
+  localStorage.removeItem(LAST_USER_KEY);
+}
+
 export function getLastPasskeyUser() {
   try {
     return JSON.parse(localStorage.getItem(LAST_USER_KEY) || 'null') as { userId: string; label: string; createdAt: string } | null;
@@ -52,6 +57,7 @@ export function getLastPasskeyUser() {
 
 export async function registerLocalPasskey(userId: string, label = 'MyFinState') {
   if (!isWebAuthnAvailable()) throw new Error('Touch ID is niet beschikbaar in deze browser.');
+  clearLocalPasskey(userId);
 
   const idBytes = new TextEncoder().encode(userId);
   const credential = await navigator.credentials.create({
@@ -101,20 +107,37 @@ export async function verifyLocalPasskey(userId: string) {
   if (!isWebAuthnAvailable()) throw new Error('Touch ID is niet beschikbaar in deze browser.');
   const stored = localStorage.getItem(credentialKey(userId));
   if (!stored) throw new Error('Touch ID is nog niet ingeschakeld op deze Mac.');
-  const credential = JSON.parse(stored) as { rawId: string };
+  const credential = JSON.parse(stored) as { rawId?: string };
+  if (!credential.rawId) throw new Error('Touch ID registratie is beschadigd. Stel Touch ID opnieuw in.');
 
-  const assertion = await navigator.credentials.get({
-    publicKey: {
-      challenge: randomChallenge(),
-      allowCredentials: [{
-        id: base64UrlToBytes(credential.rawId),
-        type: 'public-key',
-        transports: ['internal'],
-      }],
-      userVerification: 'required',
-      timeout: 60_000,
-    },
-  });
+  let assertion: Credential | null = null;
+  try {
+    assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: randomChallenge(),
+        allowCredentials: [{
+          id: base64UrlToBytes(credential.rawId),
+          type: 'public-key',
+          transports: ['internal'],
+        }],
+        userVerification: 'required',
+        timeout: 60_000,
+      },
+    });
+  } catch (error) {
+    // Safari/iCloud Keychain can occasionally lose the locally stored credential id
+    // while the platform passkey is still available for this origin.
+    if (!(error instanceof DOMException) || !['NotAllowedError', 'InvalidStateError', 'UnknownError'].includes(error.name)) {
+      throw error;
+    }
+    assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: randomChallenge(),
+        userVerification: 'required',
+        timeout: 60_000,
+      },
+    });
+  }
 
   if (!(assertion instanceof PublicKeyCredential)) {
     throw new Error('Touch ID ontgrendeling is geannuleerd.');

@@ -4,7 +4,7 @@ import { Fingerprint, Loader2, LockKeyhole, LogOut, X } from 'lucide-react';
 import { NativeLock } from '@/components/NativeLock';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { hasLocalPasskey, isPlatformAuthenticatorAvailable, registerLocalPasskey, verifyLocalPasskey } from '@/lib/webAuthn';
+import { clearLocalPasskey, hasLocalPasskey, isPlatformAuthenticatorAvailable, registerLocalPasskey, verifyLocalPasskey } from '@/lib/webAuthn';
 import { toast } from 'sonner';
 
 const LOCK_AFTER_MS = 5 * 60 * 1000;
@@ -27,6 +27,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
   const [touchIdBusy, setTouchIdBusy] = useState(false);
   const [showTouchIdSetup, setShowTouchIdSetup] = useState(false);
   const [touchIdChecked, setTouchIdChecked] = useState(false);
+  const [touchIdFailed, setTouchIdFailed] = useState(false);
   const [deepLocked, setDeepLocked] = useState(false);
   const lastActivityRef = useRef(Date.now());
   const signingOutRef = useRef(false);
@@ -91,15 +92,25 @@ function WebSessionLock({ children }: { children: ReactNode }) {
       lastActivityRef.current = Date.now();
       setDeepLocked(false);
       setLocked(false);
+      setTouchIdFailed(false);
       toast.success('Ontgrendeld met Touch ID');
     } catch (error) {
+      setTouchIdFailed(true);
       toast.error('Touch ID ontgrendeling mislukt', {
-        description: error instanceof Error ? error.message : 'Gebruik opnieuw inloggen als fallback.',
+        description: error instanceof Error ? error.message : 'Stel Touch ID opnieuw in of log opnieuw in.',
       });
     } finally {
       setTouchIdBusy(false);
     }
   }, [user]);
+
+  const resetTouchId = useCallback(async () => {
+    if (!user) return;
+    clearLocalPasskey(user.id);
+    setTouchIdEnabled(false);
+    setTouchIdFailed(false);
+    await enableTouchId();
+  }, [enableTouchId, user]);
 
   const dismissTouchIdSetup = () => {
     sessionStorage.setItem('myfinstate-touchid-dismissed', '1');
@@ -150,7 +161,7 @@ function WebSessionLock({ children }: { children: ReactNode }) {
               <Fingerprint className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{touchIdAvailable ? 'Touch ID op deze Mac' : 'Touch ID niet beschikbaar'}</p>
+              <p className="text-sm font-semibold">{touchIdAvailable ? 'Touch ID op deze Mac' : 'Touch ID niet beschikbaar'}</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 {touchIdAvailable
                   ? 'Ontgrendel MyFinState voortaan met je vingerafdruk na automatische vergrendeling.'
@@ -190,6 +201,12 @@ function WebSessionLock({ children }: { children: ReactNode }) {
           <Button className="mt-6 h-12 rounded-2xl px-6" onClick={() => void unlockWithTouchId()} disabled={touchIdBusy}>
             {touchIdBusy ? <Loader2 className="animate-spin" /> : <Fingerprint />}
             Ontgrendel met Touch ID
+          </Button>
+        )}
+        {touchIdAvailable && touchIdEnabled && touchIdFailed && (
+          <Button variant="ghost" className="mt-3 h-11 rounded-2xl px-6" onClick={() => void resetTouchId()} disabled={touchIdBusy}>
+            {touchIdBusy ? <Loader2 className="animate-spin" /> : <Fingerprint />}
+            Touch ID opnieuw instellen
           </Button>
         )}
         <Button variant={touchIdEnabled ? 'outline' : 'default'} className={touchIdEnabled ? 'mt-3 h-12 rounded-2xl px-6' : 'mt-6 h-12 rounded-2xl px-6'} onClick={() => void secureSignOut()} disabled={signingOut}>

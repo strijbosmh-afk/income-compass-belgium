@@ -88,8 +88,8 @@ export default function Login() {
               <p className="flex items-center gap-1 text-xs font-medium"><ShieldCheck className="h-3 w-3" /> Biometrisch beschermd</p>
               <p className="text-[11px] text-muted-foreground">
                 {passkeyLabel
-                  ? `Touch ID is ingesteld voor ${passkeyLabel}. Log niet handmatig uit als je met Touch ID wilt ontgrendelen.`
-                  : 'Face ID op iPhone, Touch ID op je MacBook indien ingeschakeld.'}
+                  ? `Touch ID is lokaal ingesteld voor ${passkeyLabel}, maar na uitloggen moet je eerst opnieuw met wachtwoord inloggen.`
+                  : 'Face ID op iPhone, Touch ID op je MacBook voor sessie-ontgrendeling.'}
               </p>
             </div>
           </div>
