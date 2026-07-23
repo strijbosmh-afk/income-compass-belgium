@@ -105,6 +105,18 @@ async function quoteWithFallback(token: string, symbol: string) {
     }
   }
 
+  for (const candidate of await yahooSearchSymbols(symbol)) {
+    const resolved = await quoteFromProviders(token, candidate);
+    if (Number(resolved.quote?.c || 0) > 0) {
+      return {
+        ...resolved,
+        symbol,
+        resolvedSymbol: candidate,
+        status: "live",
+      };
+    }
+  }
+
   const search = await finnhub(token, "/search", { q: symbol }).catch(() => ({ result: [] }));
   const candidates = ((search.result || []) as Array<{ symbol?: string; displaySymbol?: string }>)
     .flatMap((item) => [item.symbol, item.displaySymbol])
@@ -254,6 +266,33 @@ async function yahooSummary(symbol: string) {
   }
 }
 
+async function yahooSearchSymbols(query: string) {
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("quotesCount", "10");
+  url.searchParams.set("newsCount", "0");
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MedIncome/1.0)",
+        "Accept": "application/json",
+      },
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return [];
+    }
+    const payload = await response.json();
+    return ((payload?.quotes || []) as Array<{ symbol?: string; quoteType?: string }>)
+      .filter((item) => ["EQUITY", "ETF", "MUTUALFUND"].includes(String(item.quoteType || "").toUpperCase()))
+      .map((item) => String(item.symbol || "").trim().toUpperCase())
+      .filter((item) => item && item !== query.toUpperCase());
+  } catch {
+    return [];
+  }
+}
+
 function rawNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (value && typeof value === "object" && "raw" in value) {
@@ -325,6 +364,13 @@ async function candlesWithFallback(token: string, symbol: string, from: number, 
   if (direct.s === "ok" && direct.t.length > 0) return { ...direct, resolvedSymbol: symbol };
 
   for (const candidate of symbolAliases(symbol)) {
+    const resolved = await yahooCandles(candidate, from, to, interval);
+    if (resolved.s === "ok" && resolved.t.length > 0) {
+      return { ...resolved, resolvedSymbol: candidate };
+    }
+  }
+
+  for (const candidate of await yahooSearchSymbols(symbol)) {
     const resolved = await yahooCandles(candidate, from, to, interval);
     if (resolved.s === "ok" && resolved.t.length > 0) {
       return { ...resolved, resolvedSymbol: candidate };

@@ -104,12 +104,36 @@ serve(async (req) => {
 });
 
 async function fetchQuote(symbol: string, finnhubToken: string) {
-  const symbolsToTry = [symbol, ...(SYMBOL_ALIASES[symbol.toUpperCase()] || [])];
+  const symbolsToTry = [symbol, ...(SYMBOL_ALIASES[symbol.toUpperCase()] || []), ...(await yahooSearchSymbols(symbol))];
   for (const candidate of symbolsToTry) {
     const quote = await fetchDirectQuote(candidate, finnhubToken);
     if (quote) return { ...quote, resolvedSymbol: candidate };
   }
   return null;
+}
+
+async function yahooSearchSymbols(query: string) {
+  const url = new URL("https://query1.finance.yahoo.com/v1/finance/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("quotesCount", "10");
+  url.searchParams.set("newsCount", "0");
+
+  try {
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return [];
+    }
+    const payload = await response.json();
+    return ((payload?.quotes || []) as Array<{ symbol?: string; quoteType?: string }>)
+      .filter((item) => ["EQUITY", "ETF", "MUTUALFUND"].includes(String(item.quoteType || "").toUpperCase()))
+      .map((item) => String(item.symbol || "").trim().toUpperCase())
+      .filter((item) => item && item !== query.toUpperCase());
+  } catch {
+    return [];
+  }
 }
 
 async function fetchDirectQuote(symbol: string, finnhubToken: string) {

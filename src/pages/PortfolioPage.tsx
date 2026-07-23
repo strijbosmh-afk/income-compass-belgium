@@ -859,24 +859,28 @@ export default function PortfolioPage() {
       const today = new Date().toISOString().slice(0, 10);
       const currentAssets = await loadPortfolioAssets(user.id);
       const matchIndex = buildBoleroMatchIndex(currentAssets);
+      const resolvedSymbols = await resolveBoleroSymbols(positions);
       let added = 0;
       let updated = 0;
       let cashSnapshots = 0;
+      let mapped = 0;
 
       for (const position of positions) {
-        const payload = boleroPositionToAsset(position, user.id, file.name, today);
+        const resolvedSymbol = position.isin ? resolvedSymbols.get(position.isin.toUpperCase()) : undefined;
+        const payload = boleroPositionToAsset(position, user.id, file.name, today, resolvedSymbol);
         if (isCashPayload(payload)) {
           const { error } = await (supabase as any).from('portfolio_assets').insert(payload);
           if (error) throw error;
           cashSnapshots++;
           continue;
         }
+        if (resolvedSymbol) mapped++;
 
         const match = findBoleroMatch(position, matchIndex);
         if (match) {
           const updatePayload = {
             ...payload,
-            symbol: match.symbol,
+            symbol: shouldReplaceBoleroSymbol(match.symbol, payload.symbol) ? payload.symbol : match.symbol,
             purchase_date: match.purchase_date,
             notes: mergeBoleroNotes(match.notes, payload.notes),
           };
@@ -891,7 +895,7 @@ export default function PortfolioPage() {
       }
 
       toast.success('Bolero-import verwerkt', {
-        description: `${updated} bijgewerkt · ${added} toegevoegd · ${cashSnapshots} cashsnapshot(s).`,
+        description: `${updated} bijgewerkt · ${added} toegevoegd · ${cashSnapshots} cashsnapshot(s) · ${mapped} live ticker(s) gemapt.`,
       });
       await loadAssets();
       setChartCurrency('EUR');
@@ -1549,11 +1553,36 @@ export default function PortfolioPage() {
   );
 }
 
+async function resolveBoleroSymbols(positions: BoleroPosition[]) {
+  const isins = [...new Set(positions
+    .map((position) => position.isin.trim().toUpperCase())
+    .filter((isin) => looksLikeIsin(isin)))];
+  if (isins.length === 0) return new Map<string, string>();
+
+  try {
+    const { data, error } = await supabase.functions.invoke('market-data', {
+      body: { action: 'quotes', symbols: isins },
+    });
+    if (error || data?.error) return new Map<string, string>();
+    const mapped = new Map<string, string>();
+    for (const quote of data?.quotes || []) {
+      const original = String(quote.symbol || '').toUpperCase();
+      const resolved = String(quote.resolvedSymbol || '').toUpperCase();
+      if (looksLikeIsin(original) && resolved && resolved !== original && Number(quote.quote?.c || 0) > 0) {
+        mapped.set(original, resolved);
+      }
+    }
+    return mapped;
+  } catch {
+    return new Map<string, string>();
+  }
+}
+
 function normalizeWealthSection(value: unknown): WealthSection {
   return wealthSections.includes(value as WealthSection) ? value as WealthSection : 'overview';
 }
 
-function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string, importDate: string) {
+function boleroPositionToAsset(position: BoleroPosition, userId: string, fileName: string, importDate: string, resolvedSymbol?: string) {
   const isCash = position.type.toLowerCase().includes('cash');
   const cashAmount = position.eurValue || position.currentValue || position.purchaseValue;
   const quantity = isCash
@@ -1562,7 +1591,7 @@ function boleroPositionToAsset(position: BoleroPosition, userId: string, fileNam
   const fallbackValue = Math.abs(position.currentValue || position.purchaseValue || position.eurValue);
   const importedQuote = position.currentQuote > 0 ? position.currentQuote : (quantity > 0 ? fallbackValue / quantity : 0);
   const purchasePrice = isCash ? 1 : (position.avgPrice > 0 ? position.avgPrice : importedQuote);
-  const symbol = boleroSymbol(position);
+  const symbol = resolvedSymbol || boleroSymbol(position);
   return {
     user_id: userId,
     symbol,
@@ -1576,8 +1605,13 @@ function boleroPositionToAsset(position: BoleroPosition, userId: string, fileNam
     purchase_price: purchasePrice,
     notes: isCash
       ? `Broker cash snapshot Bolero; import=${importDate}; file=${fileName}; ${cashAmount < 0 ? 'debetstand; ' : ''}originele munt ${position.currency || 'EUR'}; actuele waarde EUR ${position.eurValue || cashAmount}.`
-      : `Bolero managed position; broker=Bolero; import=${importDate}; file=${fileName}; ISIN ${position.isin || 'n.v.t.'}; originele munt ${position.currency || 'EUR'}; originele koers ${importedQuote || 0}; actuele waarde ${position.currentValue || 0}; actuele waarde EUR ${position.eurValue || 0}; rendement ${position.returnPct || 0}%.`,
+      : `Bolero managed position; broker=Bolero; import=${importDate}; file=${fileName}; ISIN ${position.isin || 'n.v.t.'}; live ticker ${resolvedSymbol || 'onbekend'}; originele munt ${position.currency || 'EUR'}; originele koers ${importedQuote || 0}; actuele waarde ${position.currentValue || 0}; actuele waarde EUR ${position.eurValue || 0}; rendement ${position.returnPct || 0}%.`,
   };
+}
+
+function shouldReplaceBoleroSymbol(existingSymbol: string, nextSymbol: string) {
+  if (!nextSymbol || nextSymbol === existingSymbol) return false;
+  return looksLikeIsin(existingSymbol) && !looksLikeIsin(nextSymbol);
 }
 
 function boleroSymbol(position: BoleroPosition) {
@@ -1630,6 +1664,10 @@ function normalizeBoleroKey(value: unknown) {
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
+}
+
+function looksLikeIsin(value: string) {
+  return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value.toUpperCase());
 }
 
 function extractIsin(notes: string | null) {
