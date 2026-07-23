@@ -6,45 +6,45 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 30% 12%;
+    --background: 210 35% 98%;
+    --foreground: 218 36% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 12%;
+    --card-foreground: 218 36% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 12%;
+    --popover-foreground: 218 36% 14%;
 
-    --primary: 210 60% 25%;
+    --primary: 210 54% 30%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 174 50% 40%;
+    --secondary: 174 48% 42%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 210 28% 94%;
+    --muted-foreground: 215 15% 46%;
 
-    --accent: 174 50% 40%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 174 42% 92%;
+    --accent-foreground: 178 54% 22%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 210 60% 25%;
+    --border: 214 26% 89%;
+    --input: 214 26% 89%;
+    --ring: 174 48% 42%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 210 60% 18%;
-    --sidebar-foreground: 210 30% 85%;
-    --sidebar-primary: 174 50% 50%;
+    --sidebar-background: 210 38% 97%;
+    --sidebar-foreground: 218 28% 28%;
+    --sidebar-primary: 174 48% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 50% 24%;
-    --sidebar-accent-foreground: 210 30% 90%;
-    --sidebar-border: 210 40% 25%;
-    --sidebar-ring: 174 50% 50%;
-    --sidebar-muted: 210 30% 35%;
+    --sidebar-accent: 210 45% 92%;
+    --sidebar-accent-foreground: 210 54% 25%;
+    --sidebar-border: 214 28% 88%;
+    --sidebar-ring: 174 48% 42%;
+    --sidebar-muted: 215 16% 58%;
 
     --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
@@ -53,8 +53,8 @@
     --info: 210 80% 55%;
     --info-foreground: 0 0% 100%;
 
-    --chart-ambulatory: 174 50% 40%;
-    --chart-hospitalized: 210 60% 35%;
+    --chart-ambulatory: 174 48% 42%;
+    --chart-hospitalized: 210 54% 36%;
     --chart-3: 38 92% 50%;
     --chart-4: 280 50% 50%;
     --chart-5: 0 72% 51%;
@@ -76,8 +76,9 @@
     min-width: 320px;
     overscroll-behavior-y: none;
     background:
-      radial-gradient(circle at top left, hsl(174 50% 40% / 0.12), transparent 28rem),
-      linear-gradient(180deg, hsl(220 30% 98%), hsl(220 20% 96%));
+      radial-gradient(circle at top left, hsl(174 48% 42% / 0.14), transparent 28rem),
+      radial-gradient(circle at 85% 10%, hsl(210 54% 76% / 0.18), transparent 30rem),
+      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 96%));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -95,11 +96,11 @@
   }
 
   .stat-card {
-    @apply bg-card/95 rounded-xl border border-border/50 p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md;
+    @apply bg-card/95 rounded-xl border border-border/60 p-6 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:shadow-md;
   }
 
   .app-header {
-    @apply h-14 flex items-center border-b border-border/50 bg-card/80 backdrop-blur-xl px-4 sticky top-0 z-20;
+    @apply h-14 flex items-center border-b border-border/60 bg-card/85 backdrop-blur-xl px-4 sticky top-0 z-20 shadow-sm shadow-primary/5;
     padding-top: env(safe-area-inset-top);
     height: calc(3.5rem + env(safe-area-inset-top));
   }
@@ -121,22 +122,22 @@
   }
 
   .dashboard-hero-main {
-    @apply overflow-hidden rounded-3xl border border-primary/15 bg-primary p-6 shadow-lg shadow-primary/10 md:p-8;
+    @apply overflow-hidden rounded-3xl border border-white/30 bg-primary p-6 shadow-lg shadow-primary/10 md:p-8;
     background:
-      radial-gradient(circle at 86% 18%, hsl(174 50% 58% / 0.38), transparent 16rem),
-      linear-gradient(135deg, hsl(210 62% 22%), hsl(210 55% 30%) 52%, hsl(174 45% 32%));
+      radial-gradient(circle at 86% 18%, hsl(174 60% 68% / 0.40), transparent 16rem),
+      linear-gradient(135deg, hsl(210 56% 34%), hsl(210 52% 42%) 52%, hsl(174 46% 38%));
   }
 
   .dashboard-hero-main.wealth-hero {
     background:
-      radial-gradient(circle at 86% 18%, hsl(38 92% 56% / 0.32), transparent 16rem),
-      linear-gradient(135deg, hsl(218 58% 18%), hsl(220 52% 26%) 50%, hsl(174 45% 28%));
+      radial-gradient(circle at 86% 18%, hsl(38 92% 62% / 0.30), transparent 16rem),
+      linear-gradient(135deg, hsl(216 52% 32%), hsl(214 48% 40%) 50%, hsl(174 44% 36%));
   }
 
   .dashboard-hero-main.pension-hero {
     background:
-      radial-gradient(circle at 86% 18%, hsl(280 50% 62% / 0.28), transparent 16rem),
-      linear-gradient(135deg, hsl(210 60% 20%), hsl(214 48% 28%) 50%, hsl(280 35% 32%));
+      radial-gradient(circle at 86% 18%, hsl(280 55% 70% / 0.28), transparent 16rem),
+      linear-gradient(135deg, hsl(210 54% 32%), hsl(214 46% 40%) 50%, hsl(280 32% 42%));
   }
 
   .dashboard-hero-pill {
@@ -156,7 +157,7 @@
   }
 
   .dashboard-insight-card {
-    @apply rounded-3xl border border-border/50 bg-card/95 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md;
+    @apply rounded-3xl border border-border/60 bg-card/95 p-5 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:shadow-md;
   }
 
   .month-tile {
@@ -164,11 +165,11 @@
   }
 
   .polished-action-card {
-    @apply h-auto justify-between rounded-2xl border-border/60 bg-card/90 px-4 py-4 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-card hover:shadow-md;
+    @apply h-auto justify-between rounded-2xl border-border/60 bg-card/95 px-4 py-4 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:bg-card hover:shadow-md;
   }
 
   .data-card {
-    @apply border-border/50 bg-card/95 shadow-sm;
+    @apply border-border/60 bg-card/95 shadow-sm shadow-primary/5;
   }
 
   .ios-page-title {
@@ -205,7 +206,7 @@
   }
 
   .ios-tab-bar {
-    @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border/60 bg-card/95 px-1 pt-1 backdrop-blur-xl;
+    @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border/60 bg-card/95 px-1 pt-1 backdrop-blur-xl shadow-primary/10;
     padding-bottom: max(env(safe-area-inset-bottom), 0.35rem);
   }
 
@@ -214,7 +215,7 @@
   }
 
   .ios-tab-item-active {
-    @apply text-primary;
+    @apply text-secondary;
   }
 
   .native-lock-screen {
@@ -238,8 +239,8 @@
   body {
     -webkit-tap-highlight-color: transparent;
     background:
-      radial-gradient(circle at top right, hsl(174 50% 40% / 0.16), transparent 18rem),
-      linear-gradient(180deg, hsl(220 28% 98%), hsl(220 18% 95%));
+      radial-gradient(circle at top right, hsl(174 48% 42% / 0.16), transparent 18rem),
+      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 96%));
   }
 
   button, a, [role='button'] {
@@ -351,7 +352,7 @@
   }
 
   .ios-tab-item-active {
-    @apply bg-primary/10 text-primary;
+    @apply bg-secondary/10 text-secondary;
   }
 
   .ios-eyebrow,
