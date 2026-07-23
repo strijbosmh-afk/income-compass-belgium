@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { MobileTabBar } from '@/components/MobileTabBar';
-import { Stethoscope } from 'lucide-react';
+import { WalletCards } from 'lucide-react';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
@@ -14,9 +14,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <SidebarTrigger className="hidden md:inline-flex text-muted-foreground hover:text-foreground" />
             <div className="flex md:hidden items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <Stethoscope className="h-4 w-4" />
+                <WalletCards className="h-4 w-4" />
               </div>
-              <span className="font-semibold tracking-tight">MedIncome</span>
+              <span className="font-semibold tracking-tight">MyFinState</span>
             </div>
           </header>
           <main className="app-main">

@@ -27,8 +27,8 @@ export function NativeLock({ children }: { children: ReactNode }) {
         return;
       }
       await NativeBiometric.verifyIdentity({
-        reason: 'Ontgrendel MedIncome om je financiële gegevens te bekijken.',
-        title: 'Ontgrendel MedIncome',
+        reason: 'Ontgrendel MyFinState om je financiële gegevens te bekijken.',
+        title: 'Ontgrendel MyFinState',
         useFallback: true,
         fallbackTitle: 'Gebruik toegangscode',
       });
@@ -78,7 +78,7 @@ export function NativeLock({ children }: { children: ReactNode }) {
         {available ? <ScanFace className="h-9 w-9" /> : <LockKeyhole className="h-8 w-8" />}
       </div>
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">MedIncome is vergrendeld</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">MyFinState is vergrendeld</h1>
         <p className="max-w-xs text-sm text-muted-foreground">
           Gebruik Face ID of je toegangscode om je financiële gegevens te openen.
         </p>

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'be.medincome.app',
-  appName: 'MedIncome',
+  appName: 'MyFinState',
   webDir: 'dist',
   ios: {
     contentInset: 'always',

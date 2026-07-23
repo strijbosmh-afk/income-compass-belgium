@@ -416,7 +416,7 @@ export function MonthlyReport() {
       doc.setPage(i);
       doc.setFontSize(7);
       doc.setTextColor(140, 140, 140);
-      doc.text(`MedIncome • Gegenereerd ${new Date().toLocaleDateString('nl-BE')} ${new Date().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}`, 14, pageH - 6);
+      doc.text(`MyFinState • Gegenereerd ${new Date().toLocaleDateString('nl-BE')} ${new Date().toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}`, 14, pageH - 6);
       doc.text(`Pagina ${i} / ${total}`, pageW - 14, pageH - 6, { align: 'right' });
     }
 

@@ -159,7 +159,7 @@ export function exportPeriodsPDF(goal: Goal, rows: ExportRow[]) {
   const pageH = doc.internal.pageSize.getHeight();
   doc.setFontSize(7);
   doc.setTextColor(140, 140, 140);
-  doc.text(`MedIncome • ${new Date().toLocaleDateString('nl-BE')}`, 14, pageH - 6);
+  doc.text(`MyFinState • ${new Date().toLocaleDateString('nl-BE')}`, 14, pageH - 6);
 
   doc.save(`${fileBase(goal)}.pdf`);
 }

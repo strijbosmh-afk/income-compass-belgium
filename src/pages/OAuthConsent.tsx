@@ -107,9 +107,9 @@ export default function OAuthConsent() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <ShieldCheck className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-semibold">Verbind {clientName} met MedIncome</h1>
+          <h1 className="text-xl font-semibold">Verbind {clientName} met MyFinState</h1>
           <p className="text-sm text-muted-foreground">
-            {clientName} krijgt toegang tot je MedIncome-gegevens als jou.
+            {clientName} krijgt toegang tot je MyFinState-gegevens als jou.
           </p>
         </CardHeader>
         <CardContent className="flex gap-2">

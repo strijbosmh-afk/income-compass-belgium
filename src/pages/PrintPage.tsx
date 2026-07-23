@@ -285,7 +285,7 @@ export default function PrintPage() {
         <header className="print-cover bg-primary p-8 text-primary-foreground">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-medium opacity-75">MedIncome rapport</p>
+              <p className="text-sm font-medium opacity-75">MyFinState rapport</p>
               <h2 className="mt-2 text-4xl font-semibold tracking-tight">Financieel overzicht</h2>
               <p className="mt-2 opacity-80">{fromDate} tot {toDate}</p>
             </div>

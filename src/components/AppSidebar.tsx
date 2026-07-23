@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, Stethoscope, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, WalletCards, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -118,11 +118,11 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-muted px-3 py-4 mb-2">
             {!collapsed ? (
               <div className="flex items-center gap-2">
-                <Stethoscope className="h-5 w-5 text-sidebar-primary" />
-                <span className="font-semibold text-base text-sidebar-foreground tracking-tight">MedIncome</span>
+                <WalletCards className="h-5 w-5 text-sidebar-primary" />
+                <span className="font-semibold text-base text-sidebar-foreground tracking-tight">MyFinState</span>
               </div>
             ) : (
-              <Stethoscope className="h-5 w-5 text-sidebar-primary mx-auto" />
+              <WalletCards className="h-5 w-5 text-sidebar-primary mx-auto" />
             )}
           </SidebarGroupLabel>
         </SidebarGroup>
