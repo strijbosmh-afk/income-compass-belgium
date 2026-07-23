@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 210 35% 98%;
+    --background: 210 38% 98%;
     --foreground: 218 36% 14%;
 
     --card: 0 0% 100%;
@@ -21,8 +21,8 @@
     --secondary: 174 48% 42%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 28% 94%;
-    --muted-foreground: 215 15% 46%;
+    --muted: 210 24% 96%;
+    --muted-foreground: 215 14% 48%;
 
     --accent: 174 42% 92%;
     --accent-foreground: 178 54% 22%;
@@ -30,13 +30,13 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 26% 89%;
-    --input: 214 26% 89%;
+    --border: 214 24% 91%;
+    --input: 214 24% 91%;
     --ring: 174 48% 42%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 210 38% 97%;
+    --sidebar-background: 210 42% 98%;
     --sidebar-foreground: 218 28% 28%;
     --sidebar-primary: 174 48% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -76,9 +76,9 @@
     min-width: 320px;
     overscroll-behavior-y: none;
     background:
-      radial-gradient(circle at top left, hsl(174 48% 42% / 0.14), transparent 28rem),
-      radial-gradient(circle at 85% 10%, hsl(210 54% 76% / 0.18), transparent 30rem),
-      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 96%));
+      radial-gradient(circle at top left, hsl(174 48% 42% / 0.08), transparent 30rem),
+      radial-gradient(circle at 85% 8%, hsl(210 54% 76% / 0.12), transparent 34rem),
+      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 97%));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -92,11 +92,11 @@
 
 @layer components {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm;
+    @apply border border-border/50 bg-card/80 shadow-[0_1px_2px_hsl(var(--primary)/0.04)] backdrop-blur-sm;
   }
 
   .stat-card {
-    @apply bg-card/95 rounded-xl border border-border/60 p-6 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:shadow-md;
+    @apply rounded-2xl border border-border/55 bg-card/90 p-6 shadow-[0_1px_2px_hsl(var(--primary)/0.04)];
   }
 
   .app-header {
@@ -110,7 +110,7 @@
   }
 
   .ios-card {
-    @apply border-border/50 bg-card/95 shadow-sm;
+    @apply border-border/50 bg-card/90 shadow-[0_1px_2px_hsl(var(--primary)/0.04)];
   }
 
   .dashboard-shell {
@@ -122,7 +122,7 @@
   }
 
   .dashboard-hero-main {
-    @apply overflow-hidden rounded-3xl border border-white/30 bg-primary p-6 shadow-lg shadow-primary/10 md:p-8;
+    @apply overflow-hidden rounded-3xl border border-white/35 bg-primary p-6 shadow-[0_14px_35px_hsl(var(--primary)/0.12)] md:p-8;
     background:
       radial-gradient(circle at 86% 18%, hsl(174 60% 68% / 0.40), transparent 16rem),
       linear-gradient(135deg, hsl(210 56% 34%), hsl(210 52% 42%) 52%, hsl(174 46% 38%));
@@ -157,7 +157,7 @@
   }
 
   .dashboard-insight-card {
-    @apply rounded-3xl border border-border/60 bg-card/95 p-5 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:shadow-md;
+    @apply rounded-3xl border border-border/55 bg-card/90 p-5 shadow-[0_1px_2px_hsl(var(--primary)/0.04)];
   }
 
   .month-tile {
@@ -165,11 +165,35 @@
   }
 
   .polished-action-card {
-    @apply h-auto justify-between rounded-2xl border-border/60 bg-card/95 px-4 py-4 shadow-sm shadow-primary/5 transition-all hover:-translate-y-0.5 hover:border-secondary/30 hover:bg-card hover:shadow-md;
+    @apply h-auto justify-between rounded-2xl border-border/55 bg-card/90 px-4 py-4 shadow-[0_1px_2px_hsl(var(--primary)/0.04)] transition-colors hover:border-secondary/25 hover:bg-card;
   }
 
   .data-card {
-    @apply border-border/60 bg-card/95 shadow-sm shadow-primary/5;
+    @apply rounded-3xl border-border/55 bg-card/90 shadow-[0_1px_2px_hsl(var(--primary)/0.04)];
+  }
+
+  .quiet-panel {
+    @apply rounded-3xl border border-border/50 bg-card/70 shadow-[0_1px_2px_hsl(var(--primary)/0.035)] backdrop-blur-sm;
+  }
+
+  .quiet-metric-card {
+    @apply rounded-2xl border border-border/45 bg-background/45 p-4;
+  }
+
+  .quiet-toolbar {
+    @apply rounded-3xl border border-border/50 bg-card/70 p-3 shadow-[0_1px_2px_hsl(var(--primary)/0.035)] backdrop-blur-sm;
+  }
+
+  .quiet-tabs {
+    @apply rounded-2xl border border-border/50 bg-card/70 p-1 shadow-none;
+  }
+
+  .quiet-tabs [role='tab'] {
+    @apply rounded-xl px-3 py-2 shadow-none;
+  }
+
+  .quiet-tabs [role='tab'][data-state='active'] {
+    @apply bg-primary text-primary-foreground shadow-none;
   }
 
   .ios-page-title {
@@ -206,7 +230,7 @@
   }
 
   .ios-tab-bar {
-    @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border/60 bg-card/95 px-1 pt-1 backdrop-blur-xl shadow-primary/10;
+    @apply fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border/60 bg-card/90 px-1 pt-1 shadow-[0_-8px_26px_hsl(var(--primary)/0.08)] backdrop-blur-xl;
     padding-bottom: max(env(safe-area-inset-bottom), 0.35rem);
   }
 
@@ -239,8 +263,8 @@
   body {
     -webkit-tap-highlight-color: transparent;
     background:
-      radial-gradient(circle at top right, hsl(174 48% 42% / 0.16), transparent 18rem),
-      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 96%));
+      radial-gradient(circle at top right, hsl(174 48% 42% / 0.10), transparent 18rem),
+      linear-gradient(180deg, hsl(210 45% 99%), hsl(210 34% 97%));
   }
 
   button, a, [role='button'] {
@@ -319,7 +343,7 @@
   }
 
   .dashboard-insight-card {
-    @apply rounded-2xl p-3 shadow-sm;
+    @apply rounded-2xl p-3;
   }
 
   .dashboard-insight-card div.text-sm {

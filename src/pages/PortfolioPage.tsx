@@ -851,12 +851,12 @@ export default function PortfolioPage() {
 
   return (
     <div className="dashboard-shell mx-auto w-full max-w-[1800px] space-y-4 animate-fade-in md:space-y-6 2xl:space-y-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Vermogensoverzicht</h1>
           <p className="text-muted-foreground mt-1">Cash, pensioen en beurs helder gesplitst met snelle trends.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
               {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Snapshot: ${snapshotQuoteCount}`}
             </Badge>
@@ -865,7 +865,7 @@ export default function PortfolioPage() {
           </div>
           {marketError && <p className="mt-1 text-xs text-destructive">{marketError}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="quiet-toolbar flex flex-wrap gap-2 md:justify-end">
           {currencyGroups.length > 1 && (
             <Select value={chartCurrency} onValueChange={setChartCurrency}>
               <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -920,6 +920,10 @@ export default function PortfolioPage() {
               <span>Beurs</span>
               <strong>{money(investmentValue, 'EUR')}</strong>
             </div>
+            <div className="dashboard-hero-pill col-span-2 md:col-span-1">
+              <span>Pensioen/IPT</span>
+              <strong>{money(pensionTotal, 'EUR')}</strong>
+            </div>
           </div>
         </div>
 
@@ -955,28 +959,12 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3 2xl:grid-cols-5">
-        {currencyGroups.length === 0 ? (
-          <MetricCard title="Portefeuillewaarde" value="-" sub="Nog geen posities" />
-        ) : currencyGroups.map((group) => (
-          <MetricCard
-            key={group.currency}
-            title={`Waarde ${group.currency}`}
-            value={money(group.value, group.currency)}
-            sub={`≈ ${money(toEur(group.value, group.currency), 'EUR')} · Resultaat ${money(group.gain, group.currency)} (${pct(group.cost ? (group.gain / group.cost) * 100 : 0)})`}
-          />
-        ))}
-        <MetricCard title="Waarde op datum" value={money(valueAtDate, chartCurrency)} sub={`${valuationDate} · ${chartCurrency}`} />
-        <MetricCard title="Cash totaal" value={money(cashValue, 'EUR')} sub={`Prive ${money(privateCashValue, 'EUR')} · BVBA ${money(bvbaCashValue, 'EUR')}`} />
-        <MetricCard title="Aantal posities" value={String(investmentRows.length)} sub={`${new Set(investmentRows.map((row) => row.asset.symbol)).size} unieke tickers`} />
-      </div>
-
       <Tabs value={section} onValueChange={(value) => {
         const next = normalizeWealthSection(value);
         setSection(next);
         setSearchParams({ tab: next }, { replace: true });
       }} className="space-y-4">
-        <TabsList className="flex h-auto flex-wrap justify-start">
+        <TabsList className="quiet-tabs flex h-auto flex-wrap justify-start">
           <TabsTrigger value="overview">Overzicht</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
           <TabsTrigger value="portfolio">Beurs</TabsTrigger>
@@ -986,7 +974,7 @@ export default function PortfolioPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6">
+          <div className="quiet-panel grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6">
             <MetricCard title="Netto waarde" value={money(netWorth, 'EUR')} sub="Cash + pensioen + beurs" />
             <MetricCard title="Beurs" value={money(investmentValue, 'EUR')} sub={`${allocationData.length} activaklasse(n)`} />
             <MetricCard title="Cashbuffer" value={money(cashValue, 'EUR')} sub={debitValue < 0 ? 'Debetstand verlaagt netto waarde' : monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} maand(en) netto` : 'Voeg netto inkomsten toe voor buffermaanden'} />
@@ -1052,7 +1040,7 @@ export default function PortfolioPage() {
         </TabsContent>
 
         <TabsContent value="cash" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="quiet-panel grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-5">
             <MetricCard title="Cash totaal" value={money(cashValue, 'EUR')} sub={cashTrendDelta ? `Laatste wijziging ${money(cashTrendDelta, 'EUR')}` : 'Laatste snapshots'} />
             <MetricCard title="Prive cash" value={money(privateCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'private') || 'Nog geen snapshot'} />
             <MetricCard title="BVBA cash" value={money(bvbaCashValue, 'EUR')} sub={cashSnapshotDate(manualCashRows, 'bvba') || 'Nog geen snapshot'} />
@@ -1629,11 +1617,11 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 
 function MetricCard({ title, value, sub }: { title: string; value: string; sub: string }) {
   return (
-    <Card className="data-card transition-all hover:-translate-y-0.5 hover:shadow-md">
-      <CardContent className="pt-5">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-2xl font-semibold mt-1">{value}</p>
-        <p className="text-xs text-muted-foreground mt-1">{sub}</p>
+    <Card className="quiet-metric-card border-0 shadow-none">
+      <CardContent className="p-0">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+        <p className="mt-2 text-xl font-semibold tracking-tight md:text-2xl">{value}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{sub}</p>
       </CardContent>
     </Card>
   );
@@ -1720,7 +1708,7 @@ function AllocationTable({ data }: { data: AllocationDatum[] }) {
 
 function InfoTile({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+    <div className="rounded-2xl border border-border/45 bg-background/45 p-3">
       <p className="text-sm font-medium">{title}</p>
       <p className="mt-1 text-xs text-muted-foreground">{text}</p>
     </div>
