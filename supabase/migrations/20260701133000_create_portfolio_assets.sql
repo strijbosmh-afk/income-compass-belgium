@@ -1,4 +1,4 @@
 -- No-op: portfolio_assets is created by the previous migration
 -- 20260701132336_31ff7250-53d0-494f-8d14-7699c4e1ffcd.sql.
--- This migration filename existed in the Lovable history as a duplicate, so it
+-- This migration filename existed in earlier project history as a duplicate, so it
 -- is kept to preserve migration order without recreating the same table.

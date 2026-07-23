@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
-import OAuthConsent from "./pages/OAuthConsent";
 import UploadPage from "./pages/UploadPage";
 import RecordsPage from "./pages/RecordsPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -57,7 +56,6 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
 
               <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />

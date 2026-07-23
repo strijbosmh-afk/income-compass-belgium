@@ -85,7 +85,7 @@ De extractiefuncties vereisen een geldige Supabase JWT en een match met de AI-al
 
 ## Vercel migratie
 
-Deze repo is geschikt gemaakt om los van Lovable op Vercel te draaien. `vercel.json` zorgt dat alle React routes naar `index.html` terugvallen, zodat pagina's zoals `/login`, `/pensioen` en `/aandelen` niet als 404 eindigen.
+Deze repo is geschikt gemaakt om zelfstandig op Vercel te draaien. `vercel.json` zorgt dat alle React routes naar `index.html` terugvallen, zodat pagina's zoals `/login`, `/pensioen` en `/aandelen` niet als 404 eindigen.
 
 Zet in Vercel bij Project Settings → Environment Variables minimaal:
 
@@ -127,9 +127,9 @@ supabase secrets set CRON_SECRET="een-lange-random-waarde"
 
 Roep `refresh-portfolio-prices` alleen aan vanuit je scheduler met header `Authorization: Bearer <CRON_SECRET>`.
 
-Belangrijk: de database, storage buckets, auth users en Edge Function secrets leven in Supabase, niet in Vercel. Zolang je hetzelfde Supabase project blijft gebruiken, hoef je de database niet per se te migreren. Wil je ook weg van het door Lovable aangemaakte Supabase project, exporteer dan eerst data/storage/auth en importeer die in een nieuw Supabase project voordat je de Vercel variabelen omwijst.
+Belangrijk: de database, storage buckets, auth users en Edge Function secrets leven in Supabase, niet in Vercel. Zolang je hetzelfde Supabase project blijft gebruiken, hoef je de database niet per se te migreren. Wil je naar een ander Supabase project, exporteer dan eerst data/storage/auth en importeer die in het nieuwe Supabase project voordat je de Vercel variabelen omwijst.
 
-De Lovable MCP/buildkoppeling is verwijderd. De AI-extracties lopen rechtstreeks via de OpenAI Responses API en gebruiken standaard `OPENAI_EXTRACTION_MODEL=gpt-5.6-terra` met `OPENAI_EXTRACTION_FALLBACK_MODEL=gpt-5`. De frontend en iOS-app blijven dezelfde Supabase Edge Functions aanroepen.
+De AI-extracties lopen rechtstreeks via de OpenAI Responses API en gebruiken standaard `OPENAI_EXTRACTION_MODEL=gpt-5.6-terra` met `OPENAI_EXTRACTION_FALLBACK_MODEL=gpt-5`. De frontend en iOS-app blijven dezelfde Supabase Edge Functions aanroepen.
 
 ## Scripts
 
