@@ -7,6 +7,12 @@ const corsHeaders = {
 };
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
+const SYMBOL_ALIASES: Record<string, string[]> = {
+  IL0011839383: ["DRTS"],
+  IE00B5BMR087: ["CSPX.AS", "SXR8.DE", "CSSPX.MI"],
+  IE00BKM4GZ66: ["EMIM.AS", "IS3N.DE", "EIMI.MI"],
+  IE0006WW1TQ4: ["EXUS.DE", "EXUS.MI"],
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -98,6 +104,15 @@ serve(async (req) => {
 });
 
 async function fetchQuote(symbol: string, finnhubToken: string) {
+  const symbolsToTry = [symbol, ...(SYMBOL_ALIASES[symbol.toUpperCase()] || [])];
+  for (const candidate of symbolsToTry) {
+    const quote = await fetchDirectQuote(candidate, finnhubToken);
+    if (quote) return { ...quote, resolvedSymbol: candidate };
+  }
+  return null;
+}
+
+async function fetchDirectQuote(symbol: string, finnhubToken: string) {
   // Try Finnhub first (fast, quote endpoint), fall back to Yahoo.
   if (finnhubToken) {
     try {

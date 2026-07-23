@@ -6,6 +6,12 @@ const corsHeaders = {
 };
 
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+const SYMBOL_ALIASES: Record<string, string[]> = {
+  IL0011839383: ["DRTS"],
+  IE00B5BMR087: ["CSPX.AS", "SXR8.DE", "CSSPX.MI"],
+  IE00BKM4GZ66: ["EMIM.AS", "IS3N.DE", "EIMI.MI"],
+  IE0006WW1TQ4: ["EXUS.DE", "EXUS.MI"],
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -87,6 +93,18 @@ async function quoteWithFallback(token: string, symbol: string) {
     };
   }
 
+  for (const candidate of symbolAliases(symbol)) {
+    const resolved = await quoteFromProviders(token, candidate);
+    if (Number(resolved.quote?.c || 0) > 0) {
+      return {
+        ...resolved,
+        symbol,
+        resolvedSymbol: candidate,
+        status: "live",
+      };
+    }
+  }
+
   const search = await finnhub(token, "/search", { q: symbol }).catch(() => ({ result: [] }));
   const candidates = ((search.result || []) as Array<{ symbol?: string; displaySymbol?: string }>)
     .flatMap((item) => [item.symbol, item.displaySymbol])
@@ -138,6 +156,10 @@ async function quoteFromProviders(token: string, symbol: string) {
 
 function looksLikeIsin(value: string) {
   return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value);
+}
+
+function symbolAliases(symbol: string) {
+  return SYMBOL_ALIASES[symbol.toUpperCase()] || [];
 }
 
 async function yahooQuote(symbol: string) {
@@ -301,6 +323,13 @@ async function yahooCandles(symbol: string, from: number, to: number, interval =
 async function candlesWithFallback(token: string, symbol: string, from: number, to: number, interval: string) {
   const direct = await yahooCandles(symbol, from, to, interval);
   if (direct.s === "ok" && direct.t.length > 0) return { ...direct, resolvedSymbol: symbol };
+
+  for (const candidate of symbolAliases(symbol)) {
+    const resolved = await yahooCandles(candidate, from, to, interval);
+    if (resolved.s === "ok" && resolved.t.length > 0) {
+      return { ...resolved, resolvedSymbol: candidate };
+    }
+  }
 
   // Try to resolve via Finnhub search (ISIN, or ambiguous ticker)
   const search = await finnhub(token, "/search", { q: symbol }).catch(() => ({ result: [] }));
