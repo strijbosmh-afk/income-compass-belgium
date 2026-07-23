@@ -226,7 +226,7 @@ export function RetirementBvbaSimulator() {
                 <Badge variant="outline">Pensioenstart {projection.retirementDate.toLocaleDateString('nl-BE')}</Badge>
                 <Badge variant="outline">{projection.yearsToRetirement} jaar te gaan</Badge>
               </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight">BVBA & pensioen cockpit</h2>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight">BVBA & pensioenplanning</h2>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
                 Simuleer loon, dividenden, liquidatiereserve, IPT-stortingen en privebeleggingen tot je wettelijke pensioenstart.
                 Dit is een planningsmodel met aanpasbare aannames, geen fiscaal advies.

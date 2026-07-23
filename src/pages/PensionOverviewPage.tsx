@@ -137,13 +137,10 @@ export default function PensionOverviewPage() {
     <div className="dashboard-shell mx-auto max-w-7xl space-y-4 animate-fade-in md:space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Pensioen cockpit</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Pensioen</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Pensioenoverzicht</h1>
           <p className="mt-1 text-muted-foreground">IPT + VAPZ + VAPZ RIZIV + Pensioensparen samen in één rustig overzicht.</p>
         </div>
-        <Button asChild size="sm">
-          <Link to="/pensioen/upload"><Upload className="h-4 w-4" /> Pensioen uploaden</Link>
-        </Button>
       </div>
 
       {!hasData ? (
@@ -171,13 +168,15 @@ export default function PensionOverviewPage() {
                   <PiggyBank className="h-7 w-7" />
                 </div>
               </div>
-              <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {overview.perCat.map(c => (
-                  <div key={c.key} className="dashboard-hero-pill">
-                    <span>{c.label}</span>
-                    <strong>{fmt(c.catReserve)}</strong>
-                  </div>
-                ))}
+              <div className="mt-7 grid grid-cols-2 gap-3">
+                <div className="dashboard-hero-pill">
+                  <span>Dekking</span>
+                  <strong>{fmt(overview.totalDekking)}</strong>
+                </div>
+                <div className="dashboard-hero-pill">
+                  <span>Snapshots</span>
+                  <strong>{overview.snapshotCount}</strong>
+                </div>
               </div>
             </div>
 

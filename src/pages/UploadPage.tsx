@@ -273,14 +273,14 @@ export default function UploadPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Screenshot Uploaden</h1>
-        <p className="text-muted-foreground mt-1">Upload een screenshot van je inkomstenoverzicht om data te extraheren en op te slaan.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Screenshot uploaden</h1>
+        <p className="text-muted-foreground mt-1">Upload een screenshot van je inkomenoverzicht om data te extraheren en op te slaan.</p>
       </div>
 
       {/* Type inkomen selectie */}
       <Card className="border-border/50">
         <CardHeader>
-          <CardTitle className="text-base">Type Inkomen</CardTitle>
+          <CardTitle className="text-base">Type inkomen</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

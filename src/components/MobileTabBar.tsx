@@ -1,4 +1,4 @@
-import { BarChart3, FileText, LineChart, MoreHorizontal, PiggyBank, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { BarChart3, FileText, LineChart, MoreHorizontal, PiggyBank, TrendingUp, Upload } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -14,14 +14,14 @@ type TabItem = {
 const incomeTabs: TabItem[] = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
   { title: 'Overzicht', url: '/records', icon: FileText },
-  { title: 'Statistieken', url: '/statistics', icon: TrendingUp },
-  { title: 'Uploaden', url: '/upload', icon: Upload },
+  { title: 'Analyse', url: '/statistics', icon: TrendingUp },
+  { title: 'Upload', url: '/upload', icon: Upload },
 ];
 
 const pensionTabs: TabItem[] = [
-  { title: 'Pensioen', url: '/pensioen', icon: PiggyBank, match: (pathname) => pathname === '/pensioen' },
-  { title: 'IPT', url: '/pensioen/upload-ipt', icon: Wallet },
-  { title: 'Overzicht', url: '/pensioen/overzicht', icon: FileText },
+  { title: 'Overzicht', url: '/pensioen', icon: PiggyBank, match: (pathname) => pathname === '/pensioen' },
+  { title: 'Details', url: '/pensioen/overzicht', icon: FileText },
+  { title: 'Analyse', url: '/pensioen/dashboard', icon: TrendingUp },
   { title: 'Upload', url: '/pensioen/upload', icon: Upload },
 ];
 
@@ -73,7 +73,7 @@ function getTabsForPath(pathname: string) {
 function getTabBarLabel(pathname: string) {
   if (pathname.startsWith('/pensioen')) return 'Pensioennavigatie';
   if (pathname.startsWith('/vermogen') || pathname.startsWith('/aandelen')) return 'Vermogennavigatie';
-  return 'Inkomstennavigatie';
+  return 'Inkomennavigatie';
 }
 
 function isTabActive(tab: TabItem, pathname: string) {

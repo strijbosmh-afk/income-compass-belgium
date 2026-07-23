@@ -217,7 +217,7 @@ export default function DashboardPage() {
     <div className="dashboard-shell max-w-7xl mx-auto space-y-4 animate-fade-in md:space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Inkomsten cockpit</p>
+          <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Inkomen</p>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Je belangrijkste cijfers voor {filterLabel}, zonder zoeken.</p>
         </div>
@@ -298,18 +298,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-7 grid grid-cols-3 gap-3">
+          <div className="mt-7 grid grid-cols-2 gap-3">
             <div className="dashboard-hero-pill">
-              <span>Ambulant</span>
-              <strong>{fmtCompact(nettoAmbulant)}</strong>
+              <span>Gem. maand</span>
+              <strong>{fmtCompact(monthlyAverage)}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Hospitaal</span>
-              <strong>{fmtCompact(nettoHosp)}</strong>
-            </div>
-            <div className="dashboard-hero-pill">
-              <span>Associatie</span>
-              <strong>{fmtCompact(nettoAssoc)}</strong>
+              <span>Records</span>
+              <strong>{filtered.length}</strong>
             </div>
           </div>
         </div>

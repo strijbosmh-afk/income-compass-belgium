@@ -280,8 +280,8 @@ export default function RecordsPage() {
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Inkomstenoverzicht</h1>
-          <p className="text-muted-foreground mt-1">Bekijk en beheer je inkomsten.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Inkomenoverzicht</h1>
+          <p className="text-muted-foreground mt-1">Bekijk en beheer je inkomen.</p>
         </div>
         <div className="text-right space-y-0.5">
           <p className="text-sm text-muted-foreground">Netto loon</p>
@@ -398,7 +398,7 @@ export default function RecordsPage() {
 
       <Tabs defaultValue="netto">
         <TabsList>
-          <TabsTrigger value="netto">Netto Inkomsten</TabsTrigger>
+          <TabsTrigger value="netto">Netto inkomen</TabsTrigger>
           <TabsTrigger value="afdracht">Afdracht</TabsTrigger>
         </TabsList>
 

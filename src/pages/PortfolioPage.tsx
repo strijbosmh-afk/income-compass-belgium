@@ -902,7 +902,7 @@ export default function PortfolioPage() {
             </div>
           </div>
 
-          <div className="mt-7 grid grid-cols-3 gap-3">
+          <div className="mt-7 grid grid-cols-2 gap-3">
             <div className="dashboard-hero-pill">
               <span>Cash</span>
               <strong>{money(cashValue, 'EUR')}</strong>
@@ -910,10 +910,6 @@ export default function PortfolioPage() {
             <div className="dashboard-hero-pill">
               <span>Beleggingen</span>
               <strong>{money(investmentValue, 'EUR')}</strong>
-            </div>
-            <div className="dashboard-hero-pill">
-              <span>Pensioen/IPT</span>
-              <strong>{money(pensionTotal, 'EUR')}</strong>
             </div>
           </div>
         </div>
@@ -1001,14 +997,14 @@ export default function PortfolioPage() {
                 </div>
                 <Progress value={fireProgress} className="h-3" />
                 <p className="text-xs text-muted-foreground">
-                  Gebaseerd op 25x gemiddeld jaarlijks netto inkomen. Dit is een grove cockpit-indicator, geen financieel advies.
+                  Gebaseerd op 25x gemiddeld jaarlijks netto inkomen. Dit is een grove indicator, geen financieel advies.
                 </p>
               </CardContent>
             </Card>
 
             <Card className="data-card">
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4" /> Inkomstencontext</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4" /> Inkomencontext</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
