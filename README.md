@@ -7,6 +7,7 @@ MedIncome is een Vite + React applicatie voor het opvolgen van inkomsten, nomenc
 - React 18, TypeScript en Vite
 - shadcn/Radix UI componenten met Tailwind CSS
 - Supabase Auth, Postgres, Storage en Edge Functions
+- Vercel hosting
 - Recharts voor dashboards
 - jsPDF en write-excel-file voor export
 - Vitest en Playwright voor tests
@@ -17,7 +18,7 @@ MedIncome is een Vite + React applicatie voor het opvolgen van inkomsten, nomenc
 - Node.js 20 of nieuwer
 - npm
 - Een Supabase project
-- Een Lovable AI Gateway key voor de OCR Edge Functions
+- Een AI provider key voor de OCR Edge Functions. De huidige functies gebruiken nog `LOVABLE_API_KEY`; migreer deze naar OpenAI of een OCR-provider voordat het Lovable abonnement wordt stopgezet.
 
 ## Lokale setup
 
@@ -76,6 +77,54 @@ supabase functions deploy market-data
 ```
 
 De extractiefuncties vereisen een geldige Supabase JWT en een match met de AI-allowlist. De frontend roept deze functies aan via de ingelogde Supabase client.
+
+## Vercel migratie
+
+Deze repo is geschikt gemaakt om los van Lovable op Vercel te draaien. `vercel.json` zorgt dat alle React routes naar `index.html` terugvallen, zodat pagina's zoals `/login`, `/pensioen` en `/aandelen` niet als 404 eindigen.
+
+Zet in Vercel bij Project Settings → Environment Variables minimaal:
+
+```bash
+VITE_SUPABASE_PROJECT_ID="ftsgbacnewhpzasrjmrs"
+VITE_SUPABASE_URL="https://ftsgbacnewhpzasrjmrs.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-or-anon-key"
+```
+
+Zet in Supabase Auth → URL Configuration:
+
+```text
+Site URL: https://myfinstate.com
+Redirect URLs:
+https://myfinstate.com/**
+https://*.vercel.app/**
+http://localhost:8080/**
+```
+
+Voor Supabase zelf:
+
+```bash
+supabase link --project-ref ftsgbacnewhpzasrjmrs
+supabase db push
+supabase functions deploy extract-income
+supabase functions deploy extract-pension-ipt
+supabase functions deploy extract-vapz
+supabase functions deploy extract-vapz-riziv
+supabase functions deploy extract-pensioensparen
+supabase functions deploy market-data
+supabase functions deploy refresh-portfolio-prices --no-verify-jwt
+```
+
+Belangrijk: de database, storage buckets, auth users en Edge Function secrets leven in Supabase, niet in Vercel. Zolang je hetzelfde Supabase project blijft gebruiken, hoef je de database niet per se te migreren. Wil je ook weg van het door Lovable aangemaakte Supabase project, exporteer dan eerst data/storage/auth en importeer die in een nieuw Supabase project voordat je de Vercel variabelen omwijst.
+
+Nog Lovable-afhankelijk:
+
+- `extract-income`
+- `extract-pension-ipt`
+- `extract-vapz`
+- `extract-vapz-riziv`
+- `extract-pensioensparen`
+
+Deze functies gebruiken `https://ai.gateway.lovable.dev` met `LOVABLE_API_KEY`. Vervang dit door OpenAI, Google Gemini direct, of een OCR-provider voordat het Lovable abonnement definitief wordt stopgezet.
 
 ## Scripts
 
