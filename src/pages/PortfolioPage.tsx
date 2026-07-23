@@ -476,6 +476,12 @@ export default function PortfolioPage() {
   }, [investmentRows]);
 
   const totalReturnPct = eurTotals.cost > 0 ? (eurTotals.gain / eurTotals.cost) * 100 : 0;
+  const stockValue = useMemo(() => investmentRows
+    .filter((row) => row.asset.asset_type === 'stock')
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [investmentRows, toEur]);
+  const etfValue = useMemo(() => investmentRows
+    .filter((row) => row.asset.asset_type === 'etf')
+    .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [investmentRows, toEur]);
   const cashValue = useMemo(() => cashRows
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
   const manualCashRows = useMemo(() => cashRows
@@ -495,6 +501,7 @@ export default function PortfolioPage() {
     .reduce((sum, row) => sum + toEur(row.currentValue, row.quoteCurrency), 0), [cashRows, toEur]);
   const debitValue = Math.min(0, cashValue);
   const investmentValue = Math.max(0, eurTotals.value);
+  const otherInvestmentValue = Math.max(0, investmentValue - stockValue - etfValue);
   const netWorth = eurTotals.value + cashValue + pensionTotal;
   const bufferTarget = monthlyNetIncome > 0 ? monthlyNetIncome * 6 : 0;
   const bufferMonths = monthlyNetIncome > 0 ? cashValue / monthlyNetIncome : 0;
@@ -529,6 +536,7 @@ export default function PortfolioPage() {
   const sectorData = useMemo(() => groupRows(investmentRows, (row) => row.industry || assetTypeLabels[row.asset.asset_type] || 'Onbekend', toEur), [investmentRows, toEur]);
   const liveQuoteCount = useMemo(() => investmentRows.filter((row) => row.currentPrice > 0 && !row.isBoleroFallback).length, [investmentRows]);
   const snapshotQuoteCount = useMemo(() => investmentRows.filter((row) => row.isBoleroSnapshot).length, [investmentRows]);
+  const isPortfolioSection = section === 'portfolio';
   const nextRefreshLabel = useMemo(() => {
     if (!nextMarketRefresh) return 'Nog niet gepland';
     const seconds = Math.max(0, Math.ceil((nextMarketRefresh.getTime() - Date.now()) / 1000));
@@ -898,8 +906,10 @@ export default function PortfolioPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="hidden text-xs font-semibold uppercase tracking-[0.25em] text-secondary md:block">Vermogen</p>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Vermogensoverzicht</h1>
-          <p className="text-muted-foreground mt-1">Cash, pensioen en beurs helder gesplitst met snelle trends.</p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{isPortfolioSection ? 'Beursoverzicht' : 'Vermogensoverzicht'}</h1>
+          <p className="text-muted-foreground mt-1">
+            {isPortfolioSection ? 'Aandelen en ETF’s helder opgevolgd met live koersen, rendement en spreiding.' : 'Cash, pensioen en beurs helder gesplitst met snelle trends.'}
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant={marketError ? 'destructive' : 'outline'} className="font-normal">
               {marketLoading ? 'Koersen verversen...' : marketError ? 'Koersupdate mislukt' : `Live: ${liveQuoteCount} · Bolero fallback: ${snapshotQuoteCount}`}
@@ -944,8 +954,8 @@ export default function PortfolioPage() {
         <div className="dashboard-hero-main wealth-hero">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-primary-foreground/75">Netto vermogen in EUR</p>
-              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(netWorth, 'EUR')}</p>
+              <p className="text-sm font-medium text-primary-foreground/75">{isPortfolioSection ? 'Totale beurswaarde in EUR' : 'Netto vermogen in EUR'}</p>
+              <p className="mt-2 text-4xl font-semibold tracking-tight text-primary-foreground md:text-5xl">{money(isPortfolioSection ? investmentValue : netWorth, 'EUR')}</p>
               <p className={`mt-2 text-sm ${eurTotals.gain >= 0 ? 'text-emerald-100' : 'text-red-100'}`}>
                 Beursresultaat {money(eurTotals.gain, 'EUR')} ({pct(totalReturnPct)})
               </p>
@@ -957,16 +967,16 @@ export default function PortfolioPage() {
 
           <div className="mt-7 grid grid-cols-2 gap-3">
             <div className="dashboard-hero-pill">
-              <span>Cash</span>
-              <strong>{money(cashValue, 'EUR')}</strong>
+              <span>{isPortfolioSection ? 'Aandelen' : 'Cash'}</span>
+              <strong>{money(isPortfolioSection ? stockValue : cashValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill">
-              <span>Beurs</span>
-              <strong>{money(investmentValue, 'EUR')}</strong>
+              <span>{isPortfolioSection ? 'ETF’s' : 'Beurs'}</span>
+              <strong>{money(isPortfolioSection ? etfValue : investmentValue, 'EUR')}</strong>
             </div>
             <div className="dashboard-hero-pill col-span-2 md:col-span-1">
-              <span>Pensioen/IPT</span>
-              <strong>{money(pensionTotal, 'EUR')}</strong>
+              <span>{isPortfolioSection ? 'Andere beleggingen' : 'Pensioen/IPT'}</span>
+              <strong>{money(isPortfolioSection ? otherInvestmentValue : pensionTotal, 'EUR')}</strong>
             </div>
           </div>
         </div>
@@ -974,11 +984,13 @@ export default function PortfolioPage() {
         <div className="dashboard-hero-side">
           <div className="dashboard-insight-card">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Wallet className="h-4 w-4 text-secondary" />
-              Cashbuffer
+              {isPortfolioSection ? <BarChart3 className="h-4 w-4 text-secondary" /> : <Wallet className="h-4 w-4 text-secondary" />}
+              {isPortfolioSection ? 'Datakwaliteit' : 'Cashbuffer'}
             </div>
-            <p className="mt-2 text-2xl font-semibold">{monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} mnd` : money(cashValue, 'EUR')}</p>
-            <p className="text-xs text-muted-foreground">Prive {money(privateCashValue, 'EUR')} · BVBA {money(bvbaCashValue, 'EUR')}</p>
+            <p className="mt-2 text-2xl font-semibold">{isPortfolioSection ? `${liveQuoteCount}/${investmentRows.length} live` : monthlyNetIncome > 0 ? `${bufferMonths.toFixed(1)} mnd` : money(cashValue, 'EUR')}</p>
+            <p className="text-xs text-muted-foreground">
+              {isPortfolioSection ? `${snapshotQuoteCount} Bolero fallback · ECB ${fxUpdated || 'onbekend'}` : `Prive ${money(privateCashValue, 'EUR')} · BVBA ${money(bvbaCashValue, 'EUR')}`}
+            </p>
           </div>
           <div className="dashboard-insight-card">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
