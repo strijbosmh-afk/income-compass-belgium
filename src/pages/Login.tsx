@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { WalletCards, Loader2, ScanFace, ShieldCheck } from 'lucide-react';
+import { WalletCards, Fingerprint, Loader2, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 function safeNext(raw: string | null): string | null {
@@ -76,11 +76,11 @@ export default function Login() {
           </form>
           <div className="mt-5 flex items-center justify-center gap-3 rounded-2xl bg-muted/60 p-3 text-left">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background text-primary">
-              <ScanFace className="h-5 w-5" />
+              <Fingerprint className="h-5 w-5" />
             </div>
             <div>
-              <p className="flex items-center gap-1 text-xs font-medium"><ShieldCheck className="h-3 w-3" /> Beschermd op iPhone</p>
-              <p className="text-[11px] text-muted-foreground">Na het inloggen opent MyFinState met Face ID.</p>
+              <p className="flex items-center gap-1 text-xs font-medium"><ShieldCheck className="h-3 w-3" /> Biometrisch beschermd</p>
+              <p className="text-[11px] text-muted-foreground">Face ID op iPhone, Touch ID op je MacBook indien ingeschakeld.</p>
             </div>
           </div>
         </CardContent>
