@@ -119,6 +119,14 @@ supabase functions deploy market-data
 supabase functions deploy refresh-portfolio-prices --no-verify-jwt
 ```
 
+Voor de portfolio-refresh function moet ook een server-side secret bestaan:
+
+```bash
+supabase secrets set CRON_SECRET="een-lange-random-waarde"
+```
+
+Roep `refresh-portfolio-prices` alleen aan vanuit je scheduler met header `Authorization: Bearer <CRON_SECRET>`.
+
 Belangrijk: de database, storage buckets, auth users en Edge Function secrets leven in Supabase, niet in Vercel. Zolang je hetzelfde Supabase project blijft gebruiken, hoef je de database niet per se te migreren. Wil je ook weg van het door Lovable aangemaakte Supabase project, exporteer dan eerst data/storage/auth en importeer die in een nieuw Supabase project voordat je de Vercel variabelen omwijst.
 
 De Lovable MCP/buildkoppeling is verwijderd. De AI-extracties lopen rechtstreeks via de OpenAI Responses API en gebruiken standaard `OPENAI_EXTRACTION_MODEL=gpt-5.6-terra` met `OPENAI_EXTRACTION_FALLBACK_MODEL=gpt-5`. De frontend en iOS-app blijven dezelfde Supabase Edge Functions aanroepen.
@@ -140,3 +148,4 @@ npm run preview    # preview van de productiebuild
 - Bewaar `OPENAI_API_KEY` uitsluitend als Supabase secret.
 - Beperk AI-extractie met `AI_ALLOWED_USER_IDS` of `AI_ALLOWED_EMAILS`.
 - Houd JWT-verificatie aan voor Edge Functions die AI-calls of gebruikersdata verwerken.
+- Bescherm server-side scheduled functions met `CRON_SECRET`.

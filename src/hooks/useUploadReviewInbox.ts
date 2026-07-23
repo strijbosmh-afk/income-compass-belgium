@@ -17,7 +17,12 @@ export type UploadReviewBatch = {
   updatedAt: string;
 };
 
-const storageKey = (userId: string) => `medincome.uploadReviewInbox.${userId}`;
+const storageKey = (userId: string) => `myfinstate.uploadReviewInbox.${userId}`;
+const legacyStorageKey = (userId: string) => `medincome.uploadReviewInbox.${userId}`;
+
+function getReviewStorage() {
+  return typeof window === 'undefined' ? null : window.sessionStorage;
+}
 
 export function useUploadReviewInbox(userId?: string) {
   const [items, setItems] = useState<UploadReviewBatch[]>([]);
@@ -28,7 +33,8 @@ export function useUploadReviewInbox(userId?: string) {
       return;
     }
     try {
-      const raw = localStorage.getItem(storageKey(userId));
+      localStorage.removeItem(legacyStorageKey(userId));
+      const raw = getReviewStorage()?.getItem(storageKey(userId));
       setItems(raw ? JSON.parse(raw) : []);
     } catch {
       setItems([]);
@@ -38,7 +44,13 @@ export function useUploadReviewInbox(userId?: string) {
   useEffect(() => {
     if (!userId) return;
     try {
-      localStorage.setItem(storageKey(userId), JSON.stringify(items.slice(0, 30)));
+      const storage = getReviewStorage();
+      if (!storage) return;
+      if (items.length === 0) {
+        storage.removeItem(storageKey(userId));
+        return;
+      }
+      storage.setItem(storageKey(userId), JSON.stringify(items.slice(0, 30)));
     } catch {
       // Storage can be unavailable in constrained WebView states; the inbox is best-effort.
     }

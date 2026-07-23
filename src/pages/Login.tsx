@@ -40,7 +40,7 @@ export default function Login() {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast({ title: 'Fout', description: error.message, variant: 'destructive' });
+      toast({ title: 'Login mislukt', description: 'Controleer je gebruikersnaam en wachtwoord.', variant: 'destructive' });
       return;
     }
     if (next) {
@@ -63,11 +63,11 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Naam</Label>
-              <Input id="name" className="h-12 rounded-xl text-base" autoCapitalize="none" autoCorrect="off" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="admin" required />
+              <Input id="name" className="h-12 rounded-xl text-base" autoCapitalize="none" autoCorrect="off" autoComplete="username" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Gebruikersnaam" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Wachtwoord</Label>
-              <Input id="password" className="h-12 rounded-xl text-base" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
+              <Input id="password" className="h-12 rounded-xl text-base" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Wachtwoord" required minLength={6} />
             </div>
             <Button type="submit" className="w-full h-12 rounded-xl text-base" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}

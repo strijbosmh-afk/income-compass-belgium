@@ -25,7 +25,7 @@ import PensionDashboardPage from "./pages/PensionDashboardPage";
 import PortfolioPage from "./pages/PortfolioPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
-import { NativeLock } from "@/components/NativeLock";
+import { SecurityGuard } from "@/components/SecurityGuard";
 import { isSupabaseConfigured, missingSupabaseConfig } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
@@ -34,7 +34,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!user) return <Navigate to="/login" replace />;
-  return <NativeLock><AppLayout>{children}</AppLayout></NativeLock>;
+  return <SecurityGuard><AppLayout>{children}</AppLayout></SecurityGuard>;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {

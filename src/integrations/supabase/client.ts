@@ -11,6 +11,7 @@ export const missingSupabaseConfig = [
 ].filter(Boolean) as string[];
 
 export const isSupabaseConfigured = missingSupabaseConfig.length === 0;
+const authStorage = typeof window !== 'undefined' ? window.sessionStorage : undefined;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +21,7 @@ export const supabase = createClient<Database>(
   SUPABASE_PUBLISHABLE_KEY || 'missing-supabase-publishable-key',
   {
     auth: {
-      storage: localStorage,
+      ...(authStorage ? { storage: authStorage } : {}),
       persistSession: true,
       autoRefreshToken: true,
     },
