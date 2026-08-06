@@ -39,6 +39,8 @@ type NomenclatureCode = {
 };
 
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const MONEY_COLUMNS = ['total_amount', 'aandeel_arts', 'bouwfonds', 'mif', 'netto'] as const;
+const TOTAL_COLUMNS = [...MONEY_COLUMNS, 'quantity'] as const;
 
 const ALL_COLUMNS = [
   { key: 'record_date', label: 'Datum' },
@@ -60,6 +62,10 @@ const fmt = (val: number) => val.toLocaleString('de-BE', { minimumFractionDigits
 
 function toSheetRows(rows: (string | number)[][]) {
   return rows.map((row) => row.map((value) => ({ value })));
+}
+
+function getMonthDate(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
 export default function ExportPage() {
@@ -130,6 +136,82 @@ export default function ExportPage() {
     return f.sort((a, b) => a.month - b.month || a.record_date.localeCompare(b.record_date));
   }, [records, selectedYear, monthFrom, monthTo, incomeType, selectedNomenclatureCodes]);
 
+  const reportRows = useMemo(() => {
+    const grouped = new Map<string, IncomeRecord>();
+
+    filtered.forEach((record) => {
+      const key = [
+        record.year,
+        record.month,
+        record.income_type,
+        record.nomenclature_code,
+        record.description || '',
+      ].join('|');
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, {
+          ...record,
+          id: key,
+          record_date: getMonthDate(record.year, record.month),
+        });
+        return;
+      }
+
+      existing.quantity += record.quantity;
+      existing.total_amount += record.total_amount;
+      existing.aandeel_arts += record.aandeel_arts;
+      existing.bouwfonds += record.bouwfonds;
+      existing.mif += record.mif;
+      existing.netto += record.netto;
+      existing.unit_amount = existing.quantity > 0 ? existing.total_amount / existing.quantity : 0;
+    });
+
+    return [...grouped.values()].sort((a, b) =>
+      a.month - b.month ||
+      a.nomenclature_code.localeCompare(b.nomenclature_code, undefined, { numeric: true }) ||
+      a.income_type.localeCompare(b.income_type)
+    );
+  }, [filtered]);
+
+  const monthlyTotals = useMemo(() => {
+    const mFrom = parseInt(monthFrom);
+    const mTo = parseInt(monthTo);
+
+    return Array.from({ length: mTo - mFrom + 1 }, (_, index) => {
+      const month = mFrom + index;
+      const monthRows = reportRows.filter(r => r.month === month);
+      return {
+        month,
+        monthName: MONTH_NAMES[month - 1],
+        shortMonth: MONTH_NAMES[month - 1].substring(0, 3),
+        bruto: monthRows.reduce((s, r) => s + r.total_amount, 0),
+        aandeel: monthRows.reduce((s, r) => s + r.aandeel_arts, 0),
+        bouwfonds: monthRows.reduce((s, r) => s + r.bouwfonds, 0),
+        mif: monthRows.reduce((s, r) => s + r.mif, 0),
+        netto: monthRows.reduce((s, r) => s + r.netto, 0),
+        quantity: monthRows.reduce((s, r) => s + r.quantity, 0),
+      };
+    });
+  }, [reportRows, monthFrom, monthTo]);
+
+  const nomenclatureTotals = useMemo(() => {
+    const grouped = new Map<string, { label: string; quantity: number; bruto: number; netto: number }>();
+
+    reportRows.forEach((record) => {
+      const label = codeToLabel[record.nomenclature_code] || record.nomenclature_code;
+      const current = grouped.get(record.nomenclature_code) || { label, quantity: 0, bruto: 0, netto: 0 };
+      current.quantity += record.quantity;
+      current.bruto += record.total_amount;
+      current.netto += record.netto;
+      grouped.set(record.nomenclature_code, current);
+    });
+
+    return [...grouped.entries()]
+      .map(([code, values]) => ({ code, ...values }))
+      .sort((a, b) => b.quantity - a.quantity || a.code.localeCompare(b.code, undefined, { numeric: true }));
+  }, [reportRows, codeToLabel]);
+
   const toggleColumn = (key: string) => {
     setSelectedColumns(prev =>
       prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
@@ -180,15 +262,15 @@ export default function ExportPage() {
   const cols = ALL_COLUMNS.filter(c => selectedColumns.includes(c.key));
 
   const exportToExcel = async () => {
-    if (filtered.length === 0) { toast.error('Geen data om te exporteren'); return; }
+    if (reportRows.length === 0) { toast.error('Geen data om te exporteren'); return; }
 
     const headers = cols.map(c => c.label);
-    const rows = filtered.map(r => cols.map(c => getRawValue(r, c.key)));
+    const rows = reportRows.map(r => cols.map(c => getRawValue(r, c.key)));
 
     // Add totals row for numeric columns
     const totalsRow = cols.map(c => {
-      if (['total_amount', 'aandeel_arts', 'bouwfonds', 'mif', 'netto'].includes(c.key)) {
-        return filtered.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0);
+      if ((TOTAL_COLUMNS as readonly string[]).includes(c.key)) {
+        return reportRows.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0);
       }
       if (c.key === cols[0].key) return 'TOTAAL';
       return '';
@@ -197,53 +279,81 @@ export default function ExportPage() {
     const wsData = [headers, ...rows, [], totalsRow];
 
     // Monthly summary sheet
-    const mFrom = parseInt(monthFrom);
-    const mTo = parseInt(monthTo);
     const summaryHeaders = ['Maand', 'Bruto', 'Aandeel Arts', 'Bouwfonds', 'MIF', 'Netto', 'Aantal prestaties'];
-    const summaryRows: (string | number)[][] = [];
-    let totBruto = 0, totAandeel = 0, totBouwfonds = 0, totMif = 0, totNetto = 0, totQty = 0;
-
-    for (let m = mFrom; m <= mTo; m++) {
-      const monthRecs = filtered.filter(r => r.month === m);
-      const bruto = monthRecs.reduce((s, r) => s + r.total_amount, 0);
-      const aandeel = monthRecs.reduce((s, r) => s + r.aandeel_arts, 0);
-      const bouwf = monthRecs.reduce((s, r) => s + r.bouwfonds, 0);
-      const mif = monthRecs.reduce((s, r) => s + r.mif, 0);
-      const netto = monthRecs.reduce((s, r) => s + r.netto, 0);
-      const qty = monthRecs.reduce((s, r) => s + r.quantity, 0);
-      totBruto += bruto; totAandeel += aandeel; totBouwfonds += bouwf; totMif += mif; totNetto += netto; totQty += qty;
-      summaryRows.push([MONTH_NAMES[m - 1], bruto, aandeel, bouwf, mif, netto, qty]);
-    }
+    const summaryRows: (string | number)[][] = monthlyTotals.map(m => [
+      m.monthName,
+      m.bruto,
+      m.aandeel,
+      m.bouwfonds,
+      m.mif,
+      m.netto,
+      m.quantity,
+    ]);
     summaryRows.push([]);
-    summaryRows.push(['TOTAAL', totBruto, totAandeel, totBouwfonds, totMif, totNetto, totQty]);
+    summaryRows.push([
+      'TOTAAL',
+      monthlyTotals.reduce((s, m) => s + m.bruto, 0),
+      monthlyTotals.reduce((s, m) => s + m.aandeel, 0),
+      monthlyTotals.reduce((s, m) => s + m.bouwfonds, 0),
+      monthlyTotals.reduce((s, m) => s + m.mif, 0),
+      monthlyTotals.reduce((s, m) => s + m.netto, 0),
+      monthlyTotals.reduce((s, m) => s + m.quantity, 0),
+    ]);
 
-    await (writeXlsxFile as any)([toSheetRows(wsData), toSheetRows([summaryHeaders, ...summaryRows])], {
-      sheets: ['Detail', 'Maandoverzicht'],
+    const nomenclatureHeaders = ['Nomenclatuur', 'Aantal prestaties', 'Bruto', 'Netto'];
+    const nomenclatureRows = nomenclatureTotals.map(item => [item.label, item.quantity, item.bruto, item.netto]);
+
+    await (writeXlsxFile as any)([
+      toSheetRows(wsData),
+      toSheetRows([summaryHeaders, ...summaryRows]),
+      toSheetRows([nomenclatureHeaders, ...nomenclatureRows]),
+    ], {
+      sheets: ['Detail', 'Maandoverzicht', 'Nomenclatuur'],
       fileName: `inkomsten_${selectedYear}_${monthFrom}-${monthTo}.xlsx`,
     });
     toast.success('Excel bestand gedownload');
   };
 
   const exportToPDF = () => {
-    if (filtered.length === 0) { toast.error('Geen data om te exporteren'); return; }
+    if (reportRows.length === 0) { toast.error('Geen data om te exporteren'); return; }
 
-    const doc = new jsPDF({ orientation: cols.length > 8 ? 'landscape' : 'portrait' });
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const teal: [number, number, number] = [36, 94, 95];
+    const lightTeal: [number, number, number] = [232, 244, 244];
 
     // Title
+    doc.setFillColor(teal[0], teal[1], teal[2]);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 24, 'F');
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.text('Inkomstenrapport', 14, 20);
+    doc.text('Inkomstenrapport', 14, 16);
+    doc.setTextColor(30, 41, 59);
     doc.setFontSize(10);
-    doc.text(periodLabel, 14, 28);
-    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeTypeLabel(incomeType)}`, 14, 34);
-    doc.text(`Nomenclatuur: ${nomenclatureFilterLabel}`, 14, 40);
+    doc.text(periodLabel, 14, 32);
+    doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeTypeLabel(incomeType)}`, 14, 38);
+    doc.text(`Nomenclatuur: ${nomenclatureFilterLabel}`, 14, 44);
 
     const headers = cols.map(c => c.label);
-    const rows = filtered.map(r => cols.map(c => getDisplayValue(r, c.key)));
+    const rows: string[][] = [];
+    const monthHeaderRows = new Set<number>();
+
+    monthlyTotals.forEach((month) => {
+      const monthRows = reportRows.filter(r => r.month === month.month);
+      if (monthRows.length === 0) return;
+
+      monthHeaderRows.add(rows.length);
+      rows.push(cols.map((_, index) =>
+        index === 0
+          ? `${month.monthName} ${selectedYear} - ${fmt(month.quantity)} prestaties - netto EUR ${fmt(month.netto)}`
+          : ''
+      ));
+      monthRows.forEach(r => rows.push(cols.map(c => getDisplayValue(r, c.key))));
+    });
 
     // Totals
     const totalsRow = cols.map(c => {
-      if (['total_amount', 'aandeel_arts', 'bouwfonds', 'mif', 'netto'].includes(c.key)) {
-        return fmt(filtered.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0));
+      if ((TOTAL_COLUMNS as readonly string[]).includes(c.key)) {
+        return fmt(reportRows.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0));
       }
       if (c.key === cols[0].key) return 'TOTAAL';
       return '';
@@ -253,14 +363,20 @@ export default function ExportPage() {
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 46,
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [45, 100, 100], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
+      startY: 52,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.1 },
+      headStyles: { fillColor: teal, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
       didParseCell: (data) => {
         if (data.row.index === rows.length - 1) {
           data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [230, 230, 230];
+          data.cell.styles.fillColor = lightTeal;
+        }
+        if (monthHeaderRows.has(data.row.index)) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = lightTeal;
+          data.cell.styles.textColor = teal;
         }
       },
     });
@@ -272,7 +388,7 @@ export default function ExportPage() {
       const monthlyTotals: { month: string; netto: number; bruto: number; aandeel: number; bouwfonds: number; mif: number }[] = [];
 
       for (let m = mFrom; m <= mTo; m++) {
-        const monthRecs = filtered.filter(r => r.month === m);
+        const monthRecs = reportRows.filter(r => r.month === m);
         monthlyTotals.push({
           month: MONTH_NAMES[m - 1].substring(0, 3),
           netto: monthRecs.reduce((s, r) => s + r.netto, 0),
@@ -309,15 +425,26 @@ export default function ExportPage() {
         alternateRowStyles: { fillColor: [248, 248, 248] },
       });
 
+      // --- Charts page ---
+      doc.addPage('landscape');
+      doc.setFillColor(teal[0], teal[1], teal[2]);
+      doc.rect(0, 0, doc.internal.pageSize.getWidth(), 24, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(15);
+      doc.text('Grafieken', 14, 16);
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(9);
+      doc.text('Alleen de geselecteerde gegevens zijn opgenomen.', 14, 32);
+
       // --- Bar chart: Netto per maand ---
-      const chartY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 12 : 90;
+      const chartY = 48;
       const chartX = 14;
-      const chartW = 260;
-      const chartH = 80;
+      const chartW = 120;
+      const chartH = 72;
       const maxVal = Math.max(...monthlyTotals.map(m => m.netto), 1);
       const barCount = monthlyTotals.length;
-      const barGap = 4;
-      const barW = Math.min(20, (chartW - barGap * (barCount + 1)) / barCount);
+      const barGap = 3;
+      const barW = Math.min(13, (chartW - barGap * (barCount + 1)) / barCount);
       const totalBarsW = barCount * barW + (barCount - 1) * barGap;
       const startX = chartX + (chartW - totalBarsW) / 2;
 
@@ -366,24 +493,25 @@ export default function ExportPage() {
       });
 
       // --- Stacked bar chart: Afdrachten per maand ---
-      const chart2Y = axisY + chartH + 20;
+      const chart2X = 160;
+      const chart2Y = chartY;
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text('Verdeling per maand (Aandeel Arts, Bouwfonds, MIF)', chartX, chart2Y);
+      doc.text('Verdeling per maand (Aandeel Arts, Bouwfonds, MIF)', chart2X, chart2Y);
 
       const chart2AxisY = chart2Y + 6;
       const maxStacked = Math.max(...monthlyTotals.map(m => m.aandeel + m.bouwfonds + m.mif), 1);
 
       // Grid
       doc.setDrawColor(180, 180, 180);
-      doc.line(chartX, chart2AxisY + chartH, chartX + chartW, chart2AxisY + chartH);
+      doc.line(chart2X, chart2AxisY + chartH, chart2X + chartW, chart2AxisY + chartH);
       for (let i = 0; i <= 4; i++) {
         const y = chart2AxisY + chartH - (chartH * i) / 4;
         doc.setDrawColor(230, 230, 230);
-        doc.line(chartX, y, chartX + chartW, y);
+        doc.line(chart2X, y, chart2X + chartW, y);
         doc.setFontSize(6);
         doc.setTextColor(130, 130, 130);
-        doc.text(fmt(maxStacked * i / 4), chartX - 1, y + 1, { align: 'right' });
+        doc.text(fmt(maxStacked * i / 4), chart2X - 1, y + 1, { align: 'right' });
       }
 
       const colors = {
@@ -391,9 +519,10 @@ export default function ExportPage() {
         bouwfonds: [200, 140, 50] as [number, number, number],
         mif: [180, 70, 70] as [number, number, number],
       };
+      const chart2StartX = chart2X + (chartW - totalBarsW) / 2;
 
       monthlyTotals.forEach((m, i) => {
-        const bx = startX + i * (barW + barGap);
+        const bx = chart2StartX + i * (barW + barGap);
         let cumulH = 0;
 
         // Stack: aandeel, bouwfonds, mif
@@ -421,7 +550,7 @@ export default function ExportPage() {
         { label: 'MIF', color: colors.mif },
       ];
       legendItems.forEach((item, i) => {
-        const lx = chartX + i * 50;
+        const lx = chart2X + i * 43;
         doc.setFillColor(item.color[0], item.color[1], item.color[2]);
         doc.rect(lx, legendY, 4, 4, 'F');
         doc.setFontSize(7);
@@ -568,7 +697,7 @@ export default function ExportPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">
-                Voorbeeld ({filtered.length} records)
+                Voorbeeld ({reportRows.length} rapportregels)
               </CardTitle>
               <div className="flex gap-2">
                 <Button onClick={exportToExcel} variant="outline" size="sm" className="gap-2">
@@ -585,7 +714,7 @@ export default function ExportPage() {
             <p className="text-xs text-muted-foreground">{nomenclatureFilterLabel}</p>
           </CardHeader>
           <CardContent>
-            {filtered.length === 0 ? (
+            {reportRows.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">Geen records gevonden voor de geselecteerde periode.</div>
             ) : (
               <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
@@ -598,23 +727,23 @@ export default function ExportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.slice(0, 50).map(r => (
+                    {reportRows.slice(0, 50).map(r => (
                       <tr key={r.id} className="border-b border-border/20 hover:bg-muted/30">
                         {cols.map(c => (
                           <td key={c.key} className="py-1.5 px-2 whitespace-nowrap">{getDisplayValue(r, c.key)}</td>
                         ))}
                       </tr>
                     ))}
-                    {filtered.length > 50 && (
-                      <tr><td colSpan={cols.length} className="py-3 text-center text-muted-foreground text-xs">... en {filtered.length - 50} meer records (alles wordt geëxporteerd)</td></tr>
+                    {reportRows.length > 50 && (
+                      <tr><td colSpan={cols.length} className="py-3 text-center text-muted-foreground text-xs">... en {reportRows.length - 50} meer rapportregels (alles wordt geexporteerd)</td></tr>
                     )}
                   </tbody>
                   <tfoot className="border-t-2 border-border/50 font-semibold">
                     <tr>
                       {cols.map((c, idx) => (
                         <td key={c.key} className="py-2 px-2 whitespace-nowrap">
-                          {['total_amount', 'aandeel_arts', 'bouwfonds', 'mif', 'netto'].includes(c.key)
-                            ? `€${fmt(filtered.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0))}`
+                          {(TOTAL_COLUMNS as readonly string[]).includes(c.key)
+                            ? `EUR ${fmt(reportRows.reduce((s, r) => s + (r[c.key as keyof IncomeRecord] as number), 0))}`
                             : idx === 0 ? 'TOTAAL' : ''}
                         </td>
                       ))}
