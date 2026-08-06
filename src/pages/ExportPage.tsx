@@ -247,6 +247,18 @@ export default function ExportPage() {
       .sort((a, b) => b.quantity - a.quantity || a.code.localeCompare(b.code, undefined, { numeric: true }));
   }, [reportRows, codeToLabel]);
 
+  const nomenclatureMonthlyQuantities = useMemo(() => {
+    return nomenclatureTotals.map((item) => ({
+      ...item,
+      months: monthlyTotals.map((month) => ({
+        month: month.shortMonth,
+        quantity: reportRows
+          .filter(r => r.nomenclature_code === item.code && r.month === month.month)
+          .reduce((sum, record) => sum + record.quantity, 0),
+      })),
+    }));
+  }, [nomenclatureTotals, monthlyTotals, reportRows]);
+
   const toggleColumn = (key: string) => {
     if (!reportTemplate.allowAmounts && (RESTRICTED_AMOUNT_COLUMNS as readonly string[]).includes(key)) return;
     setSelectedColumns(prev =>
@@ -673,6 +685,72 @@ export default function ExportPage() {
           alternateRowStyles: { fillColor: [248, 248, 248] },
         });
       }
+
+      const drawNomenclatureChart = (
+        chart: typeof nomenclatureMonthlyQuantities[number],
+        x: number,
+        y: number,
+        width: number,
+        height: number
+      ) => {
+        const maxQty = Math.max(...chart.months.map(m => m.quantity), 1);
+        const axisY = y + 15;
+        const plotH = height - 28;
+        const gap = 4;
+        const barW = Math.min(16, (width - gap * (chart.months.length + 1)) / Math.max(chart.months.length, 1));
+        const barsW = chart.months.length * barW + (chart.months.length - 1) * gap;
+        const startX = x + (width - barsW) / 2;
+
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(x - 4, y - 8, width + 8, height + 8, 2, 2, 'FD');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 41, 59);
+        doc.text(chart.label.slice(0, 62), x, y);
+        doc.setFontSize(7);
+        doc.setTextColor(100, 110, 120);
+        doc.text(`Totaal: ${fmt(chart.quantity)} prestaties`, x, y + 6);
+
+        for (let i = 0; i <= 3; i++) {
+          const lineY = axisY + plotH - (plotH * i) / 3;
+          doc.setDrawColor(235, 238, 242);
+          doc.line(x, lineY, x + width, lineY);
+          doc.setFontSize(6);
+          doc.setTextColor(120, 130, 140);
+          doc.text(fmt(maxQty * i / 3), x - 2, lineY + 1, { align: 'right' });
+        }
+
+        chart.months.forEach((month, index) => {
+          const barH = (month.quantity / maxQty) * plotH;
+          const bx = startX + index * (barW + gap);
+          const by = axisY + plotH - barH;
+
+          doc.setFillColor(teal[0], teal[1], teal[2]);
+          doc.rect(bx, by, barW, barH, 'F');
+          doc.setFontSize(6);
+          doc.setTextColor(80, 80, 80);
+          doc.text(month.month, bx + barW / 2, axisY + plotH + 5, { align: 'center' });
+          if (month.quantity > 0) {
+            doc.text(fmt(month.quantity), bx + barW / 2, Math.max(by - 2, axisY + 4), { align: 'center' });
+          }
+        });
+      };
+
+      nomenclatureMonthlyQuantities.forEach((chart, index) => {
+        if (index % 2 === 0) {
+          doc.addPage('landscape');
+          doc.setFillColor(teal[0], teal[1], teal[2]);
+          doc.rect(0, 0, doc.internal.pageSize.getWidth(), 24, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(15);
+          doc.text('Grafieken per nomenclatuur', 14, 16);
+          doc.setTextColor(30, 41, 59);
+          doc.setFontSize(9);
+          doc.text('Aantallen per maand, op basis van de huidige selectie.', 14, 32);
+        }
+
+        drawNomenclatureChart(chart, 20, index % 2 === 0 ? 52 : 132, 252, 62);
+      });
     }
 
     doc.save(`inkomsten_${selectedYear}_${monthFrom}-${monthTo}.pdf`);
