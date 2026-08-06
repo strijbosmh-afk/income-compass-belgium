@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, FileSpreadsheet, FileText } from 'lucide-react';
+import { Loader2, FileSpreadsheet, FileText, ListFilter } from 'lucide-react';
 import { toast } from 'sonner';
 import writeXlsxFile from 'write-excel-file/browser';
 import jsPDF from 'jspdf';
@@ -73,6 +73,7 @@ export default function ExportPage() {
   const [monthFrom, setMonthFrom] = useState<string>('1');
   const [monthTo, setMonthTo] = useState<string>('12');
   const [incomeType, setIncomeType] = useState<string>('all');
+  const [selectedNomenclatureCodes, setSelectedNomenclatureCodes] = useState<string[]>([]);
 
   // Columns & summary
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
@@ -102,12 +103,32 @@ export default function ExportPage() {
     return map;
   }, [nomenclatureCodes]);
 
+  const availableNomenclatureCodes = useMemo(() => {
+    const usedCodes = [...new Set(records
+      .filter(r => String(r.year) === selectedYear)
+      .map(r => r.nomenclature_code)
+      .filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return usedCodes.map(code => ({ code, label: codeToLabel[code] || code }));
+  }, [records, selectedYear, codeToLabel]);
+
+  useEffect(() => {
+    if (selectedNomenclatureCodes.length === 0) return;
+    const available = new Set(availableNomenclatureCodes.map(item => item.code));
+    const next = selectedNomenclatureCodes.filter(code => available.has(code));
+    if (next.length !== selectedNomenclatureCodes.length) setSelectedNomenclatureCodes(next);
+  }, [availableNomenclatureCodes, selectedNomenclatureCodes]);
+
   const filtered = useMemo(() => {
     let f = records.filter(r => String(r.year) === selectedYear);
     f = f.filter(r => r.month >= parseInt(monthFrom) && r.month <= parseInt(monthTo));
     if (incomeType !== 'all') f = f.filter(r => r.income_type === incomeType);
+    if (selectedNomenclatureCodes.length > 0) {
+      const selected = new Set(selectedNomenclatureCodes);
+      f = f.filter(r => selected.has(r.nomenclature_code));
+    }
     return f.sort((a, b) => a.month - b.month || a.record_date.localeCompare(b.record_date));
-  }, [records, selectedYear, monthFrom, monthTo, incomeType]);
+  }, [records, selectedYear, monthFrom, monthTo, incomeType, selectedNomenclatureCodes]);
 
   const toggleColumn = (key: string) => {
     setSelectedColumns(prev =>
@@ -117,6 +138,14 @@ export default function ExportPage() {
 
   const incomeTypeLabel = (t: string) =>
     t === 'ambulatory' ? 'Ambulant' : t === 'hospitalized' ? 'Gehospitaliseerd' : t === 'associatie' ? 'Associatie' : t;
+
+  const toggleNomenclatureCode = (code: string) => {
+    setSelectedNomenclatureCodes(prev =>
+      prev.includes(code)
+        ? prev.filter(item => item !== code)
+        : [...prev, code].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    );
+  };
 
   const getDisplayValue = (record: IncomeRecord, key: string): string => {
     switch (key) {
@@ -143,6 +172,11 @@ export default function ExportPage() {
   };
 
   const periodLabel = `${MONTH_NAMES[parseInt(monthFrom) - 1]} – ${MONTH_NAMES[parseInt(monthTo) - 1]} ${selectedYear}`;
+  const nomenclatureFilterLabel = selectedNomenclatureCodes.length === 0
+    ? 'Alle nomenclatuurcodes'
+    : selectedNomenclatureCodes.length === 1
+      ? (codeToLabel[selectedNomenclatureCodes[0]] || selectedNomenclatureCodes[0])
+      : `${selectedNomenclatureCodes.length} nomenclatuurcodes geselecteerd`;
   const cols = ALL_COLUMNS.filter(c => selectedColumns.includes(c.key));
 
   const exportToExcel = async () => {
@@ -201,6 +235,7 @@ export default function ExportPage() {
     doc.setFontSize(10);
     doc.text(periodLabel, 14, 28);
     doc.text(`Type: ${incomeType === 'all' ? 'Alle' : incomeTypeLabel(incomeType)}`, 14, 34);
+    doc.text(`Nomenclatuur: ${nomenclatureFilterLabel}`, 14, 40);
 
     const headers = cols.map(c => c.label);
     const rows = filtered.map(r => cols.map(c => getDisplayValue(r, c.key)));
@@ -218,7 +253,7 @@ export default function ExportPage() {
     autoTable(doc, {
       head: [headers],
       body: rows,
-      startY: 40,
+      startY: 46,
       styles: { fontSize: 7, cellPadding: 2 },
       headStyles: { fillColor: [45, 100, 100], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -254,6 +289,7 @@ export default function ExportPage() {
       doc.text('Maandelijks Samenvattingsrapport', 14, 18);
       doc.setFontSize(9);
       doc.text(periodLabel, 14, 25);
+      doc.text(`Nomenclatuur: ${nomenclatureFilterLabel}`, 14, 31);
 
       // Summary table
       autoTable(doc, {
@@ -266,7 +302,7 @@ export default function ExportPage() {
           fmt(monthlyTotals.reduce((s, m) => s + m.mif, 0)),
           fmt(monthlyTotals.reduce((s, m) => s + m.netto, 0)),
         ]],
-        startY: 30,
+        startY: 36,
         styles: { fontSize: 8, cellPadding: 2.5 },
         headStyles: { fillColor: [45, 100, 100], textColor: 255, fontStyle: 'bold' },
         footStyles: { fillColor: [230, 230, 230], fontStyle: 'bold', textColor: [0, 0, 0] },
@@ -460,6 +496,51 @@ export default function ExportPage() {
             </div>
 
             <div className="pt-2 border-t border-border/50">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <Label className="text-sm text-muted-foreground flex items-center gap-2">
+                  <ListFilter className="h-4 w-4" />
+                  Nomenclatuur
+                </Label>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSelectedNomenclatureCodes(availableNomenclatureCodes.map(item => item.code))}
+                    disabled={availableNomenclatureCodes.length === 0}
+                  >
+                    Alles
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSelectedNomenclatureCodes([])}
+                    disabled={selectedNomenclatureCodes.length === 0}
+                  >
+                    Wissen
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border/60 bg-muted/10 p-2">
+                {availableNomenclatureCodes.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Geen codes gevonden voor dit jaar.</p>
+                ) : availableNomenclatureCodes.map(item => (
+                  <label key={item.code} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 hover:bg-muted/50">
+                    <Checkbox
+                      checked={selectedNomenclatureCodes.includes(item.code)}
+                      onCheckedChange={() => toggleNomenclatureCode(item.code)}
+                    />
+                    <span className="text-sm leading-tight">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">{nomenclatureFilterLabel}</p>
+            </div>
+
+            <div className="pt-2 border-t border-border/50">
               <Label className="text-sm text-muted-foreground mb-3 block">Kolommen</Label>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {ALL_COLUMNS.map(col => (
@@ -501,6 +582,7 @@ export default function ExportPage() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">{periodLabel}</p>
+            <p className="text-xs text-muted-foreground">{nomenclatureFilterLabel}</p>
           </CardHeader>
           <CardContent>
             {filtered.length === 0 ? (
