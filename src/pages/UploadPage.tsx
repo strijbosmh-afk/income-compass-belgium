@@ -84,7 +84,7 @@ export default function UploadPage() {
         const recordDate = `${year}-${String(month).padStart(2, '0')}-01`;
         const records = data.records.map((r: ExtractedRecord) => ({
           ...r,
-          income_type: incomeType,
+          income_type: r.nomenclature_code === 'TAMO-9' ? 'associatie' : incomeType,
           month,
           year,
           record_date: recordDate,
