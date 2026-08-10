@@ -98,6 +98,27 @@ EXTRACTED FIELDS:
 - netto: net paid to doctor, EXACT value printed (column "Netto" / "Netto-ereloon" / "Saldo arts").
 - account_number: the account/rekeningnummer shown for this line (often "0" or "9" in hospital statements). Only include if a separate column clearly shows an account number. If no such column exists, omit this field.
 
+SPECIAL FORMAT: "Facturatie TAMO - Hospitalisatie/9-rekening"
+Some screenshots are monthly TAMO summary tables, not nomenclature tables. They typically have:
+- title "Facturatie TAMO - Hospitalisatie/9-rekening"
+- doctor rows such as "902189 | SCHREVENS, LIESBET" and "920930 | Strijbos, Michiel"
+- columns "Gefactureerd Bedrag", "Aandeel Arts", "Extra Afhouding MIF", "Extra Afhouding Bouwfonds", "Aandeel Arts na MIF+Bouwfonds"
+- a bottom row "Totaal"
+
+For this TAMO format:
+• DO NOT return zero records just because no RIZIV nomenclature code is visible.
+• Extract exactly ONE record from the "Totaal" row.
+• nomenclature_code = "TAMO-9"
+• description = "Facturatie TAMO - Hospitalisatie/9-rekening"
+• quantity = number of visible doctor rows above the total row, or 1 if unclear.
+• total_amount = "Gefactureerd Bedrag" from the Totaal row.
+• aandeel_arts = "Aandeel Arts" from the Totaal row.
+• mif = "Extra Afhouding MIF" from the Totaal row.
+• bouwfonds = "Extra Afhouding Bouwfonds" from the Totaal row.
+• netto = "Aandeel Arts na MIF+Bouwfonds" from the Totaal row.
+• unit_amount = 0.
+• income_type should be "associatie" when this is a 9-rekening statement.
+
 ACCOUNT NUMBER FILTERING (hospitalized statements):
 • Some hospital income statements have a "rekeningnummer" / "compte" / "account" column with values like "0" or "9".
 • "0" = the doctor's own account (keep).
@@ -253,13 +274,16 @@ Per nomenclatuurcode staan meestal meerdere rijen: één per individuele arts
         const total = num(r.total_amount);
         let unit = num(r.unit_amount);
         let quantity = Math.max(1, Math.round(num(r.quantity) || 1));
+        const isTamoSummary = code.toUpperCase() === 'TAMO-9';
 
         let quantity_from_nomenclature = false;
         let unit_inferred = false;
         let quantity_recomputed = false;
 
         const knownUnit = knownUnitNetto[code];
-        if (knownUnit && knownUnit > 0 && netto > 0) {
+        if (isTamoSummary) {
+          unit = 0;
+        } else if (knownUnit && knownUnit > 0 && netto > 0) {
           // LEIDEND: bereken quantity uit netto en bekende unit.
           const derived = Math.max(1, Math.round(netto / knownUnit));
           if (derived !== quantity) {
