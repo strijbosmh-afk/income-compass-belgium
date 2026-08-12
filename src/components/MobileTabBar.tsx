@@ -1,4 +1,4 @@
-import { BarChart3, FileText, LineChart, MoreHorizontal, PiggyBank, TrendingUp, Upload } from 'lucide-react';
+import { BarChart3, CalendarClock, FileText, LineChart, MoreHorizontal, PiggyBank, TrendingUp, Upload } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ const incomeTabs: TabItem[] = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
   { title: 'Overzicht', url: '/records', icon: FileText },
   { title: 'Analyse', url: '/statistics', icon: TrendingUp },
+  { title: 'Wachten', url: '/spoedwachten', icon: CalendarClock },
   { title: 'Upload', url: '/upload', icon: Upload },
 ];
 
@@ -27,7 +28,7 @@ const pensionTabs: TabItem[] = [
 
 const wealthTabs: TabItem[] = [
   { title: 'Dashboard', url: '/', icon: BarChart3 },
-  { title: 'Inkomen', url: '/records', icon: FileText, match: (pathname) => ['/', '/upload', '/records', '/statistics', '/goals', '/nomenclature', '/controle', '/simulations'].includes(pathname) },
+  { title: 'Inkomen', url: '/records', icon: FileText, match: (pathname) => ['/', '/upload', '/records', '/statistics', '/spoedwachten', '/goals', '/nomenclature', '/controle', '/simulations'].includes(pathname) },
   { title: 'Vermogen', url: '/vermogen', icon: LineChart, match: (pathname) => pathname === '/vermogen' || pathname === '/aandelen' },
   { title: 'Pensioen', url: '/pensioen', icon: PiggyBank, match: (pathname) => pathname.startsWith('/pensioen') },
 ];
