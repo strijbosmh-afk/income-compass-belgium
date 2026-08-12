@@ -382,7 +382,7 @@ export default function DashboardPage() {
                     <div className="h-full rounded-full bg-secondary" style={{ width: `${intensity}%` }} />
                   </div>
                   <div className="mt-1 hidden space-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
-                    <div className="flex justify-between gap-1 text-amber-700"><span>Spoed</span><span>EUR {m.spoedwacht.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
+                    <div className="flex justify-between gap-1"><span>Spoed</span><span>€{m.spoedwacht.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
