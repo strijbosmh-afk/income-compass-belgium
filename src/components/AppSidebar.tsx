@@ -1,4 +1,4 @@
-import { Upload, BarChart3, Settings, LogOut, WalletCards, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer, Landmark } from 'lucide-react';
+import { Upload, BarChart3, Settings, LogOut, WalletCards, FileText, TrendingUp, Download, Calculator, ShieldCheck, AlertTriangle, Target, PiggyBank, Wallet, ChevronDown, LineChart, Printer, Landmark, CalendarClock } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +30,7 @@ const incomePrimary = [
 const incomeSecondary = [
   { title: 'Analyse', url: '/statistics', icon: TrendingUp },
   { title: 'Doelstellingen', url: '/goals', icon: Target },
+  { title: 'Spoedwachten', url: '/spoedwachten', icon: CalendarClock },
   { title: 'Nomenclatuur', url: '/nomenclature', icon: Settings },
   { title: 'Controle', url: '/controle', icon: ShieldCheck },
   { title: 'Simulaties', url: '/simulations', icon: Calculator },

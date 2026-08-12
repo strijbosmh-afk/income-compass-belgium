@@ -12,6 +12,7 @@ import DashboardPage from "./pages/DashboardPage";
 import NomenclaturePage from "./pages/NomenclaturePage";
 import StatisticsPage from "./pages/StatisticsPage";
 import ExportPage from "./pages/ExportPage";
+import EmergencyShiftsPage from "./pages/EmergencyShiftsPage";
 import PrintPage from "./pages/PrintPage";
 import SimulationsPage from "./pages/SimulationsPage";
 import ControlePage from "./pages/ControlePage";
@@ -62,6 +63,7 @@ const App = () => {
               <Route path="/records" element={<ProtectedRoute><RecordsPage /></ProtectedRoute>} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
+              <Route path="/spoedwachten" element={<ProtectedRoute><EmergencyShiftsPage /></ProtectedRoute>} />
               <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
               <Route path="/print" element={<ProtectedRoute><PrintPage /></ProtectedRoute>} />
               <Route path="/nomenclature" element={<ProtectedRoute><NomenclaturePage /></ProtectedRoute>} />
