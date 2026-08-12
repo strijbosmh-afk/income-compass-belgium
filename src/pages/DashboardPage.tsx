@@ -38,6 +38,7 @@ type NomenclatureCode = {
 
 const MONTHS = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const MONTH_NAMES = ['Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni', 'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
+const EMERGENCY_SHIFT_CODE = 'SPOEDWACHT';
 const CATEGORY_COLORS = [
   'hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)',
   'hsl(45, 70%, 45%)', 'hsl(130, 40%, 40%)', 'hsl(270, 45%, 50%)',
@@ -105,7 +106,8 @@ export default function DashboardPage() {
 
   // Netto
   const nettoTotal = filtered.reduce((s, r) => s + r.netto, 0);
-  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+  const nettoSpoedwacht = filtered.filter(r => r.nomenclature_code === EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0);
+  const nettoAmbulant = filtered.filter(r => r.income_type === 'ambulatory' && r.nomenclature_code !== EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0);
   const nettoHosp = filtered.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
   const nettoAssoc = filtered.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
 
@@ -122,9 +124,10 @@ export default function DashboardPage() {
       const mr = yearFiltered.filter(r => r.month === idx + 1);
       return {
         month: name,
-        ambulant: mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0),
+        ambulant: mr.filter(r => r.income_type === 'ambulatory' && r.nomenclature_code !== EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0),
         gehospitaliseerd: mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0),
         associatie: mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0),
+        spoedwacht: mr.filter(r => r.nomenclature_code === EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0),
         netto: mr.reduce((s, r) => s + r.netto, 0),
       };
     });
@@ -138,13 +141,14 @@ export default function DashboardPage() {
   const selectedMonthData = selectedMonth === 'all' ? null : monthlyData[parseInt(selectedMonth) - 1];
 
   const cumulativeData = useMemo(() => {
-    let cumAmb = 0, cumHosp = 0, cumAssoc = 0;
+    let cumAmb = 0, cumHosp = 0, cumAssoc = 0, cumSpoed = 0;
     return MONTHS.map((name, idx) => {
       const mr = yearFiltered.filter(r => r.month === idx + 1);
-      cumAmb += mr.filter(r => r.income_type === 'ambulatory').reduce((s, r) => s + r.netto, 0);
+      cumAmb += mr.filter(r => r.income_type === 'ambulatory' && r.nomenclature_code !== EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0);
       cumHosp += mr.filter(r => r.income_type === 'hospitalized').reduce((s, r) => s + r.netto, 0);
       cumAssoc += mr.filter(r => r.income_type === 'associatie').reduce((s, r) => s + r.netto, 0);
-      return { month: name, cumulatief: cumAmb + cumHosp + cumAssoc, ambulant: cumAmb, gehospitaliseerd: cumHosp, associatie: cumAssoc };
+      cumSpoed += mr.filter(r => r.nomenclature_code === EMERGENCY_SHIFT_CODE).reduce((s, r) => s + r.netto, 0);
+      return { month: name, cumulatief: cumAmb + cumHosp + cumAssoc + cumSpoed, ambulant: cumAmb, gehospitaliseerd: cumHosp, associatie: cumAssoc, spoedwacht: cumSpoed };
     });
   }, [yearFiltered]);
 
@@ -196,6 +200,7 @@ export default function DashboardPage() {
     { name: 'Ambulant', value: nettoAmbulant },
     { name: 'Gehospitaliseerd', value: nettoHosp },
     { name: 'Hospitalisatie associatie', value: nettoAssoc },
+    { name: 'Spoedwachten', value: nettoSpoedwacht },
   ].filter(d => d.value > 0);
 
   const afdrachtPieData = [
@@ -205,7 +210,7 @@ export default function DashboardPage() {
     { name: 'MIF', value: totalMif },
   ].filter(d => d.value > 0);
 
-  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(280, 45%, 50%)'];
+  const PIE_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(280, 45%, 50%)', 'hsl(32, 85%, 48%)'];
   const AFDRACHT_COLORS = ['hsl(174, 50%, 40%)', 'hsl(210, 60%, 35%)', 'hsl(340, 55%, 45%)', 'hsl(45, 70%, 45%)'];
   const fmt = (val: number) => `€${val.toLocaleString('de-BE', { minimumFractionDigits: 2 })}`;
   const fmtCompact = (val: number) => `€${val.toLocaleString('de-BE', { maximumFractionDigits: 0 })}`;
@@ -377,6 +382,7 @@ export default function DashboardPage() {
                     <div className="h-full rounded-full bg-secondary" style={{ width: `${intensity}%` }} />
                   </div>
                   <div className="mt-1 hidden space-y-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
+                    <div className="flex justify-between gap-1 text-amber-700"><span>Spoed</span><span>EUR {m.spoedwacht.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Amb</span><span>€{m.ambulant.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Hosp</span><span>€{m.gehospitaliseerd.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
                     <div className="flex justify-between gap-1"><span>Assoc</span><span>€{m.associatie.toLocaleString('de-BE', { maximumFractionDigits: 0 })}</span></div>
@@ -476,6 +482,7 @@ export default function DashboardPage() {
                     <Bar dataKey="ambulant" name="Ambulant" fill="hsl(174, 50%, 40%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="gehospitaliseerd" name="Gehospitaliseerd" fill="hsl(210, 60%, 35%)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="associatie" name="Hospitalisatie associatie" fill="hsl(280, 45%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="spoedwacht" name="Spoedwachten" fill="hsl(32, 85%, 48%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -509,6 +516,7 @@ export default function DashboardPage() {
                     <Line type="monotone" dataKey="ambulant" name="Ambulant" stroke="hsl(174, 50%, 40%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                     <Line type="monotone" dataKey="gehospitaliseerd" name="Gehospitaliseerd" stroke="hsl(210, 60%, 35%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                     <Line type="monotone" dataKey="associatie" name="Hospitalisatie associatie" stroke="hsl(280, 45%, 50%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                    <Line type="monotone" dataKey="spoedwacht" name="Spoedwachten" stroke="hsl(32, 85%, 48%)" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
